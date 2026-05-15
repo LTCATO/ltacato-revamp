@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from flask import Flask
 
 from routes import register_blueprints
+from services.dashboard_auth import get_current_dashboard_user, get_nav_items
 from services.tourist_auth import get_current_tourist
 from utils.jinja_helpers import register_template_filters
 
@@ -25,7 +26,15 @@ def create_app():
     register_blueprints(app)
 
     @app.context_processor
-    def inject_tourist():
-        return {"current_tourist": get_current_tourist()}
+    def inject_auth_context():
+        tourist = get_current_tourist()
+        dashboard_user = get_current_dashboard_user()
+        return {
+            "current_tourist": tourist,
+            "current_dashboard_user": dashboard_user,
+            "dashboard_nav_items": get_nav_items(dashboard_user["role"])
+            if dashboard_user
+            else [],
+        }
 
     return app

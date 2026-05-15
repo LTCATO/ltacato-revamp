@@ -1,0 +1,20 @@
+{% extends "dashboard-base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block page_header %}
+<h1>{{ page_title }}</h1>
+<p>{{ user.role_label }}</p>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-card dashboard-stub">
+  <i class="bx {{ page_icon }} dashboard-stub__icon"></i>
+  <h2 class="dashboard-card__title">{{ page_title }}</h2>
+  <p class="text-muted mb-4">{{ page_description }}</p>
+  <p class="small text-muted mb-0">This module will be connected to Supabase in a future update.</p>
+  <a href="{{ url_for('dashboard.index') }}" class="btn dashboard-btn-primary mt-4">
+    <i class="bx bx-arrow-back"></i> Back to dashboard
+  </a>
+</div>
+{% endblock %}

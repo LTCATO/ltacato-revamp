@@ -2779,6 +2779,22 @@ main {
   color: var(--primary-foreground) !important;
 }
 
+.ltcato-btn-staff {
+  font-weight: 600;
+  font-size: 0.82rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted-foreground) !important;
+  text-decoration: none;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.ltcato-btn-staff:hover {
+  border-color: var(--primary);
+  color: var(--primary) !important;
+}
+
 .ltcato-nav-user {
   display: flex;
   align-items: center;
