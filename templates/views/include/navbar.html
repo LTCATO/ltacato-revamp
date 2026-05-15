@@ -1,0 +1,67 @@
+<header class="site-header" id="siteHeader">
+  <div class="site-header__bar">
+    <nav class="navbar navbar-expand-lg ltcato-navbar">
+      <div class="container-xl">
+        <a class="navbar-brand ltcato-brand" href="{{ url_for('public.home') }}">
+          <img
+            src="{{ url_for('static', filename='images/ltcato-logo.png') }}"
+            alt="LTCATO"
+            class="ltcato-brand__icon"
+            width="44"
+            height="44"
+          />
+          <span class="ltcato-brand__text">
+            <span class="ltcato-brand__name">LTCATO</span>
+            <span class="ltcato-brand__tagline">Laguna Tourism, Culture, Arts &amp; Trade</span>
+          </span>
+        </a>
+
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#ltcatoNav"
+          aria-controls="ltcatoNav"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="ltcatoNav">
+          <ul class="navbar-nav ltcato-nav mx-auto mb-2 mb-lg-0">
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('spots.spots_list') }}">Spots</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('events.events_list') }}">Events</a></li>
+            <li class="nav-item"><a class="nav-link" href="#">Planner</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('public.about') }}">About</a></li>
+          </ul>
+          <div class="ltcato-nav-auth">
+            {% if current_tourist %}
+            <div class="ltcato-nav-user">
+              <span class="ltcato-nav-user__name" title="{{ current_tourist.email }}">
+                <i class="ph ph-user-circle"></i> {{ current_tourist.name }}
+              </span>
+              <form method="post" action="{{ url_for('auth.logout') }}" class="d-inline">
+                <button type="submit" class="ltcato-btn-logout">Sign out</button>
+              </form>
+            </div>
+            {% else %}
+            <a class="ltcato-btn-signup" href="{{ url_for('auth.register') }}">Sign up</a>
+            <a class="btn ltcato-btn-login" href="{{ url_for('auth.login') }}">Login</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <div class="pennant-rope" aria-hidden="true"></div>
+    <div class="pennant-strip pennant-strip--nav" aria-hidden="true">
+      {% for _ in range(14) %}
+      <span class="pennant pennant--red"></span>
+      <span class="pennant pennant--green"></span>
+      <span class="pennant pennant--gold"></span>
+      <span class="pennant pennant--white"></span>
+      {% endfor %}
+    </div>
+  </div>
+</header>

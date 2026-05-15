@@ -1,0 +1,28 @@
+{# Shared branding panel for tourist login / sign-up #}
+<aside class="auth-panel" aria-label="Why create a tourist account">
+  <div class="auth-panel__inner">
+    <span class="auth-panel__badge">
+      <i class="ph ph-compass"></i> Tourist accounts only
+    </span>
+    <h2 class="auth-panel__title">Explore Laguna your way</h2>
+    <p class="auth-panel__lead">
+      Create a free tourist profile to save spots, plan trips, and share reviews across
+      Laguna's municipalities and cities.
+    </p>
+    <ul class="auth-panel__benefits">
+      {% for item in benefits %}
+      <li>
+        <span class="auth-panel__benefit-icon"><i class="ph {{ item.icon }}"></i></span>
+        <span>
+          <strong>{{ item.title }}</strong>
+          <small>{{ item.text }}</small>
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+    <p class="auth-panel__note">
+      <i class="ph ph-info"></i>
+      Government staff and LGU partners use separate provincial portals — this page is for visitors and travelers only.
+    </p>
+  </div>
+</aside>

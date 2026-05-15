@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}Tourist Spots{% endblock %}
+
+{% block content %}
+<section class="page-hero page-hero--spots">
+  <div class="container-xl">
+    <nav class="page-breadcrumb" aria-label="Breadcrumb">
+      <a href="{{ url_for('public.home') }}">Home</a>
+      <i class="ph ph-caret-right"></i>
+      <span>Tourist Spots</span>
+    </nav>
+    <span class="section-eyebrow">Explore Laguna</span>
+    <h1 class="page-hero__title">Verified tourist spots</h1>
+    <p class="page-hero__lead">
+      Browse {{ total }} LTCATO-approved destinations across Laguna—read descriptions, compare ratings,
+      and find the perfect place for your next trip.
+    </p>
+  </div>
+</section>
+
+<section class="spots-toolbar-section">
+  <div class="container-xl">
+    <form class="spots-filters" method="get" action="{{ url_for('spots.spots_list') }}">
+      <div class="spots-filters__search">
+        <i class="ph ph-magnifying-glass"></i>
+        <input
+          type="search"
+          name="q"
+          value="{{ active_q }}"
+          placeholder="Search by name, description, or address..."
+          aria-label="Search spots"
+        />
+      </div>
+      <select name="category" class="spots-filters__select" aria-label="Filter by category">
+        <option value="">All categories</option>
+        {% for cat in categories %}
+        <option value="{{ cat }}" {% if active_category == cat %}selected{% endif %}>{{ cat | category_label }}</option>
+        {% endfor %}
+      </select>
+      <select name="municipality" class="spots-filters__select" aria-label="Filter by municipality">
+        <option value="">All municipalities</option>
+        {% for m in municipalities %}
+        <option value="{{ m.id }}" {% if active_municipality == m.id %}selected{% endif %}>{{ m.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="sort" class="spots-filters__select" aria-label="Sort spots">
+        <option value="name" {% if active_sort == 'name' %}selected{% endif %}>Name (A–Z)</option>
+        <option value="rating" {% if active_sort == 'rating' %}selected{% endif %}>Highest rated</option>
+        <option value="reviews" {% if active_sort == 'reviews' %}selected{% endif %}>Most reviewed</option>
+      </select>
+      <button type="submit" class="btn ltcato-btn-pill">Apply</button>
+      {% if active_q or active_category or active_municipality or active_sort != 'name' %}
+      <a href="{{ url_for('spots.spots_list') }}" class="spots-filters__clear">Clear filters</a>
+      {% endif %}
+    </form>
+    <p class="spots-results-meta">
+      Showing
+      {% if total == 0 %}0{% else %}{{ (page - 1) * per_page + 1 }}–{{ [page * per_page, total] | min }}{% endif %}
+      of {{ total }} spot{{ 's' if total != 1 else '' }}
+    </p>
+  </div>
+</section>
+
+<section class="spots-grid-section">
+  <div class="container-xl">
+    {% if spots %}
+    <div class="row g-4">
+      {% for spot in spots %}
+      {% set muni = spot.municipalities.name if spot.municipalities else 'Laguna' %}
+      {% set img = spot.main_image_url | normalize_image_url %}
+      <div class="col-lg-4 col-md-6">
+        <a href="{{ url_for('spots.spot_detail', spot_id=spot.id) }}" class="featured-card spot-list-card">
+          <div class="card-img-container">
+            <span class="spot-badge {{ spot.category | category_badge_class }}">
+              <i class="ph ph-tag"></i> {{ spot.category | category_label }}
+            </span>
+            {% if img %}
+            <img src="{{ img }}" alt="{{ spot.name }}" class="featured-image" loading="lazy" />
+            {% else %}
+            <img src="{{ url_for('static', filename='images/kapitolyo.jpg') }}" alt="{{ spot.name }}" class="featured-image" loading="lazy" />
+            {% endif %}
+          </div>
+          <div class="card-content">
+            <div class="spot-list-card__rating">
+              <span class="spot-stars" aria-label="Rating {{ spot.rating or 0 }} out of 5">
+                {% for state in spot.rating | stars_display %}
+                <i class="ph{% if state == 'full' %}-fill{% endif %} ph-star{% if state == 'empty' %}-thin{% endif %}"></i>
+                {% endfor %}
+              </span>
+              <span class="spot-list-card__rating-text">
+                {{ '%.1f' | format(spot.rating or 0) }}
+                ({{ spot.reviews_count or 0 }})
+              </span>
+            </div>
+            <h3 class="fw-bold text-dark mb-2">{{ spot.name }}</h3>
+            <p class="text-muted small mb-2"><i class="ph ph-map-pin"></i> {{ muni }}{% if spot.address %}, {{ spot.address | truncate_text(40) }}{% endif %}</p>
+            {% if spot.hook_title %}
+            <p class="spot-list-card__hook">{{ spot.hook_title }}</p>
+            {% endif %}
+            <p class="text-muted small card-excerpt mb-0">{{ (spot.description or spot.hook_text) | truncate_text(120) }}</p>
+          </div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if total_pages > 1 %}
+    <nav class="spots-pagination" aria-label="Spots pagination">
+      {% if page > 1 %}
+      <a
+        class="spots-pagination__btn"
+        href="{{ url_for('spots.spots_list', page=page-1, category=active_category, municipality=active_municipality, q=active_q or none, sort=active_sort) }}"
+      >
+        <i class="ph ph-caret-left"></i> Previous
+      </a>
+      {% endif %}
+      <span class="spots-pagination__info">Page {{ page }} of {{ total_pages }}</span>
+      {% if page < total_pages %}
+      <a
+        class="spots-pagination__btn"
+        href="{{ url_for('spots.spots_list', page=page+1, category=active_category, municipality=active_municipality, q=active_q or none, sort=active_sort) }}"
+      >
+        Next <i class="ph ph-caret-right"></i>
+      </a>
+      {% endif %}
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="spots-empty">
+      <i class="ph ph-map-trifold"></i>
+      <h3>No spots found</h3>
+      <p>Try adjusting your search or filters to discover more destinations.</p>
+      <a href="{{ url_for('spots.spots_list') }}" class="btn ltcato-btn-pill">View all spots</a>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

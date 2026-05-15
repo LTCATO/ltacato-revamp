@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Tourist Login{% endblock %}
+
+{% block content %}
+<section class="auth-page">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="auth-flash-stack">
+    {% for category, message in messages %}
+    <div class="auth-flash auth-flash--{{ category }}">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endwith %}
+  <div class="auth-page__grid">
+    {% include "views/auth/_auth_panel.html" %}
+
+    <div class="auth-form-wrap">
+      <div class="auth-form-card">
+        <nav class="auth-breadcrumb" aria-label="Breadcrumb">
+          <a href="{{ url_for('public.home') }}">Home</a>
+          <i class="ph ph-caret-right"></i>
+          <span>Tourist login</span>
+        </nav>
+
+        <div class="auth-form-card__header">
+          <span class="section-eyebrow">Welcome back</span>
+          <h1 class="auth-form-card__title">Sign in to your tourist account</h1>
+          <p class="auth-form-card__lead text-muted">
+            Access saved spots, trip planning tools, and reviews across Laguna.
+          </p>
+        </div>
+
+        <form class="auth-form" method="post" action="{{ url_for('auth.login') }}" novalidate>
+          <div class="auth-field">
+            <label class="auth-field__label" for="login-email">Email address</label>
+            <div class="auth-field__input-wrap">
+              <i class="ph ph-envelope-simple" aria-hidden="true"></i>
+              <input
+                type="email"
+                id="login-email"
+                name="email"
+                class="form-control auth-field__input"
+                placeholder="you@example.com"
+                value="{{ form_data.email }}"
+                autocomplete="email"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="auth-field">
+            <label class="auth-field__label" for="login-password">Password</label>
+            <div class="auth-field__input-wrap">
+              <i class="ph ph-lock-key" aria-hidden="true"></i>
+              <input
+                type="password"
+                id="login-password"
+                name="password"
+                class="form-control auth-field__input"
+                placeholder="Enter your password"
+                autocomplete="current-password"
+                required
+              />
+              <button
+                type="button"
+                class="auth-field__toggle"
+                data-password-toggle="login-password"
+                aria-label="Show password"
+              >
+                <i class="ph ph-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="auth-form__row">
+            <label class="auth-checkbox">
+              <input type="checkbox" name="remember" {% if form_data.remember %}checked{% endif %} />
+              <span>Keep me signed in</span>
+            </label>
+            <span class="auth-link auth-link--muted small">Forgot password? (coming soon)</span>
+          </div>
+
+          <button type="submit" class="btn ltcato-btn-pill auth-form__submit w-100">
+            <i class="ph ph-sign-in"></i> Sign in as tourist
+          </button>
+        </form>
+
+        <div class="auth-divider"><span>or</span></div>
+
+        <p class="auth-form-card__footer text-center mb-0">
+          New to Laguna tourism?
+          <a href="{{ url_for('auth.register') }}" class="auth-link">Create a free tourist account</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block script %}
+<script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+{% endblock %}

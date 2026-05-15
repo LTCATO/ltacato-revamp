@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Tourist Sign Up{% endblock %}
+
+{% block content %}
+<section class="auth-page">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="auth-flash-stack">
+    {% for category, message in messages %}
+    <div class="auth-flash auth-flash--{{ category }}">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endwith %}
+  <div class="auth-page__grid">
+    {% include "views/auth/_auth_panel.html" %}
+
+    <div class="auth-form-wrap">
+      <div class="auth-form-card auth-form-card--wide">
+        <nav class="auth-breadcrumb" aria-label="Breadcrumb">
+          <a href="{{ url_for('public.home') }}">Home</a>
+          <i class="ph ph-caret-right"></i>
+          <span>Tourist sign up</span>
+        </nav>
+
+        <div class="auth-form-card__header">
+          <span class="section-eyebrow">Join LTCATO</span>
+          <h1 class="auth-form-card__title">Create your tourist account</h1>
+          <p class="auth-form-card__lead text-muted">
+            Free registration for travelers exploring Laguna — save destinations, plan itineraries, and leave reviews.
+          </p>
+        </div>
+
+        <form
+          class="auth-form"
+          method="post"
+          action="{{ url_for('auth.register') }}"
+          id="touristRegisterForm"
+          novalidate
+        >
+          <div class="auth-field">
+            <label class="auth-field__label" for="register-name">Full name <span class="text-danger">*</span></label>
+            <div class="auth-field__input-wrap">
+              <i class="ph ph-user" aria-hidden="true"></i>
+              <input
+                type="text"
+                id="register-name"
+                name="full_name"
+                class="form-control auth-field__input"
+                placeholder="Juan Dela Cruz"
+                value="{{ form_data.full_name }}"
+                autocomplete="name"
+                required
+                minlength="2"
+              />
+            </div>
+          </div>
+
+          <div class="auth-field">
+            <label class="auth-field__label" for="register-email">Email address <span class="text-danger">*</span></label>
+            <div class="auth-field__input-wrap">
+              <i class="ph ph-envelope-simple" aria-hidden="true"></i>
+              <input
+                type="email"
+                id="register-email"
+                name="email"
+                class="form-control auth-field__input"
+                placeholder="you@example.com"
+                value="{{ form_data.email }}"
+                autocomplete="email"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="auth-field mb-0">
+                <label class="auth-field__label" for="register-phone">Phone <span class="text-muted">(optional)</span></label>
+                <div class="auth-field__input-wrap">
+                  <i class="ph ph-phone" aria-hidden="true"></i>
+                  <input
+                    type="tel"
+                    id="register-phone"
+                    name="phone"
+                    class="form-control auth-field__input"
+                    placeholder="+63 9XX XXX XXXX"
+                    value="{{ form_data.phone }}"
+                    autocomplete="tel"
+                  />
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="auth-field mb-0">
+                <label class="auth-field__label" for="register-country">Country / region <span class="text-muted">(optional)</span></label>
+                <div class="auth-field__input-wrap">
+                  <i class="ph ph-globe-hemisphere-west" aria-hidden="true"></i>
+                  <input
+                    type="text"
+                    id="register-country"
+                    name="country"
+                    class="form-control auth-field__input"
+                    placeholder="Philippines"
+                    value="{{ form_data.country }}"
+                    autocomplete="country-name"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="auth-field">
+            <label class="auth-field__label" for="register-password">Password <span class="text-danger">*</span></label>
+            <div class="auth-field__input-wrap">
+              <i class="ph ph-lock-key" aria-hidden="true"></i>
+              <input
+                type="password"
+                id="register-password"
+                name="password"
+                class="form-control auth-field__input"
+                placeholder="At least 8 characters"
+                autocomplete="new-password"
+                required
+                minlength="8"
+              />
+              <button
+                type="button"
+                class="auth-field__toggle"
+                data-password-toggle="register-password"
+                aria-label="Show password"
+              >
+                <i class="ph ph-eye"></i>
+              </button>
+            </div>
+            <div class="auth-password-meter" id="passwordMeter" aria-hidden="true">
+              <span class="auth-password-meter__bar"></span>
+            </div>
+            <p class="auth-field__hint">Use 8+ characters with letters and numbers for a stronger password.</p>
+          </div>
+
+          <div class="auth-field">
+            <label class="auth-field__label" for="register-confirm">Confirm password <span class="text-danger">*</span></label>
+            <div class="auth-field__input-wrap">
+              <i class="ph ph-lock-key" aria-hidden="true"></i>
+              <input
+                type="password"
+                id="register-confirm"
+                name="confirm_password"
+                class="form-control auth-field__input"
+                placeholder="Re-enter your password"
+                autocomplete="new-password"
+                required
+                minlength="8"
+              />
+              <button
+                type="button"
+                class="auth-field__toggle"
+                data-password-toggle="register-confirm"
+                aria-label="Show password"
+              >
+                <i class="ph ph-eye"></i>
+              </button>
+            </div>
+            <p class="auth-field__error text-danger small mb-0 d-none" id="passwordMismatch">Passwords do not match.</p>
+          </div>
+
+          <label class="auth-checkbox auth-checkbox--block">
+            <input type="checkbox" name="terms" {% if form_data.terms %}checked{% endif %} required />
+            <span>
+              I confirm I am registering as a <strong>tourist / visitor</strong> and agree to LTCATO's
+              <a href="#" class="auth-link">Terms of Use</a> and <a href="#" class="auth-link">Privacy Policy</a>.
+            </span>
+          </label>
+
+          <input type="hidden" name="account_type" value="tourist" />
+
+          <button type="submit" class="btn ltcato-btn-pill auth-form__submit w-100">
+            <i class="ph ph-user-plus"></i> Create tourist account
+          </button>
+        </form>
+
+        <div class="auth-divider"><span>or</span></div>
+
+        <p class="auth-form-card__footer text-center mb-0">
+          Already have an account?
+          <a href="{{ url_for('auth.login') }}" class="auth-link">Sign in</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block script %}
+<script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+{% endblock %}

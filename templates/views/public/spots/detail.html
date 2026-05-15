@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block title %}{{ spot.name }}{% endblock %}
+
+{% block content %}
+{% set muni_name = municipality.name if municipality else 'Laguna' %}
+{% set highlights = spot.highlights | ensure_list %}
+{% set experiences = spot.experiences | ensure_list %}
+{% set audience = spot.target_audience | ensure_list %}
+{% set commute = spot.commute_guide | ensure_list %}
+{% set driving = spot.driving_guide | ensure_list %}
+
+<section class="spot-detail-hero">
+  <div class="container-xl">
+    <nav class="page-breadcrumb page-breadcrumb--light" aria-label="Breadcrumb">
+      <a href="{{ url_for('public.home') }}">Home</a>
+      <i class="ph ph-caret-right"></i>
+      <a href="{{ url_for('spots.spots_list') }}">Tourist Spots</a>
+      <i class="ph ph-caret-right"></i>
+      <span>{{ spot.name | truncate_text(50) }}</span>
+    </nav>
+  </div>
+</section>
+
+<section class="spot-gallery-section">
+  <div class="container-xl">
+    {% if gallery %}
+    <div class="swiper spot-gallery-swiper">
+      <div class="swiper-wrapper">
+        {% for image in gallery %}
+        <div class="swiper-slide">
+          <img src="{{ image }}" alt="{{ spot.name }} — photo {{ loop.index }}" loading="lazy" />
+        </div>
+        {% endfor %}
+      </div>
+      <div class="swiper-pagination"></div>
+      <div class="swiper-button-prev"></div>
+      <div class="swiper-button-next"></div>
+    </div>
+    {% else %}
+    <div class="spot-gallery-fallback">
+      <img src="{{ url_for('static', filename='images/kapitolyo.jpg') }}" alt="{{ spot.name }}" />
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="spot-detail-main">
+  <div class="container-xl">
+    <div class="row g-5">
+      <div class="col-lg-8">
+        <div class="spot-detail-header">
+          <span class="spot-badge {{ spot.category | category_badge_class }}">
+            <i class="ph ph-tag"></i> {{ spot.category | category_label }}
+          </span>
+          <h1 class="spot-detail-title">{{ spot.name }}</h1>
+          {% if spot.hook_title %}
+          <p class="spot-detail-hook">{{ spot.hook_title }}</p>
+          {% endif %}
+          <div class="spot-detail-meta-row">
+            <span><i class="ph ph-map-pin"></i> {{ muni_name }}</span>
+            {% if spot.address %}<span><i class="ph ph-signpost"></i> {{ spot.address }}</span>{% endif %}
+            <span class="spot-detail-rating">
+              <span class="spot-stars">
+                {% for state in spot.rating | stars_display %}
+                <i class="ph{% if state == 'full' %}-fill{% endif %} ph-star{% if state == 'empty' %}-thin{% endif %}"></i>
+                {% endfor %}
+              </span>
+              {{ '%.1f' | format(spot.rating or 0) }} · {{ spot.reviews_count or 0 }} review{{ 's' if (spot.reviews_count or 0) != 1 else '' }}
+            </span>
+          </div>
+        </div>
+
+        {% if spot.hook_text %}
+        <div class="spot-detail-block">
+          <h2 class="spot-detail-block__title">Why visit</h2>
+          <p class="spot-detail-text">{{ spot.hook_text }}</p>
+        </div>
+        {% endif %}
+
+        {% if spot.description %}
+        <div class="spot-detail-block">
+          <h2 class="spot-detail-block__title">About this spot</h2>
+          <p class="spot-detail-text spot-detail-text--preserve">{{ spot.description }}</p>
+        </div>
+        {% endif %}
+
+        {% if highlights %}
+        <div class="spot-detail-block">
+          <h2 class="spot-detail-block__title">Highlights</h2>
+          <ul class="spot-chip-list">
+            {% for item in highlights %}
+            <li><i class="ph ph-check-circle"></i> {{ item | list_item_text }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
+        {% if experiences %}
+        <div class="spot-detail-block">
+          <h2 class="spot-detail-block__title">Experiences</h2>
+          <ul class="spot-chip-list">
+            {% for item in experiences %}
+            <li><i class="ph ph-sparkle"></i> {{ item | list_item_text }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
+        {% if audience %}
+        <div class="spot-detail-block">
+          <h2 class="spot-detail-block__title">Best for</h2>
+          <div class="spot-tag-row">
+            {% for item in audience %}
+            <span class="spot-tag">{{ item | list_item_text }}</span>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if commute or driving %}
+        <div class="spot-detail-block">
+          <h2 class="spot-detail-block__title">How to get there</h2>
+          {% if commute %}
+          <h3 class="spot-detail-subtitle"><i class="ph ph-bus"></i> Commute</h3>
+          <ol class="spot-guide-list">
+            {% for item in commute %}
+            <li>{{ item | list_item_text }}</li>
+            {% endfor %}
+          </ol>
+          {% endif %}
+          {% if driving %}
+          <h3 class="spot-detail-subtitle"><i class="ph ph-car"></i> By car</h3>
+          <ol class="spot-guide-list">
+            {% for item in driving %}
+            <li>{{ item | list_item_text }}</li>
+            {% endfor %}
+          </ol>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="spot-detail-block" id="reviews">
+          <h2 class="spot-detail-block__title">Guest reviews &amp; feedback</h2>
+          {% if feedbacks %}
+          <div class="spot-reviews">
+            {% for fb in feedbacks %}
+            <article class="spot-review-card">
+              <div class="spot-review-card__head">
+                <strong>{{ fb.guest_name or 'Guest' }}</strong>
+                <span class="spot-stars spot-stars--sm">
+                  {% for state in fb.rating | stars_display %}
+                  <i class="ph{% if state == 'full' %}-fill{% endif %} ph-star{% if state == 'empty' %}-thin{% endif %}"></i>
+                  {% endfor %}
+                </span>
+              </div>
+              {% if fb.comments %}<p>{{ fb.comments }}</p>{% endif %}
+              {% if fb.suggestions %}<p class="spot-review-suggestion"><strong>Suggestion:</strong> {{ fb.suggestions }}</p>{% endif %}
+            </article>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-muted mb-0">No guest feedback yet. Be among the first to share your experience after visiting.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="col-lg-4">
+        <aside class="spot-sidebar">
+          <div class="spot-info-card">
+            <h3 class="spot-info-card__title">Visit information</h3>
+            <ul class="spot-info-list">
+              {% if spot.opening_hours %}
+              <li><i class="ph ph-clock"></i><div><strong>Opening hours</strong><span>{{ spot.opening_hours }}</span></div></li>
+              {% endif %}
+              {% if spot.best_time_to_visit %}
+              <li><i class="ph ph-sun"></i><div><strong>Best time to visit</strong><span>{{ spot.best_time_to_visit }}</span></div></li>
+              {% endif %}
+              {% if spot.entrance_fees %}
+              <li><i class="ph ph-ticket"></i><div><strong>Entrance fees</strong><span>{{ spot.entrance_fees }}</span></div></li>
+              {% endif %}
+              {% if spot.parking_info %}
+              <li><i class="ph ph-parking"></i><div><strong>Parking</strong><span>{{ spot.parking_info }}</span></div></li>
+              {% endif %}
+              {% if spot.food_options %}
+              <li><i class="ph ph-fork-knife"></i><div><strong>Food options</strong><span>{{ spot.food_options }}</span></div></li>
+              {% endif %}
+              {% if spot.what_to_bring %}
+              <li><i class="ph ph-backpack"></i><div><strong>What to bring</strong><span>{{ spot.what_to_bring }}</span></div></li>
+              {% endif %}
+            </ul>
+          </div>
+
+          {% if spot.latitude and spot.longitude %}
+          <div class="spot-info-card">
+            <h3 class="spot-info-card__title">Location</h3>
+            <p class="small text-muted mb-2">{{ spot.latitude }}, {{ spot.longitude }}</p>
+            <a
+              href="https://www.google.com/maps?q={{ spot.latitude }},{{ spot.longitude }}"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="btn ltcato-btn-outline-lg w-100"
+            >
+              <i class="ph ph-navigation-arrow"></i> Open in Google Maps
+            </a>
+          </div>
+          {% endif %}
+
+          <div class="spot-info-card spot-info-card--cta">
+            <h3 class="spot-info-card__title">Plan your trip</h3>
+            <p class="small text-muted">Build a day-by-day itinerary with our planner—coming soon on a dedicated page.</p>
+            <a href="#" class="btn ltcato-btn-pill w-100 mb-2"><i class="ph ph-calendar-check"></i> Add to itinerary</a>
+            <a href="{{ url_for('spots.spots_list') }}" class="btn ltcato-btn-outline-lg w-100"><i class="ph ph-arrow-left"></i> Back to all spots</a>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% if related %}
+<section class="home-section featured-section spot-related-section">
+  <div class="container-xl">
+    <span class="section-eyebrow">You may also like</span>
+    <h2 class="section-title mb-4">Related spots</h2>
+    <div class="row g-4">
+      {% for rel in related %}
+      {% set rel_muni = rel.municipalities.name if rel.municipalities else 'Laguna' %}
+      {% set rel_img = rel.main_image_url | normalize_image_url %}
+      <div class="col-md-4">
+        <a href="{{ url_for('spots.spot_detail', spot_id=rel.id) }}" class="featured-card">
+          <div class="card-img-container">
+            <span class="spot-badge {{ rel.category | category_badge_class }}">{{ rel.category | category_label }}</span>
+            <img
+              src="{{ rel_img or url_for('static', filename='images/kapitolyo.jpg') }}"
+              alt="{{ rel.name }}"
+              class="featured-image"
+              loading="lazy"
+            />
+          </div>
+          <div class="card-content">
+            <h4 class="fw-bold text-dark mb-2">{{ rel.name }}</h4>
+            <p class="text-muted small mb-0"><i class="ph ph-map-pin"></i> {{ rel_muni }}</p>
+          </div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block script %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const el = document.querySelector(".spot-gallery-swiper");
+    if (el && typeof Swiper !== "undefined") {
+      new Swiper(el, {
+        loop: el.querySelectorAll(".swiper-slide").length > 1,
+        pagination: { el: ".swiper-pagination", clickable: true },
+        navigation: {
+          nextEl: ".swiper-button-next",
+          prevEl: ".swiper-button-prev",
+        },
+      });
+    }
+  });
+</script>
+{% endblock %}

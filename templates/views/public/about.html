@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+
+{% block title %}About{% endblock %}
+
+{% block content %}
+<section class="page-hero page-hero--spots">
+  <div class="container-xl">
+    <nav class="page-breadcrumb" aria-label="Breadcrumb">
+      <a href="{{ url_for('public.home') }}">Home</a>
+      <i class="ph ph-caret-right"></i>
+      <span>About LTCATO</span>
+    </nav>
+    <span class="section-eyebrow">Provincial Government of Laguna</span>
+    <h1 class="page-hero__title">Laguna Tourism, Culture, Arts &amp; Trade Office</h1>
+    <p class="page-hero__lead">{{ about.intro }}</p>
+  </div>
+</section>
+
+<section class="home-section about-intro-section">
+  <div class="container-xl">
+    <div class="row g-5 align-items-start">
+      <div class="col-lg-7">
+        <span class="section-eyebrow">Who we are</span>
+        <h2 class="section-title mb-3">Serving Laguna's visitors, culture, and commerce</h2>
+        <p class="section-lead mb-4">
+          LTCATO is the provincial office mandated to develop and promote Laguna as a premier tourism,
+          cultural, and trade destination. We work with local government units, tourism officers,
+          cultural workers, businesses, and the public to deliver programs that meet national standards
+          and community needs.
+        </p>
+        <p class="text-muted mb-4">
+          This digital platform helps travelers discover verified tourist spots, plan itineraries,
+          explore events, and access transparent information about our frontline services — including
+          the full Citizen's Charter published below.
+        </p>
+        <div class="about-quick-links">
+          <a href="#our-mandate" class="about-quick-links__item"><i class="ph ph-target"></i> Our mandate</a>
+          <a href="#governor" class="about-quick-links__item"><i class="ph ph-identification-badge"></i> Governor</a>
+          <a href="#divisions" class="about-quick-links__item"><i class="ph ph-buildings"></i> Divisions</a>
+          <a href="#citizen-charter" class="about-quick-links__item"><i class="ph ph-scroll"></i> Citizen's Charter</a>
+          <a href="#contact" class="about-quick-links__item"><i class="ph ph-envelope"></i> Contact</a>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="about-visual">
+          <img src="{{ url_for('static', filename='images/kapitolyo.jpg') }}" alt="Laguna Provincial Capitol" class="about-visual__img" />
+          <div class="about-visual__badge">
+            <i class="ph ph-seal-check"></i>
+            <span>Official Provincial Office</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="our-mandate" class="home-section features-section">
+  <div class="container-xl">
+    <div class="text-center mb-5 section-intro">
+      <span class="section-eyebrow">Our mandate</span>
+      <h2 class="section-title mb-3">Four pillars of service</h2>
+      <p class="section-lead mx-auto">LTCATO integrates tourism, heritage, creativity, and trade under one provincial framework.</p>
+    </div>
+    <div class="row g-4">
+      {% for pillar in about.pillars %}
+      <div class="col-md-6 col-lg-3">
+        <div class="feature-box about-pillar-box">
+          <div class="feature-icon-wrapper"><i class="ph {{ pillar.icon }}"></i></div>
+          <h4 class="fw-bold">{{ pillar.title }}</h4>
+          <p class="text-muted small mb-0">{{ pillar.text }}</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section id="about-laguna" class="home-section about-laguna-section">
+  <div class="container-xl">
+    <div class="row g-5">
+      <div class="col-lg-6">
+        <span class="section-eyebrow">Discover Laguna</span>
+        <h2 class="section-title mb-3">The Pearl of the Orient</h2>
+        <p class="section-lead">
+          Laguna is home to storied towns, thermal resorts, waterfalls, pilgrimage sites, culinary
+          traditions, and festivals that draw visitors year-round. From Calamba's heritage to
+          Pagsanjan's rapids, Lumban's embroidery, and Paete's woodcarving — each municipality
+          contributes to a diverse provincial identity.
+        </p>
+        <ul class="spot-chip-list">
+          <li><i class="ph ph-drop"></i> Lakes, hot springs, and natural parks</li>
+          <li><i class="ph ph-church"></i> Heritage churches and historical landmarks</li>
+          <li><i class="ph ph-confetti"></i> Festivals, food fairs, and cultural events</li>
+          <li><i class="ph ph-handshake"></i> Warm hospitality and community-led tourism</li>
+        </ul>
+        <a href="{{ url_for('spots.spots_list') }}" class="btn ltcato-btn-pill mt-2"><i class="ph ph-map-trifold"></i> Explore tourist spots</a>
+      </div>
+      <div class="col-lg-6">
+        <div class="about-stats-grid">
+          <div class="about-stat-card"><strong>24</strong><span>Municipalities</span></div>
+          <div class="about-stat-card"><strong>6</strong><span>Cities</span></div>
+          <div class="about-stat-card"><strong>150+</strong><span>Verified spots</span></div>
+          <div class="about-stat-card"><strong>1</strong><span>Provincial vision</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="governor" class="home-section governor-teaser-section">
+  <div class="container-xl">
+    <div class="row g-5 align-items-center">
+      <div class="col-lg-5">
+        <div class="governor-teaser-visual">
+          <img
+            src="{{ url_for('static', filename='images/sol.jpg') }}"
+            alt="Governor {{ governor_teaser.nickname }} Aragones"
+            class="governor-teaser-visual__img"
+            loading="lazy"
+          />
+          <div class="governor-teaser-visual__badge">
+            <i class="ph ph-seal"></i>
+            <span>Provincial Government of Laguna</span>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-7">
+        <span class="section-eyebrow">{{ governor_teaser.eyebrow }}</span>
+        <h2 class="section-title mb-3">{{ governor_teaser.heading }}</h2>
+        <p class="section-lead mb-3">
+          <strong>Hon. {{ governor_teaser.name }}</strong> — {{ governor_teaser.lead }}
+        </p>
+        <ul class="governor-teaser-points">
+          <li><i class="ph ph-calendar-check"></i> Assumed office {{ governor_teaser.assumed_office }}</li>
+          <li><i class="ph ph-map-pin"></i> Laguna Provincial Capitol, Santa Cruz</li>
+          <li><i class="ph ph-heart"></i> Priorities: health, education, tourism, and good governance</li>
+        </ul>
+        <a href="{{ url_for('public.governor') }}" class="btn ltcato-btn-pill mt-2">
+          <i class="ph ph-arrow-right"></i> {{ governor_teaser.cta }}
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="divisions" class="home-section">
+  <div class="container-xl">
+    <span class="section-eyebrow">Organizational structure</span>
+    <h2 class="section-title mb-4">Office divisions</h2>
+    <div class="row g-4">
+      {% for div in about.divisions %}
+      <div class="col-md-6">
+        <div class="about-division-card">
+          <h3 class="about-division-card__title">{{ div.name }}</h3>
+          <p class="about-division-card__units"><i class="ph ph-folder-open"></i> {{ div.units }}</p>
+          <p class="text-muted small mb-0">{{ div.focus }}</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section id="citizen-charter" class="home-section charter-section">
+  <div class="container-xl">
+    <div class="charter-header text-center mb-5">
+      <span class="section-eyebrow">Transparency &amp; accountability</span>
+      <h2 class="section-title mb-3">Citizen's Charter</h2>
+      <p class="section-lead mx-auto">
+        This charter outlines LTCATO's commitment to quality public service — including requirements,
+        processing steps, fees, processing time, and persons responsible for each transaction.
+      </p>
+      <p class="charter-header__admin text-muted small">
+        <strong>Administrative Services</strong> · <strong>External Services</strong> (listed below)
+      </p>
+    </div>
+
+    {% for section in charter_sections %}
+    <div class="charter-section-block mb-5">
+      <h3 class="charter-section-block__title">{{ section.title }}</h3>
+      <p class="text-muted mb-4">{{ section.subtitle }}</p>
+
+      <div class="accordion charter-accordion" id="charterAccordion">
+        {% for service in section.services %}
+        <div class="accordion-item charter-accordion__item">
+          <h4 class="accordion-header" id="heading-{{ section.id }}-{{ service.number }}">
+            <button
+              class="accordion-button collapsed"
+              type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#collapse-{{ section.id }}-{{ service.number }}"
+              aria-expanded="false"
+              aria-controls="collapse-{{ section.id }}-{{ service.number }}"
+            >
+              <span class="charter-service-num">{{ service.number }}</span>
+              {{ service.title }}
+            </button>
+          </h4>
+          <div
+            id="collapse-{{ section.id }}-{{ service.number }}"
+            class="accordion-collapse collapse"
+            aria-labelledby="heading-{{ section.id }}-{{ service.number }}"
+            data-bs-parent="#charterAccordion"
+          >
+            <div class="accordion-body charter-accordion__body">
+              <p class="charter-service-desc">{{ service.description }}</p>
+
+              <div class="charter-meta-grid">
+                <div class="charter-meta-item">
+                  <strong>Office or Division</strong>
+                  <span>{{ service.office }}</span>
+                </div>
+                <div class="charter-meta-item">
+                  <strong>Classification</strong>
+                  <span>{{ service.classification }}</span>
+                </div>
+                <div class="charter-meta-item">
+                  <strong>Type of Transaction</strong>
+                  <span>{{ service.transaction_type }}</span>
+                </div>
+                <div class="charter-meta-item">
+                  <strong>Who may avail</strong>
+                  <span>{{ service.who_may_avail }}</span>
+                </div>
+              </div>
+
+              <h5 class="charter-subtitle">Checklist of requirements</h5>
+              <div class="table-responsive mb-4">
+                <table class="table charter-table">
+                  <thead>
+                    <tr>
+                      <th>Requirements</th>
+                      <th>Where to secure</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for req in service.requirements %}
+                    <tr>
+                      <td>{{ req.name }}</td>
+                      <td>{{ req.where }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+
+              <h5 class="charter-subtitle">Client steps &amp; agency action</h5>
+              <div class="table-responsive mb-3">
+                <table class="table charter-table charter-table--steps">
+                  <thead>
+                    <tr>
+                      <th>Client steps</th>
+                      <th>Agency action</th>
+                      <th>Fees</th>
+                      <th>Processing time</th>
+                      <th>Person responsible</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for step in service.steps %}
+                    <tr>
+                      <td>{{ step.client }}</td>
+                      <td>{{ step.agency }}</td>
+                      <td>{{ step.fees }}</td>
+                      <td>{{ step.time }}</td>
+                      <td>{{ step.person }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="charter-table__total">
+                      <td colspan="2"><strong>TOTAL</strong></td>
+                      <td><strong>{{ service.total_fees }}</strong></td>
+                      <td colspan="2"><strong>{{ service.total_time }}</strong></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section id="contact" class="home-section cta-section">
+  <div class="container-xl">
+    <div class="cta-card">
+      <div class="cta-card__icon"><i class="ph ph-envelope"></i></div>
+      <h2 class="section-title mb-3">Get in touch with LTCATO</h2>
+      <p class="section-lead mx-auto mb-4">
+        For courtesy calls, seminar requests, tourism data, heritage inquiries, virtual tour materials,
+        and general tourism information — reach our office through the channels below.
+      </p>
+      <ul class="about-contact-list">
+        <li><i class="ph ph-buildings"></i> {{ about.contact.office }}</li>
+        <li><i class="ph ph-map-pin"></i> {{ about.contact.province }}</li>
+        <li><i class="ph ph-envelope-simple"></i> <a href="mailto:{{ about.contact.email }}">{{ about.contact.email }}</a></li>
+      </ul>
+      <div class="d-flex flex-wrap gap-3 justify-content-center mt-4">
+        <a href="mailto:{{ about.contact.email }}" class="btn ltcato-btn-pill"><i class="ph ph-paper-plane-tilt"></i> Email LTCATO</a>
+        <a href="{{ url_for('public.home') }}" class="btn ltcato-btn-outline-lg">Back to Home</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

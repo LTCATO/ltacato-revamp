@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Governor of Laguna{% endblock %}
+
+{% block content %}
+<section class="page-hero page-hero--spots">
+  <div class="container-xl">
+    <nav class="page-breadcrumb" aria-label="Breadcrumb">
+      <a href="{{ url_for('public.home') }}">Home</a>
+      <i class="ph ph-caret-right"></i>
+      <a href="{{ url_for('public.about') }}">About</a>
+      <i class="ph ph-caret-right"></i>
+      <span>Governor of Laguna</span>
+    </nav>
+    <span class="section-eyebrow">Provincial Government of Laguna</span>
+    <h1 class="page-hero__title">{{ governor.title }}</h1>
+    <p class="page-hero__lead">{{ governor.tagline }}</p>
+  </div>
+</section>
+
+<section class="home-section governor-profile-section">
+  <div class="container-xl">
+    <div class="row g-5 align-items-start">
+      <div class="col-lg-4">
+        <div class="governor-profile-card">
+          <img
+            src="{{ url_for('static', filename=governor.portrait) }}"
+            alt="{{ governor.name }}"
+            class="governor-profile-card__portrait"
+            loading="lazy"
+          />
+          <h2 class="governor-profile-card__name">{{ governor.name }}</h2>
+          <p class="governor-profile-card__nickname">&ldquo;{{ governor.nickname }}&rdquo;</p>
+          <p class="governor-profile-card__term">{{ governor.term_label }}</p>
+          <ul class="governor-profile-card__facts">
+            <li><i class="ph ph-calendar-check"></i> Assumed office {{ governor.assumed_office }}</li>
+            <li><i class="ph ph-map-pin"></i> {{ governor.birthplace }}</li>
+            <li><i class="ph ph-graduation-cap"></i> {{ governor.education }}</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-lg-8">
+        <span class="section-eyebrow">Leadership profile</span>
+        <h2 class="section-title mb-3">Serving Laguna with purpose</h2>
+        <p class="section-lead mb-4">{{ governor.summary }}</p>
+        <blockquote class="governor-quote">
+          <i class="ph ph-quotes"></i>
+          <p>{{ governor.quote }}</p>
+        </blockquote>
+
+        <div class="row g-4 mt-2">
+          {% for item in governor.highlights %}
+          <div class="col-md-6">
+            <div class="governor-highlight-card">
+              <div class="governor-highlight-card__icon"><i class="ph {{ item.icon }}"></i></div>
+              <h3 class="governor-highlight-card__title">{{ item.title }}</h3>
+              <p class="text-muted small mb-0">{{ item.text }}</p>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="home-section governor-timeline-section">
+  <div class="container-xl">
+    <div class="text-center mb-5 section-intro">
+      <span class="section-eyebrow">Journey in public service</span>
+      <h2 class="section-title mb-3">From the newsroom to the capitol</h2>
+      <p class="section-lead mx-auto">
+        A career built on telling community stories — and turning those stories into programs that reach every corner of Laguna.
+      </p>
+    </div>
+    <div class="governor-timeline">
+      {% for item in governor.timeline %}
+      <div class="governor-timeline__item">
+        <span class="governor-timeline__year">{{ item.year }}</span>
+        <div class="governor-timeline__content">
+          <h3>{{ item.title }}</h3>
+          <p class="text-muted mb-0">{{ item.text }}</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="home-section governor-priorities-section">
+  <div class="container-xl">
+    <div class="row g-5 align-items-center">
+      <div class="col-lg-6">
+        <span class="section-eyebrow">Provincial agenda</span>
+        <h2 class="section-title mb-3">Key priorities for Laguna</h2>
+        <p class="section-lead mb-4">
+          The provincial administration works with agencies including LTCATO to align tourism, culture,
+          and trade with broader goals in health, education, and inclusive growth.
+        </p>
+        <ul class="governor-priorities-list">
+          {% for priority in governor.priorities %}
+          <li><i class="ph ph-check-circle"></i> {{ priority }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      <div class="col-lg-6">
+        <div class="governor-photo-grid">
+          <img src="{{ url_for('static', filename='images/sol1.jpg') }}" alt="Governor Sol Aragones with Laguna communities" loading="lazy" />
+          <img src="{{ url_for('static', filename='images/sol2.jpg') }}" alt="Governor Sol Aragones at a provincial program" loading="lazy" />
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="home-section cta-section">
+  <div class="container-xl">
+    <div class="cta-card">
+      <div class="cta-card__icon"><i class="ph ph-map-trifold"></i></div>
+      <h2 class="section-title mb-3">Explore Laguna with LTCATO</h2>
+      <p class="section-lead mx-auto mb-4">
+        Discover verified tourist spots, upcoming events, and transparent frontline services across the province.
+      </p>
+      <div class="d-flex flex-wrap gap-3 justify-content-center">
+        <a href="{{ url_for('spots.spots_list') }}" class="btn ltcato-btn-pill"><i class="ph ph-compass"></i> Tourist spots</a>
+        <a href="{{ url_for('public.about') }}" class="btn ltcato-btn-outline-lg">About LTCATO</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block script %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const swiperEl = document.querySelector(".governor-gallery-swiper");
+  if (!swiperEl || typeof Swiper === "undefined") return;
+
+  const captions = document.querySelectorAll(".governor-gallery-captions__item");
+
+  new Swiper(swiperEl, {
+    slidesPerView: 1,
+    spaceBetween: 16,
+    loop: true,
+    autoplay: { delay: 5000, disableOnInteraction: false },
+    pagination: { el: ".governor-gallery-swiper .swiper-pagination", clickable: true },
+    navigation: {
+      nextEl: ".governor-gallery-swiper .swiper-button-next",
+      prevEl: ".governor-gallery-swiper .swiper-button-prev",
+    },
+    on: {
+      slideChange(swiper) {
+        const index = swiper.realIndex;
+        captions.forEach((el, i) => el.classList.toggle("is-active", i === index));
+      },
+    },
+  });
+});
+</script>
+{% endblock %}

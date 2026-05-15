@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Events{% endblock %}
+
+{% block content %}
+<section class="page-hero page-hero--spots">
+  <div class="container-xl">
+    <nav class="page-breadcrumb" aria-label="Breadcrumb">
+      <a href="{{ url_for('public.home') }}">Home</a>
+      <i class="ph ph-caret-right"></i>
+      <span>Events</span>
+    </nav>
+    <span class="section-eyebrow">Upcoming Events</span>
+    <h1 class="page-hero__title">Discover Laguna's vibrant events</h1>
+    <p class="page-hero__lead">
+      Cultural festivals, food fairs, eco-adventures, and trade showcases—curated and published by LTCATO
+      for visitors planning their next Laguna experience.
+    </p>
+    <p class="page-hero__note">
+      <i class="ph ph-info"></i> Sample listings below — full admin-managed events database coming soon.
+    </p>
+  </div>
+</section>
+
+<section class="spots-toolbar-section">
+  <div class="container-xl">
+    <form class="spots-filters" method="get" action="{{ url_for('events.events_list') }}">
+      <div class="spots-filters__search">
+        <i class="ph ph-magnifying-glass"></i>
+        <input
+          type="search"
+          name="q"
+          value="{{ active_q }}"
+          placeholder="Search events, venues, or municipalities..."
+          aria-label="Search events"
+        />
+      </div>
+      <select name="category" class="spots-filters__select" aria-label="Filter by category">
+        <option value="">All categories</option>
+        {% for cat in categories %}
+        <option value="{{ cat }}" {% if active_category == cat %}selected{% endif %}>{{ cat | event_category_label }}</option>
+        {% endfor %}
+      </select>
+      <select name="municipality" class="spots-filters__select" aria-label="Filter by municipality">
+        <option value="">All municipalities</option>
+        {% for m in municipalities %}
+        <option value="{{ m }}" {% if active_municipality == m %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn ltcato-btn-pill">Apply</button>
+      {% if active_q or active_category or active_municipality %}
+      <a href="{{ url_for('events.events_list') }}" class="spots-filters__clear">Clear filters</a>
+      {% endif %}
+    </form>
+    <p class="spots-results-meta">{{ total }} event{{ 's' if total != 1 else '' }} found</p>
+  </div>
+</section>
+
+<section class="events-grid-section">
+  <div class="container-xl">
+    {% if events %}
+    <div class="row g-4">
+      {% for event in events %}
+      <div class="col-lg-4 col-md-6">
+        <a href="{{ url_for('events.event_detail', event_id=event.id) }}" class="event-card event-card--link">
+          <div class="event-image-container">
+            <img src="{{ event.image }}" alt="{{ event.title }}" class="event-image" loading="lazy" />
+            <div class="event-date-badge">
+              <div class="date-month">{{ event.date_month }}</div>
+              <div class="date-day">{{ event.date_day }}</div>
+            </div>
+            {% if event.status == 'upcoming' %}
+            <span class="event-status-pill">Upcoming</span>
+            {% endif %}
+          </div>
+          <div class="event-content">
+            <span class="category-badge {{ event.category }}">
+              <i class="ph {{ event.category | event_category_icon }}"></i>
+              {{ event.category | event_category_label }}
+            </span>
+            <h3 class="event-title">{{ event.title }}</h3>
+            <p class="event-description">{{ event.summary | truncate_text(140) }}</p>
+            <div class="event-details">
+              <div class="event-detail-item"><i class="ph ph-map-pin"></i><span>{{ event.municipality }}</span></div>
+              <div class="event-detail-item"><i class="ph ph-clock"></i><span>{{ event.time }}</span></div>
+            </div>
+            <div class="event-footer">
+              <span class="event-attendee-hint"><i class="ph ph-users"></i> {{ event.attendee_count }}+ interested</span>
+              <span class="event-card-cta">View details <i class="ph ph-arrow-right"></i></span>
+            </div>
+          </div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="spots-empty">
+      <i class="ph ph-calendar-x"></i>
+      <h3>No events match your filters</h3>
+      <p>Try a different category or search term, or browse all upcoming events.</p>
+      <a href="{{ url_for('events.events_list') }}" class="btn ltcato-btn-pill">View all events</a>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

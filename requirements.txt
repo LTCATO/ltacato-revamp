@@ -1,0 +1,6 @@
+flask
+supabase
+python-dotenv
+google-generativeai
+pandas
+openpyxl
