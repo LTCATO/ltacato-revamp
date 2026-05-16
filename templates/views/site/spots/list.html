@@ -35,7 +35,7 @@
       <select name="category" class="spots-filters__select" aria-label="Filter by category">
         <option value="">All categories</option>
         {% for cat in categories %}
-        <option value="{{ cat }}" {% if active_category == cat %}selected{% endif %}>{{ cat | category_label }}</option>
+        <option value="{{ cat.id }}" {% if active_category == cat.id %}selected{% endif %}>{{ cat.name }}</option>
         {% endfor %}
       </select>
       <select name="municipality" class="spots-filters__select" aria-label="Filter by municipality">
@@ -67,13 +67,13 @@
     {% if spots %}
     <div class="row g-4">
       {% for spot in spots %}
-      {% set muni = spot.municipalities.name if spot.municipalities else 'Laguna' %}
+      {% set muni = spot|spot_lgu_name %}
       {% set img = spot.main_image_url | normalize_image_url %}
       <div class="col-lg-4 col-md-6">
         <a href="{{ url_for('spots.spot_detail', spot_id=spot.id) }}" class="featured-card spot-list-card">
           <div class="card-img-container">
-            <span class="spot-badge {{ spot.category | category_badge_class }}">
-              <i class="ph ph-tag"></i> {{ spot.category | category_label }}
+            <span class="spot-badge spot-badge--default">
+              <i class="ph ph-tag"></i> {{ spot|spot_category_name }}
             </span>
             {% if img %}
             <img src="{{ img }}" alt="{{ spot.name }}" class="featured-image" loading="lazy" />

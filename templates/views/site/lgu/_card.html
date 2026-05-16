@@ -1,6 +1,6 @@
 {% set img = lgu.image | normalize_image_url %}
 <div class="col-lg-4 col-md-6">
-  <a href="{{ url_for('lgu.lgu_detail', municipality_id=lgu.id) }}" class="lgu-card">
+  <a href="{{ url_for('lgu.lgu_detail', lgu_id=lgu.id) }}" class="lgu-card">
     <div class="lgu-card__media">
       {% if img %}
       <img src="{{ img }}" alt="{{ lgu.name }}" loading="lazy" />

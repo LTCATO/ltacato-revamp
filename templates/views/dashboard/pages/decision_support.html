@@ -1,0 +1,68 @@
+{% extends "dashboard-base.html" %}
+{% from "include/dashboard/macros.html" import status_badge %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_header %}<h1>{{ page_title }}</h1><p>{{ page_description }}</p>{% endblock %}
+
+{% block content %}
+{% include "include/dashboard/module_header.html" %}
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="dashboard-stat-card">
+      <i class="bx bx-globe dashboard-stat-card__icon"></i>
+      <strong>{{ reviews|length }}</strong>
+      <span>Scraped reviews</span>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="dashboard-stat-card">
+      <i class="bx bx-happy dashboard-stat-card__icon"></i>
+      <strong>{{ reviews|selectattr('sentiment', 'equalto', 'positive')|list|length }}</strong>
+      <span>Positive sentiment</span>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="dashboard-stat-card">
+      <i class="bx bx-sad dashboard-stat-card__icon"></i>
+      <strong>{{ reviews|selectattr('sentiment', 'equalto', 'negative')|list|length }}</strong>
+      <span>Negative sentiment</span>
+    </div>
+  </div>
+</div>
+
+<div class="dashboard-card">
+  <h3 class="dashboard-card__title">External reviews feed</h3>
+  <p class="text-muted small">Reviews aggregated from web and social sources for tourism decision support.</p>
+  <div class="table-responsive">
+    <table class="table dashboard-table mb-0">
+      <thead>
+        <tr>
+          <th>Spot</th>
+          <th>Source</th>
+          <th>Reviewer</th>
+          <th>Sentiment</th>
+          <th>Review</th>
+          <th>Scraped</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in reviews %}
+        {% set spot = r.tourist_spots or {} %}
+        <tr>
+          <td><strong>{{ spot.name if spot else '—' }}</strong></td>
+          <td>{{ r.source or '—' }}</td>
+          <td>{{ r.reviewer_name or 'Anonymous' }}</td>
+          <td>{{ status_badge(r.sentiment or 'neutral') }}</td>
+          <td class="small">{{ r.review_text|truncate_text(120) }}</td>
+          <td class="small text-muted">{{ (r.scraped_at or '')[:10] }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No scraped reviews in the database yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+

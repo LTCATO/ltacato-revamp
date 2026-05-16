@@ -149,7 +149,7 @@
             <ul class="lgu-related-list">
               {% for rel in related %}
               <li>
-                <a href="{{ url_for('lgu.lgu_detail', municipality_id=rel.id) }}">
+                <a href="{{ url_for('lgu.lgu_detail', lgu_id=rel.id) }}">
                   <strong>{{ rel.name }}</strong>
                   <span>{{ rel.spot_count }} spot{{ 's' if rel.spot_count != 1 else '' }}</span>
                 </a>

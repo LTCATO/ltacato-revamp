@@ -1,0 +1,72 @@
+{% extends "dashboard-base.html" %}
+{% from "include/dashboard/macros.html" import status_badge %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_header %}<h1>{{ page_title }}</h1><p>{{ page_description }}</p>{% endblock %}
+
+{% block content %}
+{% set header_actions %}
+{% if spot %}
+<button type="button" class="btn dashboard-btn-primary" data-bs-toggle="modal" data-bs-target="#siteModal"><i class="bx bx-edit"></i> Update listing</button>
+{% endif %}
+{% endset %}
+{% include "include/dashboard/module_header.html" %}
+
+{% if spot %}
+<div class="row g-4 mb-4">
+  <div class="col-lg-8">
+    <div class="dashboard-card">
+      <h3 class="dashboard-card__title">{{ spot.name }}</h3>
+      <p class="text-muted">{{ spot.description|truncate_text(300) if spot.description else 'No description yet.' }}</p>
+      <ul class="dashboard-kpi-list">
+        <li><span>Address</span><strong>{{ spot.address or '—' }}</strong></li>
+        <li><span>Hours</span><strong>{{ spot.opening_hours or '—' }}</strong></li>
+        <li><span>Status</span><strong>{{ status_badge(spot.approval_status) }}</strong></li>
+        <li><span>Rating</span><strong>{{ spot.rating or 0 }} / 5</strong></li>
+      </ul>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="dashboard-card">
+      {% if spot.main_image_url %}
+      <img src="{{ spot.main_image_url|normalize_image_url }}" alt="{{ spot.name }}" class="img-fluid rounded mb-3" />
+      {% else %}
+      <p class="text-muted small">No main image uploaded.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="siteModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('dashboard.form_save_stub') }}">
+        <input type="hidden" name="form_type" value="site_update" />
+        <input type="hidden" name="spot_id" value="{{ spot.id }}" />
+        <div class="modal-header">
+          <h5 class="modal-title">Update establishment</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body row g-3">
+          <div class="col-12"><label class="form-label">Description</label><textarea name="description" class="form-control" rows="4">{{ spot.description or '' }}</textarea></div>
+          <div class="col-md-6"><label class="form-label">Opening hours</label><input name="opening_hours" class="form-control" value="{{ spot.opening_hours or '' }}" /></div>
+          <div class="col-md-6"><label class="form-label">Best time to visit</label><input name="best_time_to_visit" class="form-control" value="{{ spot.best_time_to_visit or '' }}" /></div>
+          <div class="col-12"><label class="form-label">Hook title</label><input name="hook_title" class="form-control" value="{{ spot.hook_title or '' }}" /></div>
+          <div class="col-12"><label class="form-label">Hook text</label><textarea name="hook_text" class="form-control" rows="2">{{ spot.hook_text or '' }}</textarea></div>
+          <div class="col-12"><label class="form-label">Entrance fees</label><textarea name="entrance_fees" class="form-control" rows="2">{{ spot.entrance_fees or '' }}</textarea></div>
+          <div class="col-12"><label class="form-label">What to bring</label><textarea name="what_to_bring" class="form-control" rows="2">{{ spot.what_to_bring or '' }}</textarea></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn dashboard-btn-primary">Save updates</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="dashboard-card">
+  <p class="text-muted mb-0">No establishment is linked to your account yet. Contact your LGU tourism office to register your property.</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -16,9 +16,6 @@
       Cultural festivals, food fairs, eco-adventures, and trade showcases—curated and published by LTCATO
       for visitors planning their next Laguna experience.
     </p>
-    <p class="page-hero__note">
-      <i class="ph ph-info"></i> Sample listings below — full admin-managed events database coming soon.
-    </p>
   </div>
 </section>
 
@@ -35,16 +32,10 @@
           aria-label="Search events"
         />
       </div>
-      <select name="category" class="spots-filters__select" aria-label="Filter by category">
-        <option value="">All categories</option>
-        {% for cat in categories %}
-        <option value="{{ cat }}" {% if active_category == cat %}selected{% endif %}>{{ cat | event_category_label }}</option>
-        {% endfor %}
-      </select>
-      <select name="municipality" class="spots-filters__select" aria-label="Filter by municipality">
-        <option value="">All municipalities</option>
+      <select name="municipality" class="spots-filters__select" aria-label="Filter by LGU">
+        <option value="">All LGUs</option>
         {% for m in municipalities %}
-        <option value="{{ m }}" {% if active_municipality == m %}selected{% endif %}>{{ m }}</option>
+        <option value="{{ m.id }}" {% if active_municipality == m.id %}selected{% endif %}>{{ m.name }}</option>
         {% endfor %}
       </select>
       <button type="submit" class="btn ltcato-btn-pill">Apply</button>
@@ -64,7 +55,7 @@
       <div class="col-lg-4 col-md-6">
         <a href="{{ url_for('events.event_detail', event_id=event.id) }}" class="event-card event-card--link">
           <div class="event-image-container">
-            <img src="{{ event.image }}" alt="{{ event.title }}" class="event-image" loading="lazy" />
+            <img src="{{ event.image | normalize_image_url }}" alt="{{ event.title }}" class="event-image" loading="lazy" />
             <div class="event-date-badge">
               <div class="date-month">{{ event.date_month }}</div>
               <div class="date-day">{{ event.date_day }}</div>

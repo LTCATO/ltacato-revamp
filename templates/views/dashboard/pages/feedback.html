@@ -1,0 +1,42 @@
+{% extends "dashboard-base.html" %}
+{% from "include/dashboard/macros.html" import status_badge %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_header %}<h1>{{ page_title }}</h1><p>{{ page_description }}</p>{% endblock %}
+
+{% block content %}
+{% include "include/dashboard/module_header.html" %}
+
+<div class="dashboard-card">
+  <table class="table dashboard-table mb-0">
+    <thead>
+      <tr>
+        <th>Spot</th>
+        {% if user.role == 'super_admin' %}<th>LGU</th>{% endif %}
+        <th>Guest</th>
+        <th>Rating</th>
+        <th>Comments</th>
+        <th>Sentiment</th>
+        <th>Date</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in feedbacks %}
+      {% set spot = f.tourist_spots or {} %}
+      {% set lgu = spot.lgus or {} %}
+      <tr>
+        <td><strong>{{ spot.name or '—' }}</strong></td>
+        {% if user.role == 'super_admin' %}<td>{{ lgu.name or '—' }}</td>{% endif %}
+        <td>{{ f.guest_name or 'Tourist' }}</td>
+        <td>{% if f.rating %}<span class="dashboard-badge dashboard-badge--success">{{ f.rating }} ★</span>{% else %}—{% endif %}</td>
+        <td class="small">{{ f.comments|truncate_text(100) if f.comments else '—' }}</td>
+        <td>{{ status_badge(f.sentiment or 'neutral') }}</td>
+        <td class="small text-muted">{{ (f.created_at or '')[:10] }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="text-center text-muted py-4">No feedback received yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
