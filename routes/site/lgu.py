@@ -1,11 +1,6 @@
 from flask import Blueprint, abort, render_template, request
 
-from services.municipalities import (
-    get_municipality,
-    get_municipality_spots,
-    get_related_municipalities,
-    list_municipalities,
-)
+from services.lgus import get_lgu, get_lgu_spots, get_related_lgus, list_lgus
 
 lgu_bp = Blueprint("lgu", __name__)
 
@@ -18,21 +13,21 @@ def lgu_list():
     q = request.args.get("q") or None
 
     try:
-        municipalities, summary = list_municipalities(type_filter=type_filter, q=q)
+        lgus, summary = list_lgus(type_filter=type_filter, q=q)
     except Exception:
-        municipalities, summary = [], {
+        lgus, summary = [], {
             "total": 0,
             "cities": 0,
             "municipalities": 0,
             "with_spots": 0,
         }
 
-    cities = [m for m in municipalities if m["type_normalized"] == "city"]
-    towns = [m for m in municipalities if m["type_normalized"] == "municipality"]
+    cities = [m for m in lgus if m["type_normalized"] == "city"]
+    towns = [m for m in lgus if m["type_normalized"] == "municipality"]
 
     return render_template(
         "views/site/lgu/list.html",
-        municipalities=municipalities,
+        municipalities=lgus,
         cities=cities,
         towns=towns,
         summary=summary,
@@ -41,10 +36,10 @@ def lgu_list():
     )
 
 
-@lgu_bp.route("/lgu/<int:municipality_id>")
-def lgu_detail(municipality_id: int):
+@lgu_bp.route("/lgu/<int:lgu_id>")
+def lgu_detail(lgu_id: int):
     try:
-        municipality = get_municipality(municipality_id)
+        municipality = get_lgu(lgu_id)
     except Exception:
         municipality = None
 
@@ -52,8 +47,8 @@ def lgu_detail(municipality_id: int):
         abort(404)
 
     try:
-        spots = get_municipality_spots(municipality_id)
-        related = get_related_municipalities(municipality)
+        spots = get_lgu_spots(lgu_id)
+        related = get_related_lgus(municipality)
     except Exception:
         spots = []
         related = []

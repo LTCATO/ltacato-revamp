@@ -3,11 +3,12 @@ from flask import Blueprint, abort, render_template, request
 from services.spots import (
     PER_PAGE,
     get_categories,
-    get_municipalities,
+    get_lgus,
     get_related_spots,
     get_spot,
     get_spot_feedbacks,
     list_spots,
+    spot_lgu_name,
 )
 from utils.jinja_helpers import ensure_list, normalize_image_url
 
@@ -16,9 +17,10 @@ spots_bp = Blueprint("spots", __name__)
 
 @spots_bp.route("/spots")
 def spots_list():
-    category = request.args.get("category") or None
-    municipality_raw = request.args.get("municipality")
-    municipality_id = int(municipality_raw) if municipality_raw and municipality_raw.isdigit() else None
+    category_raw = request.args.get("category") or None
+    category_id = int(category_raw) if category_raw and category_raw.isdigit() else None
+    lgu_raw = request.args.get("municipality") or request.args.get("lgu")
+    lgu_id = int(lgu_raw) if lgu_raw and str(lgu_raw).isdigit() else None
     q = request.args.get("q") or None
     sort = request.args.get("sort", "name")
     page = request.args.get("page", 1, type=int)
@@ -28,13 +30,13 @@ def spots_list():
 
     try:
         spots, total = list_spots(
-            category=category,
-            municipality_id=municipality_id,
+            category_id=category_id,
+            lgu_id=lgu_id,
             q=q,
             sort=sort,
             page=page,
         )
-        municipalities = get_municipalities()
+        municipalities = get_lgus()
         categories = get_categories()
     except Exception:
         spots, total = [], 0
@@ -54,8 +56,8 @@ def spots_list():
         per_page=PER_PAGE,
         municipalities=municipalities,
         categories=categories,
-        active_category=category,
-        active_municipality=municipality_id,
+        active_category=category_id,
+        active_municipality=lgu_id,
         active_q=q or "",
         active_sort=sort,
     )
@@ -78,7 +80,7 @@ def spot_detail(spot_id: int):
         feedbacks = []
         related = []
 
-    municipality = spot.get("municipalities") or {}
+    municipality = spot.get("lgus") or {}
     gallery = [normalize_image_url(url) for url in ensure_list(spot.get("gallery_images"))]
     gallery = [url for url in gallery if url]
     main_image = normalize_image_url(spot.get("main_image_url"))
@@ -91,6 +93,7 @@ def spot_detail(spot_id: int):
         "views/site/spots/detail.html",
         spot=spot,
         municipality=municipality,
+        lgu_name=spot_lgu_name(spot),
         feedbacks=feedbacks,
         related=related,
         gallery=gallery,

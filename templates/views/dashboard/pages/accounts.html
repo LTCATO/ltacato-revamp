@@ -1,0 +1,105 @@
+{% extends "dashboard-base.html" %}
+{% from "include/dashboard/macros.html" import status_badge %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_header %}<h1>{{ page_title }}</h1><p>{{ page_description }}</p>{% endblock %}
+
+{% block content %}
+{% set header_actions %}
+<button type="button" class="btn dashboard-btn-primary me-2" data-bs-toggle="modal" data-bs-target="#staffModal"><i class="bx bx-plus"></i> LTCATO staff</button>
+<button type="button" class="btn dashboard-btn-outline" data-bs-toggle="modal" data-bs-target="#lguModal"><i class="bx bx-plus"></i> LGU account</button>
+{% endset %}
+{% include "include/dashboard/module_header.html" %}
+
+<div class="dashboard-card mb-4">
+  <h3 class="dashboard-card__title">LTCATO staff</h3>
+  <div class="table-responsive">
+    <table class="table dashboard-table mb-0">
+      <thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Created</th></tr></thead>
+      <tbody>
+        {% for p in staff_profiles %}
+        <tr>
+          <td>{{ ((p.first_name or '') ~ ' ' ~ (p.last_name or ''))|trim or p.email }}</td>
+          <td>{{ p.email }}</td>
+          <td>{% if p.is_active %}<span class="dashboard-badge dashboard-badge--success">Active</span>{% else %}<span class="dashboard-badge dashboard-badge--muted">Inactive</span>{% endif %}</td>
+          <td class="small text-muted">{{ (p.created_at or '')[:10] }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="text-center text-muted py-3">No staff profiles loaded from Supabase.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="dashboard-card">
+      <h3 class="dashboard-card__title">LGU accounts</h3>
+      <div class="table-responsive">
+        <table class="table dashboard-table mb-0">
+          <thead><tr><th>Name</th><th>Email</th><th>LGU</th></tr></thead>
+          <tbody>
+            {% for p in lgu_profiles %}
+            <tr>
+              <td>{{ p.first_name }} {{ p.last_name or '' }}</td>
+              <td>{{ p.email }}</td>
+              <td>{{ (p.lgus.name if p.lgus else '—') }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3" class="text-center text-muted py-3">No LGU users yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="dashboard-card">
+      <h3 class="dashboard-card__title">Establishment owners</h3>
+      <p class="text-muted small">Owners are typically created by their LGU when registering a tourist spot.</p>
+      <div class="table-responsive">
+        <table class="table dashboard-table mb-0">
+          <thead><tr><th>Name</th><th>Email</th><th>LGU</th></tr></thead>
+          <tbody>
+            {% for p in owner_profiles %}
+            <tr>
+              <td>{{ p.first_name }} {{ p.last_name or '' }}</td>
+              <td>{{ p.email }}</td>
+              <td>{{ (p.lgus.name if p.lgus else '—') }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3" class="text-center text-muted py-3">No establishment owners yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="staffModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+  <form method="post" action="{{ url_for('dashboard.form_save_stub') }}"><input type="hidden" name="form_type" value="staff_account" />
+  <div class="modal-header"><h5 class="modal-title">Create LTCATO staff</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+  <div class="modal-body row g-3">
+    <div class="col-md-6"><label class="form-label">First name</label><input name="first_name" class="form-control" required /></div>
+    <div class="col-md-6"><label class="form-label">Last name</label><input name="last_name" class="form-control" required /></div>
+    <div class="col-12"><label class="form-label">Email</label><input type="email" name="email" class="form-control" required /></div>
+    <div class="col-12"><label class="form-label">Contact</label><input name="contact_number" class="form-control" /></div>
+  </div>
+  <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn dashboard-btn-primary">Create account</button></div>
+  </form></div></div></div>
+
+<div class="modal fade" id="lguModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+  <form method="post" action="{{ url_for('dashboard.form_save_stub') }}"><input type="hidden" name="form_type" value="lgu_account" />
+  <div class="modal-header"><h5 class="modal-title">Create LGU account</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+  <div class="modal-body row g-3">
+    <div class="col-md-6"><label class="form-label">First name</label><input name="first_name" class="form-control" required /></div>
+    <div class="col-md-6"><label class="form-label">Last name</label><input name="last_name" class="form-control" required /></div>
+    <div class="col-12"><label class="form-label">Email</label><input type="email" name="email" class="form-control" required /></div>
+    <div class="col-12"><label class="form-label">LGU</label><select name="lgu_id" class="form-select" required>{% for l in lgus %}<option value="{{ l.id }}">{{ l.name }}</option>{% endfor %}</select></div>
+  </div>
+  <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn dashboard-btn-primary">Create account</button></div>
+  </form></div></div>
+{% endblock %}
+

@@ -1,0 +1,51 @@
+{% extends "dashboard-base.html" %}
+{% from "include/dashboard/macros.html" import status_badge %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_header %}<h1>{{ page_title }}</h1><p>{{ page_description }}</p>{% endblock %}
+
+{% block content %}
+{% set header_actions %}
+{% if not can_approve %}
+<button type="button" class="btn dashboard-btn-primary" data-bs-toggle="modal" data-bs-target="#faqModal"><i class="bx bx-plus"></i> Add FAQ</button>
+{% endif %}
+{% endset %}
+{% include "include/dashboard/module_header.html" %}
+
+<div class="dashboard-card">
+  <table class="table dashboard-table mb-0">
+    <thead><tr><th>Category</th><th>Question</th><th>Answer</th><th>Status</th>{% if can_approve %}<th></th>{% endif %}</tr></thead>
+    <tbody>
+      {% for e in entries %}
+      <tr>
+        <td>{{ e.category or 'General' }}</td>
+        <td><strong>{{ e.question }}</strong></td>
+        <td class="small">{{ e.answer|truncate_text(100) }}</td>
+        <td>{{ status_badge(e.approval_status) }}</td>
+        {% if can_approve and e.approval_status == 'pending' %}
+        <td class="dashboard-table__actions">
+          <form method="post" action="{{ url_for('dashboard.approve_chatbot', entry_id=e.id) }}" class="d-inline"><button class="btn btn-sm dashboard-btn-primary">Approve</button></form>
+          <form method="post" action="{{ url_for('dashboard.reject_chatbot', entry_id=e.id) }}" class="d-inline"><button class="btn btn-sm btn-outline-secondary">Reject</button></form>
+        </td>
+        {% elif can_approve %}<td>—</td>{% endif %}
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="text-center text-muted py-4">No chatbot knowledge entries yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if not can_approve %}
+<div class="modal fade" id="faqModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+<form method="post" action="{{ url_for('dashboard.form_save_stub') }}"><input type="hidden" name="form_type" value="chatbot_faq" />
+<div class="modal-header"><h5 class="modal-title">Add FAQ entry</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body">
+  <div class="mb-3"><label class="form-label">Category</label><input name="category" class="form-control" placeholder="e.g. Transportation" /></div>
+  <div class="mb-3"><label class="form-label">Question</label><input name="question" class="form-control" required /></div>
+  <div class="mb-3"><label class="form-label">Answer</label><textarea name="answer" class="form-control" rows="4" required></textarea></div>
+</div>
+<div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn dashboard-btn-primary">Submit for approval</button></div>
+</form></div></div></div>
+{% endif %}
+{% endblock %}

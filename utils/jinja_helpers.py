@@ -91,12 +91,32 @@ def stars_display(rating: float | int | None) -> list[str]:
     return stars
 
 
+def spot_category_name(spot: dict) -> str:
+    cat = spot.get("attraction_categories") if isinstance(spot, dict) else None
+    if isinstance(cat, dict) and cat.get("name"):
+        return cat["name"]
+    legacy = spot.get("category") if isinstance(spot, dict) else None
+    return category_label(legacy)
+
+
+def spot_lgu_name(spot: dict) -> str:
+    lgu = spot.get("lgus") if isinstance(spot, dict) else None
+    if isinstance(lgu, dict) and lgu.get("name"):
+        return lgu["name"]
+    legacy = spot.get("municipalities") if isinstance(spot, dict) else None
+    if isinstance(legacy, dict) and legacy.get("name"):
+        return legacy["name"]
+    return "Laguna"
+
+
 def register_template_filters(app) -> None:
     """Register all Jinja filters on the Flask app."""
     app.jinja_env.filters.update(
         {
             "normalize_image_url": normalize_image_url,
             "category_label": category_label,
+            "spot_category_name": spot_category_name,
+            "spot_lgu_name": spot_lgu_name,
             "category_badge_class": category_badge_class,
             "ensure_list": ensure_list,
             "list_item_text": list_item_text,
