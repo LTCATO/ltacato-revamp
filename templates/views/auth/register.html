@@ -39,20 +39,59 @@
           id="touristRegisterForm"
           novalidate
         >
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="auth-field">
+                <label class="auth-field__label" for="register-first-name">First name <span class="text-danger">*</span></label>
+                <div class="auth-field__input-wrap">
+                  <i class="ph ph-user" aria-hidden="true"></i>
+                  <input
+                    type="text"
+                    id="register-first-name"
+                    name="first_name"
+                    class="form-control auth-field__input"
+                    placeholder="Juan"
+                    value="{{ form_data.first_name }}"
+                    autocomplete="given-name"
+                    required
+                    minlength="2"
+                  />
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="auth-field">
+                <label class="auth-field__label" for="register-last-name">Last name <span class="text-danger">*</span></label>
+                <div class="auth-field__input-wrap">
+                  <i class="ph ph-user" aria-hidden="true"></i>
+                  <input
+                    type="text"
+                    id="register-last-name"
+                    name="last_name"
+                    class="form-control auth-field__input"
+                    placeholder="Dela Cruz"
+                    value="{{ form_data.last_name }}"
+                    autocomplete="family-name"
+                    required
+                    minlength="2"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="auth-field">
-            <label class="auth-field__label" for="register-name">Full name <span class="text-danger">*</span></label>
+            <label class="auth-field__label" for="register-middle-name">Middle name <span class="text-muted">(optional)</span></label>
             <div class="auth-field__input-wrap">
               <i class="ph ph-user" aria-hidden="true"></i>
               <input
                 type="text"
-                id="register-name"
-                name="full_name"
+                id="register-middle-name"
+                name="middle_name"
                 class="form-control auth-field__input"
-                placeholder="Juan Dela Cruz"
-                value="{{ form_data.full_name }}"
-                autocomplete="name"
-                required
-                minlength="2"
+                placeholder="Santos"
+                value="{{ form_data.middle_name }}"
+                autocomplete="additional-name"
               />
             </div>
           </div>
@@ -74,42 +113,7 @@
             </div>
           </div>
 
-          <div class="row g-3">
-            <div class="col-md-6">
-              <div class="auth-field mb-0">
-                <label class="auth-field__label" for="register-phone">Phone <span class="text-muted">(optional)</span></label>
-                <div class="auth-field__input-wrap">
-                  <i class="ph ph-phone" aria-hidden="true"></i>
-                  <input
-                    type="tel"
-                    id="register-phone"
-                    name="phone"
-                    class="form-control auth-field__input"
-                    placeholder="+63 9XX XXX XXXX"
-                    value="{{ form_data.phone }}"
-                    autocomplete="tel"
-                  />
-                </div>
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="auth-field mb-0">
-                <label class="auth-field__label" for="register-country">Country / region <span class="text-muted">(optional)</span></label>
-                <div class="auth-field__input-wrap">
-                  <i class="ph ph-globe-hemisphere-west" aria-hidden="true"></i>
-                  <input
-                    type="text"
-                    id="register-country"
-                    name="country"
-                    class="form-control auth-field__input"
-                    placeholder="Philippines"
-                    value="{{ form_data.country }}"
-                    autocomplete="country-name"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+
 
           <div class="auth-field">
             <label class="auth-field__label" for="register-password">Password <span class="text-danger">*</span></label>
@@ -191,8 +195,49 @@
     </div>
   </div>
 </section>
+
+{% if show_confirmation_modal %}
+<!-- Email Confirmation Modal -->
+<div class="modal fade" id="emailConfirmationModal" tabindex="-1" aria-labelledby="emailConfirmationModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0 pb-0">
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center px-4 py-4">
+        <div class="mb-4">
+          <i class="ph ph-envelope-open text-primary" style="font-size: 64px;"></i>
+        </div>
+        <h4 class="mb-2" id="emailConfirmationModalLabel">Check your inbox</h4>
+        <p class="mb-1">We've sent a confirmation link to:</p>
+        <p class="fw-bold fs-5 mb-4 text-dark">{{ registered_email }}</p>
+        <p class="text-muted mb-0">Please click the link in the email to verify your account. Once verified, you can sign in to explore Laguna.</p>
+      </div>
+      <div class="modal-footer border-0 pt-0 pb-4 px-4 justify-content-center">
+        <a href="{{ url_for('auth.login') }}" class="btn ltcato-btn-pill w-100">Go to Sign in</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% endblock %}
 
 {% block script %}
 <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+{% if show_confirmation_modal %}
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    // Check if Bootstrap is available
+    if (typeof bootstrap !== 'undefined') {
+      var myModal = new bootstrap.Modal(document.getElementById('emailConfirmationModal'));
+      myModal.show();
+    } else {
+      // Fallback if bootstrap is not loaded for some reason
+      alert("Registration successful! Please check your email ({{ registered_email }}) to confirm your account before signing in.");
+      window.location.href = "{{ url_for('auth.login') }}";
+    }
+  });
+</script>
+{% endif %}
 {% endblock %}

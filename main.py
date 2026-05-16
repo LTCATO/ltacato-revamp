@@ -4,6 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+# pyrefly: ignore [missing-import]
 from flask import send_from_directory
 
 from utils.app_setup import create_app
