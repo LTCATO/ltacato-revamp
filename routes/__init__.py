@@ -1,6 +1,6 @@
 from routes.auth import auth_bp
-from routes.dashboard import dashboard_bp
-from routes.public import events_bp, public_bp, spots_bp
+from .dashboard import dashboard_bp
+from .public import events_bp, public_bp, spots_bp
 
 
 def register_blueprints(app):
