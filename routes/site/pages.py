@@ -8,13 +8,13 @@ public_bp = Blueprint("public", __name__)
 
 @public_bp.route("/")
 def home():
-    return render_template("views/public/home.html")
+    return render_template("views/site/home.html")
 
 
 @public_bp.route("/about")
 def about():
     return render_template(
-        "views/public/about.html",
+        "views/site/about.html",
         about=ABOUT_LAGUNA,
         charter_sections=CHARTER_SECTIONS,
         governor_teaser=GOVERNOR_TEASER,
@@ -23,4 +23,4 @@ def about():
 
 @public_bp.route("/about/governor")
 def governor():
-    return render_template("views/public/governor.html", governor=GOVERNOR)
+    return render_template("views/site/governor.html", governor=GOVERNOR)
