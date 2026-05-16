@@ -46,7 +46,7 @@ def spots_list():
         page = total_pages
 
     return render_template(
-        "views/public/spots/list.html",
+        "views/site/spots/list.html",
         spots=spots,
         total=total,
         page=page,
@@ -88,7 +88,7 @@ def spot_detail(spot_id: int):
         gallery = [main_image]
 
     return render_template(
-        "views/public/spots/detail.html",
+        "views/site/spots/detail.html",
         spot=spot,
         municipality=municipality,
         feedbacks=feedbacks,

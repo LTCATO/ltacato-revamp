@@ -10,6 +10,7 @@
           "utils/**",
           "services/**",
           "templates/**",
+          "templates/views/site/**",
           "static/**"
         ]
       }

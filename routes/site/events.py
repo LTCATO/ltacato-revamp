@@ -20,7 +20,7 @@ def events_list():
     events = list_events(category=category, municipality=municipality, q=q)
 
     return render_template(
-        "views/public/events/list.html",
+        "views/site/events/list.html",
         events=events,
         total=len(events),
         categories=get_categories(),
@@ -42,7 +42,7 @@ def event_detail(event_id: int):
     gallery = [url for url in gallery if url]
 
     return render_template(
-        "views/public/events/detail.html",
+        "views/site/events/detail.html",
         event=event,
         related=related,
         gallery=gallery,
