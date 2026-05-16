@@ -1,25 +1,2 @@
-# Environment & secrets
 .env
-.env.*
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-venv/
-.venv/
-env/
-
-# IDE & OS
-.idea/
-.vscode/
-*.swp
-.DS_Store
-Thumbs.db
-
-# Logs & local data
-*.log
-.pytest_cache/
-.mypy_cache/
+__pycache__
