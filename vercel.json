@@ -10,15 +10,12 @@
           "utils/**",
           "services/**",
           "templates/**",
-          "templates/views/site/**"
+          "static/**"
         ]
       }
     }
   ],
   "routes": [
-    {
-      "handle": "filesystem"
-    },
     {
       "src": "/(.*)",
       "dest": "main.py"
