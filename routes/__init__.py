@@ -1,4 +1,4 @@
-from routes.auth import auth_bp
+from .auth import auth_bp
 from .dashboard import dashboard_bp
 from .public import events_bp, public_bp, spots_bp
 
