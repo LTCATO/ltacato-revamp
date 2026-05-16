@@ -1,0 +1,29 @@
+{% macro status_badge(status) %}
+{% set s = (status or '')|lower %}
+<span class="dashboard-badge dashboard-badge--{{ 'success' if s == 'approved' else 'warning' if 'pending' in s else 'danger' if s == 'rejected' else 'muted' }}">
+  {{ status|replace('_', ' ')|title }}
+</span>
+{% endmacro %}
+
+{% macro modal_form(modal_id, title, form_type, fields, submit_label='Save') %}
+<div class="modal fade dashboard-modal" id="{{ modal_id }}" tabindex="-1" aria-labelledby="{{ modal_id }}Label" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('dashboard.form_save_stub') }}">
+        <input type="hidden" name="form_type" value="{{ form_type }}" />
+        <div class="modal-header">
+          <h5 class="modal-title" id="{{ modal_id }}Label">{{ title }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          {{ fields }}
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn dashboard-btn-primary">{{ submit_label }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endmacro %}

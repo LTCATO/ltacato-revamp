@@ -1,0 +1,55 @@
+{% extends "dashboard-base.html" %}
+{% from "include/dashboard/macros.html" import status_badge %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_header %}<h1>{{ page_title }}</h1><p>{{ page_description }}</p>{% endblock %}
+
+{% block content %}
+{% set header_actions %}
+<button type="button" class="btn dashboard-btn-primary me-2" data-bs-toggle="modal" data-bs-target="#ownerModal"><i class="bx bx-user-plus"></i> Owner account</button>
+<button type="button" class="btn dashboard-btn-outline" data-bs-toggle="modal" data-bs-target="#spotModal"><i class="bx bx-plus"></i> Register spot</button>
+{% endset %}
+{% include "include/dashboard/module_header.html" %}
+
+<div class="dashboard-card">
+  <table class="table dashboard-table mb-0">
+    <thead><tr><th>Establishment</th><th>Category</th><th>Status</th><th>Rating</th><th></th></tr></thead>
+    <tbody>
+      {% for s in spots %}
+      <tr>
+        <td><strong>{{ s.name }}</strong><br /><span class="small text-muted">{{ s.address or '' }}</span></td>
+        <td>{{ (s.attraction_categories.name if s.attraction_categories else '—') }}</td>
+        <td>{{ status_badge(s.approval_status) }}</td>
+        <td>{{ s.rating or 0 }}</td>
+        <td><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#spotModal">Edit</button></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="text-center text-muted py-4">No tourist spots under your LGU yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="modal fade" id="ownerModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+<form method="post" action="{{ url_for('dashboard.form_save_stub') }}"><input type="hidden" name="form_type" value="establishment_owner" />
+<div class="modal-header"><h5 class="modal-title">Create establishment owner</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body row g-3">
+  <div class="col-md-6"><label class="form-label">First name</label><input name="first_name" class="form-control" required /></div>
+  <div class="col-md-6"><label class="form-label">Last name</label><input name="last_name" class="form-control" required /></div>
+  <div class="col-12"><label class="form-label">Email</label><input type="email" name="email" class="form-control" required /></div>
+</div>
+<div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn dashboard-btn-primary">Create</button></div>
+</form></div></div>
+
+<div class="modal fade" id="spotModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+<form method="post" action="{{ url_for('dashboard.form_save_stub') }}"><input type="hidden" name="form_type" value="tourist_spot" />
+<div class="modal-header"><h5 class="modal-title">Register tourist spot</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body row g-3">
+  <div class="col-12"><label class="form-label">Name</label><input name="name" class="form-control" required /></div>
+  <div class="col-12"><label class="form-label">Description</label><textarea name="description" class="form-control" rows="3"></textarea></div>
+  <div class="col-md-6"><label class="form-label">Address</label><input name="address" class="form-control" /></div>
+  <div class="col-md-6"><label class="form-label">Opening hours</label><input name="opening_hours" class="form-control" /></div>
+</div>
+<div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn dashboard-btn-primary">Save</button></div>
+</form></div></div>
+{% endblock %}

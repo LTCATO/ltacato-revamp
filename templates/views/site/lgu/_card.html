@@ -1,0 +1,31 @@
+{% set img = lgu.image | normalize_image_url %}
+<div class="col-lg-4 col-md-6">
+  <a href="{{ url_for('lgu.lgu_detail', lgu_id=lgu.id) }}" class="lgu-card">
+    <div class="lgu-card__media">
+      {% if img %}
+      <img src="{{ img }}" alt="{{ lgu.name }}" loading="lazy" />
+      {% else %}
+      <img src="{{ url_for('static', filename='images/kapitolyo.jpg') }}" alt="{{ lgu.name }}" loading="lazy" />
+      {% endif %}
+      <span class="lgu-card__type">{{ lgu.type_label }}</span>
+    </div>
+    <div class="lgu-card__body">
+      <h3 class="lgu-card__name">{{ lgu.name }}</h3>
+      {% if lgu.zip_code %}
+      <p class="lgu-card__meta"><i class="ph ph-mailbox"></i> {{ lgu.zip_code }}</p>
+      {% endif %}
+      {% if lgu.overview %}
+      <p class="lgu-card__excerpt">{{ lgu.overview | truncate_text(140) }}</p>
+      {% else %}
+      <p class="lgu-card__excerpt text-muted">Discover destinations and local heritage in {{ lgu.name }}.</p>
+      {% endif %}
+      <div class="lgu-card__footer">
+        <span class="lgu-card__spots">
+          <i class="ph ph-map-pin"></i>
+          {{ lgu.spot_count }} tourist spot{{ 's' if lgu.spot_count != 1 else '' }}
+        </span>
+        <span class="lgu-card__cta">View LGU <i class="ph ph-arrow-right"></i></span>
+      </div>
+    </div>
+  </a>
+</div>

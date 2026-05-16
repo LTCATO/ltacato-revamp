@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}{{ municipality.name }}{% endblock %}
+
+{% block content %}
+{% set hero_img = municipality.image | normalize_image_url %}
+
+<section class="lgu-detail-hero">
+  <div class="container-xl">
+    <nav class="page-breadcrumb page-breadcrumb--light" aria-label="Breadcrumb">
+      <a href="{{ url_for('public.home') }}">Home</a>
+      <i class="ph ph-caret-right"></i>
+      <a href="{{ url_for('lgu.lgu_list') }}">LGU</a>
+      <i class="ph ph-caret-right"></i>
+      <span>{{ municipality.name }}</span>
+    </nav>
+  </div>
+</section>
+
+<section class="lgu-detail-banner">
+  <div class="container-xl">
+    <div class="row g-4 align-items-end">
+      <div class="col-lg-8">
+        <div class="lgu-detail-banner__media">
+          {% if hero_img %}
+          <img src="{{ hero_img }}" alt="{{ municipality.name }}" />
+          {% else %}
+          <img src="{{ url_for('static', filename='images/kapitolyo.jpg') }}" alt="{{ municipality.name }}" />
+          {% endif %}
+          <span class="lgu-detail-banner__type">{{ municipality.type_label }}</span>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="lgu-detail-intro-card">
+          <span class="lgu-detail-intro-card__eyebrow">Local Government Unit</span>
+          <h1 class="lgu-detail-intro-card__title">{{ municipality.name }}</h1>
+          {% if municipality.zip_code %}
+          <p class="lgu-detail-intro-card__zip"><i class="ph ph-mailbox"></i> ZIP {{ municipality.zip_code }}</p>
+          {% endif %}
+          <ul class="lgu-detail-facts">
+            <li><i class="ph ph-map-pin"></i> <strong>{{ spot_count }}</strong> verified tourist spot{{ 's' if spot_count != 1 else '' }}</li>
+            <li><i class="ph ph-buildings"></i> {{ municipality.type_label }}, Laguna</li>
+            {% if maps_url %}
+            <li>
+              <a href="{{ maps_url }}" target="_blank" rel="noopener noreferrer" class="lgu-detail-maps-link">
+                <i class="ph ph-navigation-arrow"></i> Open in Google Maps
+              </a>
+            </li>
+            {% endif %}
+          </ul>
+          <a href="{{ url_for('spots.spots_list', municipality=municipality.id) }}" class="btn ltcato-btn-pill w-100 mt-2">
+            <i class="ph ph-compass"></i> Browse spots in {{ municipality.name }}
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="lgu-detail-main home-section">
+  <div class="container-xl">
+    <div class="row g-5">
+      <div class="col-lg-8">
+        {% if municipality.overview %}
+        <div class="lgu-detail-block">
+          <h2 class="lgu-detail-block__title"><i class="ph ph-info"></i> Overview</h2>
+          <p class="lgu-detail-text">{{ municipality.overview }}</p>
+        </div>
+        {% endif %}
+
+        {% if municipality.history %}
+        <div class="lgu-detail-block">
+          <h2 class="lgu-detail-block__title"><i class="ph ph-book-open"></i> History &amp; heritage</h2>
+          <p class="lgu-detail-text">{{ municipality.history }}</p>
+        </div>
+        {% endif %}
+
+        {% if not municipality.overview and not municipality.history %}
+        <div class="lgu-detail-block">
+          <h2 class="lgu-detail-block__title"><i class="ph ph-info"></i> About {{ municipality.name }}</h2>
+          <p class="lgu-detail-text text-muted">
+            Profile information for this local government unit will be updated soon. In the meantime,
+            explore verified tourist destinations across {{ municipality.name }} below.
+          </p>
+        </div>
+        {% endif %}
+
+        <div class="lgu-detail-block">
+          <div class="lgu-detail-block__header-row">
+            <h2 class="lgu-detail-block__title mb-0"><i class="ph ph-map-trifold"></i> Tourist spots</h2>
+            {% if spot_count > 0 %}
+            <a href="{{ url_for('spots.spots_list', municipality=municipality.id) }}" class="lgu-detail-block__link">
+              View all <i class="ph ph-arrow-right"></i>
+            </a>
+            {% endif %}
+          </div>
+          {% if spots %}
+          <div class="row g-4 mt-1">
+            {% for spot in spots %}
+            {% set img = spot.main_image_url | normalize_image_url %}
+            <div class="col-md-6">
+              <a href="{{ url_for('spots.spot_detail', spot_id=spot.id) }}" class="lgu-spot-mini-card">
+                <div class="lgu-spot-mini-card__img">
+                  {% if img %}
+                  <img src="{{ img }}" alt="{{ spot.name }}" loading="lazy" />
+                  {% else %}
+                  <img src="{{ url_for('static', filename='images/kapitolyo.jpg') }}" alt="{{ spot.name }}" loading="lazy" />
+                  {% endif %}
+                </div>
+                <div class="lgu-spot-mini-card__body">
+                  <span class="spot-badge {{ spot.category | category_badge_class }}">{{ spot.category | category_label }}</span>
+                  <h3>{{ spot.name }}</h3>
+                  <div class="lgu-spot-mini-card__rating">
+                    <span class="spot-stars">
+                      {% for state in spot.rating | stars_display %}
+                      <i class="ph{% if state == 'full' %}-fill{% endif %} ph-star{% if state == 'empty' %}-thin{% endif %}"></i>
+                      {% endfor %}
+                    </span>
+                    {{ '%.1f' | format(spot.rating or 0) }} ({{ spot.reviews_count or 0 }})
+                  </div>
+                  <p>{{ (spot.hook_title or spot.description) | truncate_text(90) }}</p>
+                </div>
+              </a>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-muted mt-3 mb-0">
+            No approved tourist spots are listed for {{ municipality.name }} yet. Check back as LTCATO verifies new destinations.
+          </p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="col-lg-4">
+        <aside class="lgu-detail-sidebar">
+          <div class="lgu-detail-sidebar__card">
+            <h3>Plan your visit</h3>
+            <ul class="spot-chip-list">
+              <li><i class="ph ph-compass"></i> Use the itinerary planner (coming soon)</li>
+              <li><i class="ph ph-star"></i> Read reviews on each spot page</li>
+              <li><i class="ph ph-chat-circle"></i> Leave feedback after your trip</li>
+            </ul>
+          </div>
+
+          {% if related %}
+          <div class="lgu-detail-sidebar__card">
+            <h3>More {{ municipality.type_label }}s</h3>
+            <ul class="lgu-related-list">
+              {% for rel in related %}
+              <li>
+                <a href="{{ url_for('lgu.lgu_detail', lgu_id=rel.id) }}">
+                  <strong>{{ rel.name }}</strong>
+                  <span>{{ rel.spot_count }} spot{{ 's' if rel.spot_count != 1 else '' }}</span>
+                </a>
+              </li>
+              {% endfor %}
+            </ul>
+            <a href="{{ url_for('lgu.lgu_list', type=municipality.type_normalized) }}" class="lgu-detail-sidebar__link">
+              View all {{ municipality.type_label }}s
+            </a>
+          </div>
+          {% endif %}
+
+          <div class="lgu-detail-sidebar__card lgu-detail-sidebar__card--muted">
+            <h3>LTCATO &amp; LGU</h3>
+            <p class="small text-muted mb-0">
+              Local government units coordinate tourism arrivals and establishment data with the
+              Provincial Government of Laguna through LTCATO.
+            </p>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

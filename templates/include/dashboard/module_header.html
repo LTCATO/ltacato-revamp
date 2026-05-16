@@ -1,0 +1,14 @@
+<header class="dashboard-module-header mb-4">
+  <div class="dashboard-module-header__icon" aria-hidden="true">
+    <i class="bx {{ page_icon or 'bx-grid-alt' }}"></i>
+  </div>
+  <div>
+    <h1 class="dashboard-module-header__title">{{ page_title }}</h1>
+    <p class="dashboard-module-header__desc text-muted mb-0">{{ page_description }}</p>
+  </div>
+  {% if header_actions %}
+  <div class="dashboard-module-header__actions">
+    {{ header_actions | safe }}
+  </div>
+  {% endif %}
+</header>

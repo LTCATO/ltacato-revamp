@@ -1,0 +1,55 @@
+{% extends "dashboard-base.html" %}
+{% from "include/dashboard/macros.html" import status_badge %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_header %}<h1>{{ page_title }}</h1><p>{{ page_description }}</p>{% endblock %}
+
+{% block content %}
+{% include "include/dashboard/module_header.html" %}
+
+<div class="dashboard-card mb-4">
+  <h3 class="dashboard-card__title">Pending LTCATO confirmation</h3>
+  <p class="text-muted small">Establishments already approved by LGU tourism — confirm for the public directory.</p>
+  <table class="table dashboard-table mb-0">
+    <thead><tr><th>Name</th><th>LGU</th><th>Category</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for s in pending_spots %}
+      <tr>
+        <td><strong>{{ s.name }}</strong></td>
+        <td>{{ (s.lgus.name if s.lgus else '—') }}</td>
+        <td>{{ (s.attraction_categories.name if s.attraction_categories else '—') }}</td>
+        <td>{{ status_badge(s.approval_status) }}</td>
+        <td class="dashboard-table__actions">
+          <form method="post" action="{{ url_for('dashboard.approve_spot_ltcato', spot_id=s.id) }}" class="d-inline">
+            <button type="submit" class="btn btn-sm dashboard-btn-primary">Approve</button>
+          </form>
+          <form method="post" action="{{ url_for('dashboard.reject_spot', spot_id=s.id) }}" class="d-inline">
+            <button type="submit" class="btn btn-sm btn-outline-secondary">Reject</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="text-center text-muted py-4">No spots awaiting LTCATO review.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="dashboard-card">
+  <h3 class="dashboard-card__title">Recently approved</h3>
+  <table class="table dashboard-table mb-0">
+    <thead><tr><th>Name</th><th>LGU</th><th>Rating</th></tr></thead>
+    <tbody>
+      {% for s in recent_approved %}
+      <tr>
+        <td>{{ s.name }}</td>
+        <td>{{ (s.lgus.name if s.lgus else '—') }}</td>
+        <td>{{ s.rating or 0 }} ({{ s.reviews_count or 0 }} reviews)</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3" class="text-center text-muted py-3">None yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
