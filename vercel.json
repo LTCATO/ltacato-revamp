@@ -10,16 +10,14 @@
           "utils/**",
           "services/**",
           "templates/**",
-          "templates/views/site/**",
-          "static/**"
+          "templates/views/site/**"
         ]
       }
     }
   ],
   "routes": [
     {
-      "src": "/static/(.*)",
-      "dest": "/static/$1"
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
