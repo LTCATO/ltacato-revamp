@@ -7,7 +7,9 @@ from __future__ import annotations
 import re
 from typing import Any
 
+# pyrefly: ignore [missing-import]
 from flask import session
+# pyrefly: ignore [missing-import]
 from supabase_auth.errors import AuthApiError
 
 from services.supabase_client import get_supabase

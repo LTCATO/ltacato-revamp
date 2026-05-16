@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from services.dashboard_auth import (
