@@ -1,11 +1,15 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "functions": {
-    "main.py": {
-      "includeFiles": "routes/**,utils/**,services/**,templates/**,static/**"
+  "builds": [
+    {
+      "src": "main.py",
+      "use": "@vercel/python"
     }
-  },
+  ],
   "routes": [
+    {
+      "src": "/static/(.*)",
+      "dest": "/app/static/$1"
+    },
     {
       "src": "/(.*)",
       "dest": "main.py"
