@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Login | LTCATO</title>
+  <link rel="icon" href="{{ url_for('static', filename='images/ltcato-logo.png') }}" type="image/x-icon" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Poppins:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}" />
+</head>
+<body class="dashboard-login-body">
+  <div class="dashboard-login">
+    <div class="dashboard-login__panel">
+      <a href="{{ url_for('public.home') }}" class="dashboard-login__back">
+        <i class="bx bx-arrow-back"></i> Back to public site
+      </a>
+      <img src="{{ url_for('static', filename='images/ltcato-logo.png') }}" alt="LTCATO" class="dashboard-login__logo" />
+      <span class="dashboard-login__badge"><i class="bx bx-shield-quarter"></i> Staff &amp; partners only</span>
+      <h1 class="dashboard-login__title">LTCATO Dashboard</h1>
+      <p class="dashboard-login__lead">
+        Provincial tourism operations portal for arrivals reporting, promotions, and account management.
+        <strong>Tourists</strong> should use the
+        <a href="{{ url_for('auth.login') }}">public login</a> instead.
+      </p>
+      <ul class="dashboard-login__roles">
+        <li><i class="bx bx-check-circle"></i> Super Admin — LTCATO head</li>
+        <li><i class="bx bx-check-circle"></i> LTCATO staff</li>
+        <li><i class="bx bx-check-circle"></i> LGU officers</li>
+        <li><i class="bx bx-check-circle"></i> Establishment owners</li>
+      </ul>
+      <div class="dashboard-login__flow">
+        <h2>Arrival data flow</h2>
+        <ol>
+          <li>Establishments submit daily / weekly counts to their LGU.</li>
+          <li>LGUs consolidate staff data and send monthly reports to LTCATO.</li>
+          <li>LTCATO receives arrivals and uses them for provincial tourism planning.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="dashboard-login__form-wrap">
+      <div class="dashboard-login__card">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div
+          class="alert alert-{% if category in ('error', 'danger') %}danger{% elif category == 'warning' %}warning{% elif category == 'info' %}info{% else %}success{% endif %} mb-3"
+          role="alert"
+        >
+          {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <h2>Sign in</h2>
+        <p class="text-muted small mb-4">Use your LTCATO, LGU, or establishment credentials.</p>
+
+        <form method="post" action="{{ url_for('dashboard.login') }}" class="dashboard-login-form">
+          <div class="mb-3">
+            <label class="form-label" for="dashboard-email">Email</label>
+            <div class="dashboard-input-wrap">
+              <i class="bx bx-envelope"></i>
+              <input
+                type="email"
+                id="dashboard-email"
+                name="email"
+                class="form-control"
+                placeholder="you@ltcato.gov.ph"
+                value="{{ form_data.email }}"
+                autocomplete="username"
+                required
+              />
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="dashboard-password">Password</label>
+            <div class="dashboard-input-wrap">
+              <i class="bx bx-lock-alt"></i>
+              <input
+                type="password"
+                id="dashboard-password"
+                name="password"
+                class="form-control"
+                placeholder="Enter password"
+                autocomplete="current-password"
+                required
+              />
+            </div>
+          </div>
+          <button type="submit" class="btn dashboard-btn-primary w-100 mb-4">
+            <i class="bx bx-log-in"></i> Sign in to dashboard
+          </button>
+        </form>
+
+        <details class="dashboard-login__demo">
+          <summary class="small text-muted">Demo accounts (development)</summary>
+          <p class="small text-muted mt-2 mb-2">Password for all demo users: <code>ltcato2026</code></p>
+          <ul class="dashboard-login__demo-list">
+            {% for account in demo_accounts %}
+            <li>
+              <button
+                type="button"
+                class="dashboard-demo-fill"
+                data-demo-email="{{ account.email }}"
+                data-demo-password="ltcato2026"
+              >
+                <span class="dashboard-login__demo-role">{{ account.role }}</span>
+                <span class="dashboard-login__demo-email">{{ account.email }}</span>
+              </button>
+            </li>
+            {% endfor %}
+          </ul>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

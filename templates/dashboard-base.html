@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Dashboard{% endblock %} | LTCATO</title>
+  <link rel="icon" href="{{ url_for('static', filename='images/ltcato-logo.png') }}" type="image/x-icon" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Poppins:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet" />
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}" />
+  {% block style %}{% endblock %}
+</head>
+<body class="dashboard-body">
+  <div class="layout-wrapper">
+    {% include 'include/dashboard-sidebar.html' %}
+
+    <div class="layout-page">
+      <header class="dashboard-topbar">
+        <button type="button" class="dashboard-topbar__toggle" id="sidebarToggle" aria-label="Toggle menu">
+          <i class="bx bx-menu"></i>
+        </button>
+        <div class="dashboard-topbar__title">
+          {% block page_header %}{% endblock %}
+        </div>
+        <div class="dashboard-topbar__actions">
+          <a href="{{ url_for('public.home') }}" class="dashboard-topbar__link" target="_blank" rel="noopener">
+            <i class="bx bx-globe"></i> Public site
+          </a>
+        </div>
+      </header>
+
+      <div class="content-wrapper">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="dashboard-flash-stack mb-4">
+          {% for category, message in messages %}
+          <div
+            class="alert alert-{% if category == 'error' or category == 'danger' %}danger{% elif category == 'warning' %}warning{% elif category == 'info' %}info{% else %}success{% endif %} alert-dismissible fade show"
+            role="alert"
+          >
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+  {% block script %}{% endblock %}
+</body>
+</html>

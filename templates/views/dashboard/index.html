@@ -1,0 +1,197 @@
+{% extends "dashboard-base.html" %}
+
+{% block title %}Overview{% endblock %}
+
+{% block page_header %}
+<h1>Dashboard</h1>
+<p>{{ user.organization }} · {{ user.role_label }}</p>
+{% endblock %}
+
+{% block content %}
+<section class="dashboard-hero mb-4">
+  <div class="dashboard-hero__content">
+    <div>
+      <span class="dashboard-hero__eyebrow"><i class="bx bx-pulse"></i> LTCATO operations</span>
+      <h2 class="dashboard-hero__title">Welcome back, {{ user.name }}</h2>
+      <p class="dashboard-hero__lead">
+        {% if user.role == 'super_admin' %}
+          Provincial command center for tourism arrivals, account management, and promotions across Laguna.
+        {% elif user.role == 'ltcato_staff' %}
+          Coordinate tourist spot listings, events, and arrival data with LGUs and establishments.
+        {% elif user.role == 'lgu' %}
+          Consolidate establishment reports and submit monthly tourist arrivals to LTCATO.
+        {% else %}
+          Keep your establishment listing accurate and report visitor counts to your LGU on schedule.
+        {% endif %}
+      </p>
+    </div>
+    <div class="dashboard-hero__meta">
+      <span><i class="bx bx-envelope"></i> {{ user.email }}</span>
+      <a href="{{ url_for('public.home') }}" class="dashboard-hero__link" target="_blank" rel="noopener">
+        <i class="bx bx-globe"></i> View public site
+      </a>
+    </div>
+  </div>
+</section>
+
+<div class="row g-3 mb-4">
+  {% for stat in overview.stats %}
+  <div class="col-6 col-lg-3">
+    <div class="dashboard-stat-card dashboard-stat-card--highlight">
+      <i class="bx {{ stat.icon }} dashboard-stat-card__icon"></i>
+      <strong>{{ stat.value }}</strong>
+      <span>{{ stat.label }}</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-8">
+    <div class="dashboard-card h-100">
+      <div class="dashboard-card__header">
+        <h3 class="dashboard-card__title mb-0">Quick actions</h3>
+        <p class="text-muted small mb-0">Shortcuts for your role</p>
+      </div>
+      <div class="dashboard-quick-grid">
+        {% for action in overview.quick_actions %}
+        <a href="{{ url_for(action.endpoint) }}" class="dashboard-quick-action">
+          <span class="dashboard-quick-action__icon"><i class="bx {{ action.icon }}"></i></span>
+          <span class="dashboard-quick-action__text">
+            <strong>{{ action.label }}</strong>
+            <small>{{ action.description }}</small>
+          </span>
+          <i class="bx bx-chevron-right dashboard-quick-action__arrow"></i>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="dashboard-card h-100">
+      <h3 class="dashboard-card__title">Pending tasks</h3>
+      <p class="text-muted small mb-3">Items that need your attention</p>
+      <ul class="dashboard-task-list">
+        {% for task in overview.pending_tasks %}
+        <li class="dashboard-task-list__item dashboard-task-list__item--{{ task.status }}">
+          <div class="dashboard-task-list__main">
+            <span class="dashboard-task-list__badge">{{ task.badge }}</span>
+            <strong>{{ task.title }}</strong>
+            <span class="dashboard-task-list__due">{{ task.due }}</span>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="dashboard-card mb-4">
+  <h3 class="dashboard-card__title">Tourist arrival data flow</h3>
+  <p class="text-muted small mb-4">
+    How visitor counts move from establishments to provincial planning — the core reporting chain for LTCATO.
+  </p>
+  <div class="dashboard-pipeline">
+    {% for step in overview.arrival_pipeline %}
+    <div class="dashboard-pipeline__step">
+      <span class="dashboard-pipeline__icon"><i class="bx {{ step.icon }}"></i></span>
+      <span class="dashboard-pipeline__num">{{ step.step }}</span>
+      <h4>{{ step.title }}</h4>
+      <p>{{ step.text }}</p>
+    </div>
+    {% if not loop.last %}
+    <span class="dashboard-pipeline__connector" aria-hidden="true"><i class="bx bx-right-arrow-alt"></i></span>
+    {% endif %}
+    {% endfor %}
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-7">
+    <div class="dashboard-card h-100">
+      <h3 class="dashboard-card__title">Your workflow</h3>
+      <p class="text-muted small mb-3">Primary responsibilities for {{ user.role_label }}</p>
+      <div class="row g-3">
+        {% for card in workflow_cards %}
+        <div class="col-md-6">
+          <a
+            href="{% if card.endpoint %}{{ url_for(card.endpoint) }}{% else %}#{% endif %}"
+            class="dashboard-workflow-card h-100"
+          >
+            <i class="bx {{ card.icon }} dashboard-stat-card__icon"></i>
+            <h4>{{ card.title }}</h4>
+            <p>{{ card.text }}</p>
+            <span class="dashboard-workflow-card__link">Open module <i class="bx bx-right-arrow-alt"></i></span>
+          </a>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="dashboard-card h-100">
+      <h3 class="dashboard-card__title">Recent activity</h3>
+      <p class="text-muted small mb-3">Latest updates in your workspace</p>
+      <ul class="dashboard-activity-list">
+        {% for item in overview.recent_activity %}
+        <li class="dashboard-activity-list__item">
+          <span class="dashboard-activity-list__icon"><i class="bx {{ item.icon }}"></i></span>
+          <div>
+            <p>{{ item.message }}</p>
+            <time>{{ item.time }}</time>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="dashboard-card h-100">
+      <h3 class="dashboard-card__title">Public portal modules</h3>
+      <p class="text-muted small mb-3">What tourists see on the public site — reviews, itineraries, and spot discovery.</p>
+      <div class="dashboard-public-links">
+        {% for mod in overview.public_modules %}
+        <a href="{{ url_for(mod.endpoint) }}" class="dashboard-public-link" target="_blank" rel="noopener">
+          <i class="bx {{ mod.icon }}"></i>
+          <span>
+            <strong>{{ mod.label }}</strong>
+            <small>{{ mod.description }}</small>
+          </span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="dashboard-card h-100">
+      <h3 class="dashboard-card__title">System roles at a glance</h3>
+      <p class="text-muted small mb-3">How each stakeholder connects in the Laguna tourism platform.</p>
+      <div class="dashboard-roles-grid">
+        <div class="dashboard-role-chip">
+          <strong>Super Admin</strong>
+          <span>Receives monthly LGU reports; manages accounts and promotions.</span>
+        </div>
+        <div class="dashboard-role-chip">
+          <strong>LTCATO Staff</strong>
+          <span>Events, spot verification, and tourism programs.</span>
+        </div>
+        <div class="dashboard-role-chip">
+          <strong>LGU</strong>
+          <span>Staff accounts, consolidation, monthly provincial handoff.</span>
+        </div>
+        <div class="dashboard-role-chip">
+          <strong>Establishment</strong>
+          <span>Listing updates and daily/weekly arrival submissions.</span>
+        </div>
+        <div class="dashboard-role-chip dashboard-role-chip--accent">
+          <strong>Tourist</strong>
+          <span>Public login: reviews, feedback, saved itineraries — <a href="{{ url_for('auth.login') }}" target="_blank" rel="noopener">tourist sign in</a>.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
