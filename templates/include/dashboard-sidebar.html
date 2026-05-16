@@ -1,0 +1,51 @@
+{% set user = user or current_dashboard_user %}
+{% set nav_items = nav_items or dashboard_nav_items or [] %}
+<aside class="dashboard-sidebar" id="dashboardSidebar">
+  <div class="dashboard-sidebar__brand">
+    <a href="{{ url_for('dashboard.index') }}">
+      <img src="{{ url_for('static', filename='images/ltcato-logo.png') }}" alt="LTCATO" width="40" height="40" />
+      <span>
+        <strong>LTCATO</strong>
+        <small>Staff dashboard</small>
+      </span>
+    </a>
+  </div>
+
+  {% if user %}
+  <div class="dashboard-sidebar__user">
+    <span class="dashboard-sidebar__avatar"><i class="bx bx-user"></i></span>
+    <div class="dashboard-sidebar__user-text">
+      <strong>{{ user.name }}</strong>
+      <span>{{ user.role_label }}</span>
+    </div>
+  </div>
+  {% endif %}
+
+  <nav class="dashboard-sidebar__nav" aria-label="Dashboard navigation">
+    <ul>
+      {% for item in nav_items %}
+      {% if item.section %}
+      <li class="dashboard-sidebar__section">{{ item.section }}</li>
+      {% else %}
+      <li>
+        <a
+          href="{{ url_for(item.endpoint) }}"
+          class="dashboard-sidebar__link{% if request.endpoint == item.endpoint %} is-active{% endif %}"
+        >
+          <i class="bx {{ item.icon }}"></i>
+          {{ item.label }}
+        </a>
+      </li>
+      {% endif %}
+      {% endfor %}
+    </ul>
+  </nav>
+
+  <div class="dashboard-sidebar__footer">
+    <form method="post" action="{{ url_for('dashboard.logout') }}">
+      <button type="submit" class="dashboard-sidebar__link">
+        <i class="bx bx-log-out"></i> Sign out
+      </button>
+    </form>
+  </div>
+</aside>
