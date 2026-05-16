@@ -10,7 +10,7 @@ from services.supabase_client import get_supabase
 
 PROFILE_FIELDS = (
     "id, first_name, last_name, middle_name, email, role_id, lgu_id, "
-    "contact_number, is_active, created_at, "
+    "is_active, created_at, "
     "roles(id, role_key, role_name), lgus(id, name)"
 )
 

@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
 from services.tourist_auth import (
@@ -56,44 +57,46 @@ def register():
         return redirect(url_for("public.home"))
 
     form_data = {
-        "full_name": "",
+        "first_name": "",
+        "middle_name": "",
+        "last_name": "",
         "email": "",
-        "phone": "",
-        "country": "",
         "terms": False,
     }
 
     if request.method == "POST":
-        full_name = _form_value("full_name")
+        first_name = _form_value("first_name")
+        middle_name = _form_value("middle_name")
+        last_name = _form_value("last_name")
         email = _form_value("email")
-        phone = _form_value("phone")
-        country = _form_value("country")
         password = request.form.get("password") or ""
         confirm_password = request.form.get("confirm_password") or ""
         terms = request.form.get("terms") == "on"
 
         form_data = {
-            "full_name": full_name,
+            "first_name": first_name,
+            "middle_name": middle_name,
+            "last_name": last_name,
             "email": email,
-            "phone": phone,
-            "country": country,
             "terms": terms,
         }
 
-        error = validate_register(full_name, email, password, confirm_password, terms)
+        error = validate_register(first_name, last_name, email, password, confirm_password, terms)
         if error:
             flash(error, "danger")
         else:
             ok, auth_error, needs_confirmation = register_tourist(
-                full_name, email, password, phone, country
+                first_name, last_name, email, password, middle_name
             )
             if ok:
                 if needs_confirmation:
-                    flash(
-                        "Account created! Check your email to confirm your address, then sign in.",
-                        "success",
+                    return render_template(
+                        "views/auth/register.html",
+                        benefits=TOURIST_BENEFITS,
+                        form_data=form_data,
+                        show_confirmation_modal=True,
+                        registered_email=email,
                     )
-                    return redirect(url_for("auth.login"))
                 flash("Welcome to LTCATO! Your tourist account is ready.", "success")
                 return redirect(url_for("public.home"))
             flash(auth_error or "Registration failed.", "danger")
