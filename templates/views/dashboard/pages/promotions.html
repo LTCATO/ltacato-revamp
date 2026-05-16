@@ -1,0 +1,87 @@
+{% extends "dashboard-base.html" %}
+{% from "include/dashboard/macros.html" import status_badge %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_header %}<h1>{{ page_title }}</h1><p>{{ page_description }}</p>{% endblock %}
+
+{% block content %}
+{% set header_actions %}
+{% if not can_approve %}
+<button type="button" class="btn dashboard-btn-primary" data-bs-toggle="modal" data-bs-target="#eventModal"><i class="bx bx-plus"></i> New event</button>
+{% endif %}
+{% endset %}
+{% include "include/dashboard/module_header.html" %}
+
+<div class="dashboard-card">
+  <div class="table-responsive">
+    <table class="table dashboard-table mb-0">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>LGU</th>
+          <th>Dates</th>
+          <th>Venue</th>
+          <th>Status</th>
+          {% if can_approve %}<th>Actions</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in events %}
+        <tr>
+          <td><strong>{{ e.title }}</strong><br /><span class="small text-muted">{{ e.description|truncate_text(80) }}</span></td>
+          <td>{{ (e.lgus.name if e.lgus else 'Provincial') }}</td>
+          <td class="small">{{ e.start_date or '—' }}{% if e.end_date %} – {{ e.end_date }}{% endif %}</td>
+          <td>{{ e.venue or '—' }}</td>
+          <td>{{ status_badge(e.approval_status) }}</td>
+          {% if can_approve and e.approval_status == 'pending' %}
+          <td class="dashboard-table__actions">
+            <form method="post" action="{{ url_for('dashboard.approve_event', event_id=e.id) }}" class="d-inline">
+              <button type="submit" class="btn btn-sm dashboard-btn-primary">Approve</button>
+            </form>
+            <form method="post" action="{{ url_for('dashboard.reject_event', event_id=e.id) }}" class="d-inline">
+              <button type="submit" class="btn btn-sm btn-outline-secondary">Reject</button>
+            </form>
+          </td>
+          {% elif can_approve %}
+          <td>—</td>
+          {% endif %}
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No events yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if not can_approve %}
+<div class="modal fade" id="eventModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('dashboard.form_save_stub') }}">
+        <input type="hidden" name="form_type" value="event" />
+        <div class="modal-header">
+          <h5 class="modal-title">Post promotion / event</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body row g-3">
+          <div class="col-12"><label class="form-label">Title</label><input name="title" class="form-control" required /></div>
+          <div class="col-12"><label class="form-label">Description</label><textarea name="description" class="form-control" rows="3"></textarea></div>
+          <div class="col-md-4"><label class="form-label">Start date</label><input type="date" name="start_date" class="form-control" /></div>
+          <div class="col-md-4"><label class="form-label">End date</label><input type="date" name="end_date" class="form-control" /></div>
+          <div class="col-md-4"><label class="form-label">LGU (optional)</label>
+            <select name="lgu_id" class="form-select"><option value="">Provincial</option>{% for l in lgus %}<option value="{{ l.id }}">{{ l.name }}</option>{% endfor %}</select>
+          </div>
+          <div class="col-12"><label class="form-label">Venue</label><input name="venue" class="form-control" /></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn dashboard-btn-primary">Submit for approval</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+

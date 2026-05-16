@@ -1,0 +1,142 @@
+{% extends "dashboard-base.html" %}
+{% from "include/dashboard/macros.html" import status_badge %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block page_header %}
+<h1>{{ page_title }}</h1>
+<p>{{ page_description }}</p>
+{% endblock %}
+
+{% block content %}
+{% include "include/dashboard/module_header.html" %}
+
+<div class="row g-3 mb-4">
+  {% if user.role == 'establishment_owner' %}
+  <div class="col-6 col-lg-3">
+    <div class="dashboard-stat-card">
+      <i class="bx bx-user dashboard-stat-card__icon"></i>
+      <strong>{{ analytics.visitors_this_month }}</strong>
+      <span>Visitors (recent)</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="dashboard-stat-card">
+      <i class="bx bx-file dashboard-stat-card__icon"></i>
+      <strong>{{ analytics.reports_submitted }}</strong>
+      <span>Reports submitted</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="dashboard-stat-card">
+      <i class="bx bx-star dashboard-stat-card__icon"></i>
+      <strong>{{ analytics.avg_rating }}</strong>
+      <span>Average rating</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="dashboard-stat-card">
+      <i class="bx bx-time dashboard-stat-card__icon"></i>
+      <strong>{{ analytics.pending_reports }}</strong>
+      <span>Due reports</span>
+    </div>
+  </div>
+  {% else %}
+  <div class="col-6 col-lg-3">
+    <div class="dashboard-stat-card">
+      <i class="bx bx-map dashboard-stat-card__icon"></i>
+      <strong>{{ analytics.spot_total }}</strong>
+      <span>Approved spots</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="dashboard-stat-card">
+      <i class="bx bx-line-chart dashboard-stat-card__icon"></i>
+      <strong>{{ analytics.monthly_arrival_total }}</strong>
+      <span>Monthly visitors</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="dashboard-stat-card">
+      <i class="bx bx-message dashboard-stat-card__icon"></i>
+      <strong>{{ analytics.feedback_count }}</strong>
+      <span>Feedback (recent)</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="dashboard-stat-card">
+      <i class="bx bx-star dashboard-stat-card__icon"></i>
+      <strong>{{ analytics.avg_feedback_rating }}</strong>
+      <span>Avg rating</span>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% if analytics.arrival_by_lgu and user.role in ('super_admin', 'ltcato_staff') %}
+<div class="dashboard-card mb-4">
+  <div class="dashboard-card__header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <h3 class="dashboard-card__title mb-0">Arrivals by LGU (monthly)</h3>
+      <p class="text-muted small mb-0">Consolidated visitor totals from arrival_reports</p>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="table dashboard-table mb-0">
+      <thead>
+        <tr>
+          <th>LGU</th>
+          <th>Reports</th>
+          <th>Total visitors</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in analytics.arrival_by_lgu %}
+        <tr>
+          <td><strong>{{ row.lgu_name }}</strong></td>
+          <td>{{ row.report_count }}</td>
+          <td>{{ row.total_visitors }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="text-muted text-center py-4">No monthly arrival data yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="dashboard-card h-100">
+      <h3 class="dashboard-card__title">Operational queue</h3>
+      <ul class="dashboard-kpi-list">
+        <li><span>Pending LTCATO spot review</span><strong>{{ analytics.pending_ltcato_spots or 0 }}</strong></li>
+        <li><span>Pending LGU spot review</span><strong>{{ analytics.pending_lgu_spots or 0 }}</strong></li>
+        <li><span>Events awaiting approval</span><strong>{{ analytics.pending_events or 0 }}</strong></li>
+        <li><span>Chatbot FAQ pending</span><strong>{{ analytics.pending_chatbot or 0 }}</strong></li>
+        {% if user.role in ('super_admin', 'ltcato_staff') %}
+        <li><span>LGUs in directory</span><strong>{{ analytics.lgu_count or 0 }}</strong></li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="dashboard-card h-100">
+      <h3 class="dashboard-card__title">How this module works</h3>
+      <p class="text-muted small">
+        {% if user.role == 'lgu' %}
+          Analytics for your LGU combines approved tourist spots, tourist feedback, and arrival reports submitted by establishments you manage.
+        {% elif user.role == 'establishment_owner' %}
+          Track visitor submissions and ratings for your property. Daily and weekly counts flow to your LGU; they compile monthly totals for LTCATO.
+        {% elif user.role == 'ltcato_staff' %}
+          Provincial view across LGUs, establishments, and monthly submissions — aligned with reports sent by LGU tourism officers.
+        {% else %}
+          System-wide KPIs: approved destinations, pending approvals, monthly arrivals, and feedback sentiment across Laguna.
+        {% endif %}
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

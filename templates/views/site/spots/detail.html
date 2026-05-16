@@ -225,7 +225,7 @@
     <h2 class="section-title mb-4">Related spots</h2>
     <div class="row g-4">
       {% for rel in related %}
-      {% set rel_muni = rel.municipalities.name if rel.municipalities else 'Laguna' %}
+      {% set rel_muni = rel|spot_lgu_name %}
       {% set rel_img = rel.main_image_url | normalize_image_url %}
       <div class="col-md-4">
         <a href="{{ url_for('spots.spot_detail', spot_id=rel.id) }}" class="featured-card">
