@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 from flask import flash, redirect, request, url_for
 
 from routes.dashboard.blueprint import dashboard_bp
@@ -46,7 +47,7 @@ def analytics():
     if user["role"] == "establishment_owner":
         data = get_establishment_analytics()
     else:
-        data = get_analytics_overview(lgu_id=lgu_id if user["role"] == "lgu" else None)
+        data = get_analytics_overview(lgu_id=lgu_id if user["role"] == "lgu_admin" else None)
     return render_dashboard(
         "views/dashboard/pages/analytics.html",
         user,
@@ -84,7 +85,7 @@ def arrivals():
         reports = list_arrival_reports(spot_id=None, report_type=None, limit=50)
         report_types = ("daily", "weekly")
         page_desc = "Submit daily or weekly visitor counts to your LGU."
-    elif role == "lgu":
+    elif role == "lgu_admin":
         reports = list_arrival_reports(lgu_id=lgu_id, limit=100)
         report_types = ("daily", "weekly", "monthly")
         page_desc = "Receive establishment reports and submit monthly totals to LTCATO staff."
@@ -102,7 +103,7 @@ def arrivals():
         user,
         reports=reports,
         report_types=report_types,
-        lgus=list_lgus_simple() if role in ("super_admin", "lgu") else [],
+        lgus=list_lgus_simple() if role in ("super_admin", "lgu_admin") else [],
         page_title="Arrivals",
         page_description=page_desc,
         page_icon="bx-line-chart",
@@ -111,11 +112,11 @@ def arrivals():
 
 @dashboard_bp.route("/accounts")
 @dashboard_login_required
-@role_required("super_admin")
+@role_required("super_admin", "ltcato_staff")
 def accounts():
     user = get_current_dashboard_user()
     staff = list_profiles(role_key="ltcato_staff")
-    lgu_users = list_profiles(role_key="lgu")
+    lgu_users = list_profiles(role_key="lgu_admin")
     owners = list_profiles(role_key="establishment_owner")
     return render_dashboard(
         "views/dashboard/pages/accounts.html",
@@ -175,10 +176,10 @@ def chatbot():
 
 @dashboard_bp.route("/feedback")
 @dashboard_login_required
-@role_required("super_admin", "lgu")
+@role_required("super_admin", "lgu_admin")
 def feedback():
     user = get_current_dashboard_user()
-    lgu_id = _user_lgu_id(user) if user["role"] == "lgu" else None
+    lgu_id = _user_lgu_id(user) if user["role"] == "lgu_admin" else None
     items = list_feedbacks(lgu_id=lgu_id, limit=100)
     return render_dashboard(
         "views/dashboard/pages/feedback.html",
@@ -186,7 +187,7 @@ def feedback():
         feedbacks=items,
         page_title="Feedback",
         page_description="Tourist ratings and comments across managed establishments."
-        if user["role"] == "lgu"
+        if user["role"] == "lgu_admin"
         else "System-wide tourist feedback oversight.",
         page_icon="bx-message-square-dots",
     )
@@ -212,7 +213,7 @@ def lgu_management():
 
 @dashboard_bp.route("/tourist-spots")
 @dashboard_login_required
-@role_required("lgu")
+@role_required("lgu_admin")
 def tourist_spots():
     user = get_current_dashboard_user()
     lgu_id = _user_lgu_id(user)

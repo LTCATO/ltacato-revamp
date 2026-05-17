@@ -12,41 +12,11 @@ from flask import flash, redirect, session, url_for
 ROLE_LABELS: dict[str, str] = {
     "super_admin": "Super Admin (LTCATO Head)",
     "ltcato_staff": "LTCATO Staff",
-    "lgu": "LGU Officer",
+    "lgu_admin": "LGU Officer",
     "establishment_owner": "Establishment Owner",
 }
 
-DEMO_USERS: dict[str, dict[str, Any]] = {
-    "superadmin@ltcato.gov.ph": {
-        "password": "ltcato2026",
-        "role": "super_admin",
-        "name": "LTCATO Super Admin",
-        "organization": "Provincial Government of Laguna",
-        "lgu_id": None,
-    },
-    "staff@ltcato.gov.ph": {
-        "password": "ltcato2026",
-        "role": "ltcato_staff",
-        "name": "Maria Santos",
-        "organization": "LTCATO — Tourism Division",
-        "lgu_id": None,
-    },
-    "lgu@calamba.gov.ph": {
-        "password": "ltcato2026",
-        "role": "lgu",
-        "name": "Calamba LGU Tourism",
-        "organization": "City of Calamba",
-        "lgu_id": 1,
-    },
-    "owner@hotspring.laguna.ph": {
-        "password": "ltcato2026",
-        "role": "establishment_owner",
-        "name": "Resort Manager",
-        "organization": "Sample Thermal Resort",
-        "lgu_id": 1,
-        "owner_id": "demo-owner-uuid",
-    },
-}
+
 
 SESSION_KEYS = (
     "dashboard_user_id",
@@ -83,7 +53,7 @@ NAV_BY_ROLE: dict[str, list[dict[str, Any]]] = {
         {"label": "Promotions", "icon": "bx-calendar-event", "endpoint": "dashboard.promotions"},
         {"label": "Chatbot config", "icon": "bx-bot", "endpoint": "dashboard.chatbot"},
     ],
-    "lgu": [
+    "lgu_admin": [
         {"section": "Overview"},
         {"label": "Dashboard", "icon": "bx-grid-alt", "endpoint": "dashboard.index"},
         {"label": "Analytics", "icon": "bx-bar-chart-alt-2", "endpoint": "dashboard.analytics"},
@@ -124,16 +94,60 @@ def get_nav_items(role: str) -> list[dict[str, Any]]:
 
 def login_dashboard(email: str, password: str) -> tuple[bool, str | None]:
     email = email.strip().lower()
-    user = DEMO_USERS.get(email)
-    if not user or user["password"] != password:
+    from services.supabase_client import get_supabase
+    from supabase import create_client
+    import os
+
+    url = os.getenv("SUPABASE_URL")
+    # Must use anon key for sign-in to avoid mutating service_role client
+    anon_key = os.getenv("SUPABASE_KEY")
+    
+    if not url or not anon_key:
+        return False, "Server configuration error: missing Supabase credentials."
+
+    temp_client = create_client(url, anon_key)
+    
+    try:
+        response = temp_client.auth.sign_in_with_password(
+            {"email": email, "password": password}
+        )
+    except Exception:
         return False, "Invalid email or password for the staff portal."
 
-    session["dashboard_user_id"] = email
+    user = response.user
+    if not user:
+        return False, "Sign in failed. Please check your credentials."
+
+    # Fetch profile using the global service_role client (bypasses RLS)
+    profile_res = get_supabase().table("profiles").select("*, roles(role_key, role_name), lgus(name)").eq("id", user.id).execute()
+    if not profile_res.data:
+        return False, f"No dashboard profile found for this user (ID: {user.id})."
+
+    profile = profile_res.data[0]
+    role_info = profile.get("roles") or {}
+    role_key = role_info.get("role_key")
+    
+    # Block tourists from logging into the dashboard
+    if role_key == "tourist" or not role_key:
+        get_supabase().auth.sign_out()
+        return False, "Tourists cannot access the dashboard."
+
+    first_name = profile.get("first_name") or ""
+    last_name = profile.get("last_name") or ""
+    name = f"{first_name} {last_name}".strip() or email.split("@")[0]
+    
+    org_name = "LTCATO"
+    lgu_info = profile.get("lgus")
+    if lgu_info and isinstance(lgu_info, dict):
+        org_name = lgu_info.get("name") or org_name
+
+    session["dashboard_user_id"] = user.id
     session["dashboard_email"] = email
-    session["dashboard_name"] = user["name"]
-    session["dashboard_role"] = user["role"]
-    session["dashboard_organization"] = user["organization"]
-    session["dashboard_lgu_id"] = user.get("lgu_id")
+    session["dashboard_name"] = name
+    session["dashboard_role"] = role_key
+    session["dashboard_organization"] = org_name
+    session["dashboard_lgu_id"] = profile.get("lgu_id")
+    
     return True, None
 
 
@@ -142,16 +156,7 @@ def logout_dashboard() -> None:
         session.pop(key, None)
 
 
-def get_demo_accounts() -> list[dict[str, str]]:
-    return [
-        {
-            "email": email,
-            "role": ROLE_LABELS[data["role"]],
-            "role_key": data["role"],
-            "name": data["name"],
-        }
-        for email, data in DEMO_USERS.items()
-    ]
+
 
 
 def request_path() -> str:
