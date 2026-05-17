@@ -33,15 +33,18 @@
             <li class="nav-item"><a class="nav-link" href="{{ url_for('spots.spots_list') }}">Spots</a></li>
             <li class="nav-item"><a class="nav-link" href="{{ url_for('lgu.lgu_list') }}">LGU</a></li>
             <li class="nav-item"><a class="nav-link" href="{{ url_for('events.events_list') }}">Events</a></li>
-            <li class="nav-item"><a class="nav-link" href="#">Planner</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('itinerary.planner') }}">Planner</a></li>
+            {% if current_tourist %}
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('itinerary.my_itineraries') }}">My trips</a></li>
+            {% endif %}
             <li class="nav-item"><a class="nav-link" href="{{ url_for('public.about') }}">About</a></li>
           </ul>
           <div class="ltcato-nav-auth">
             {% if current_tourist %}
             <div class="ltcato-nav-user">
-              <span class="ltcato-nav-user__name" title="{{ current_tourist.email }}">
+              <a class="ltcato-nav-user__name" href="{{ url_for('profile.tourist_profile') }}" title="{{ current_tourist.email }}">
                 <i class="ph ph-user-circle"></i> {{ current_tourist.name }}
-              </span>
+              </a>
               <form method="post" action="{{ url_for('auth.logout') }}" class="d-inline">
                 <button type="submit" class="ltcato-btn-logout">Sign out</button>
               </form>

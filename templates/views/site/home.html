@@ -75,7 +75,7 @@
         <i class="ph ph-map-trifold"></i>
         Open Interactive Map
       </a>
-      <a href="#" class="btn hero-btn hero-btn--primary">
+      <a href="{{ url_for('itinerary.planner') }}" class="btn hero-btn hero-btn--primary">
         <i class="ph ph-calendar-check"></i>
         Plan My Itinerary
       </a>
@@ -449,7 +449,7 @@
       </p>
       <div class="d-flex flex-wrap gap-3 justify-content-center">
         <a href="#" class="btn ltcato-btn-pill"><i class="ph ph-map-trifold"></i> Open Interactive Map</a>
-        <a href="#" class="btn ltcato-btn-outline-lg"><i class="ph ph-calendar-check"></i> Plan My Itinerary</a>
+        <a href="{{ url_for('itinerary.planner') }}" class="btn ltcato-btn-outline-lg"><i class="ph ph-calendar-check"></i> Plan My Itinerary</a>
       </div>
     </div>
   </div>

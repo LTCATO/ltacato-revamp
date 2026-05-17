@@ -208,8 +208,8 @@
 
           <div class="spot-info-card spot-info-card--cta">
             <h3 class="spot-info-card__title">Plan your trip</h3>
-            <p class="small text-muted">Build a day-by-day itinerary with our planner—coming soon on a dedicated page.</p>
-            <a href="#" class="btn ltcato-btn-pill w-100 mb-2"><i class="ph ph-calendar-check"></i> Add to itinerary</a>
+            <p class="small text-muted">Include this spot when you build a day-by-day route in the planner.</p>
+            <a href="{{ url_for('itinerary.planner', spot_id=spot.id) }}" class="btn ltcato-btn-pill w-100 mb-2"><i class="ph ph-calendar-check"></i> Add to itinerary</a>
             <a href="{{ url_for('spots.spots_list') }}" class="btn ltcato-btn-outline-lg w-100"><i class="ph ph-arrow-left"></i> Back to all spots</a>
           </div>
         </aside>

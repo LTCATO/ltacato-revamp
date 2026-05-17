@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile{% endblock %}
+
+{% block content %}
+<section class="page-hero page-hero--planner">
+  <div class="container-xl">
+    <nav class="page-breadcrumb" aria-label="Breadcrumb">
+      <a href="{{ url_for('public.home') }}">Home</a>
+      <i class="ph ph-caret-right"></i>
+      <span>Profile</span>
+    </nav>
+    <span class="section-eyebrow">Tourist account</span>
+    <h1 class="page-hero__title">{{ display_name }}</h1>
+    <p class="page-hero__lead">Manage your profile, Laguna tourist passport, and saved itineraries.</p>
+  </div>
+</section>
+
+<section class="profile-section">
+  <div class="container-xl">
+    <div class="profile-quick-links mb-4">
+      <a href="{{ url_for('itinerary.planner') }}" class="profile-quick-links__item"><i class="ph ph-calendar-check"></i> Planner</a>
+      <a href="{{ url_for('itinerary.my_itineraries') }}" class="profile-quick-links__item"><i class="ph ph-suitcase"></i> My trips</a>
+      <a href="{{ url_for('spots.spots_list') }}" class="profile-quick-links__item"><i class="ph ph-map-pin"></i> Browse spots</a>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-lg-4">
+        <div class="planner-form planner-passport-card mb-4">
+          <h2 class="h5 planner-form__title"><i class="ph ph-identification-badge"></i> Laguna Tourist Passport</h2>
+          {% if passport %}
+          <p class="mb-1"><strong>{{ passport.passport_number }}</strong></p>
+          <p class="small text-muted mb-3">{{ passport.points or 0 }} exploration points</p>
+          {% if stamps %}
+          <p class="small fw-semibold mb-2">Recent stamps</p>
+          <ul class="planner-smart-list mb-0">
+            {% for stamp in stamps[:8] %}
+            {% set spot = stamp.tourist_spots or {} %}
+            <li>
+              <i class="ph ph-stamp"></i>
+              <span>{{ spot.name or 'Spot' }} — {{ stamp.stamped_at[:10] if stamp.stamped_at else '' }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="small text-muted mb-0">Visit spots and collect stamps from your saved itineraries.</p>
+          {% endif %}
+          {% else %}
+          <p class="small text-muted">Passport will be created when you save your first trip.</p>
+          {% endif %}
+        </div>
+
+        <div class="planner-form">
+          <h3 class="h6 planner-form__title">Saved trips</h3>
+          {% if trips %}
+          <ul class="list-unstyled mb-0">
+            {% for trip in trips %}
+            <li class="mb-2">
+              <a href="{{ url_for('itinerary.itinerary_detail', itinerary_id=trip.id) }}">{{ trip.title }}</a>
+              <span class="small text-muted d-block">{{ trip.start_date or '' }}{% if trip.end_date %} – {{ trip.end_date }}{% endif %}</span>
+            </li>
+            {% endfor %}
+          </ul>
+          <a href="{{ url_for('itinerary.my_itineraries') }}" class="itinerary-card__link mt-2 d-inline-flex">View all</a>
+          {% else %}
+          <p class="small text-muted">No saved itineraries yet.</p>
+          <a href="{{ url_for('itinerary.planner') }}" class="btn btn-sm ltcato-btn-pill">Plan a trip</a>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="col-lg-8">
+        <div class="planner-form">
+          <h2 class="planner-form__title"><i class="ph ph-user-circle"></i> Edit profile</h2>
+          <form method="post" action="{{ url_for('profile.tourist_profile') }}">
+            <input type="hidden" name="action" value="profile" />
+            <div class="d-flex align-items-center gap-3 mb-4">
+              <div class="profile-avatar-preview">
+                {% if avatar %}
+                <img src="{{ avatar }}" alt="" class="profile-avatar-preview__img" id="avatar-preview-img" />
+                {% else %}
+                <div class="profile-avatar-preview__placeholder" id="avatar-preview-placeholder"><i class="ph ph-user"></i></div>
+                {% endif %}
+              </div>
+              <div class="flex-grow-1">
+                <label class="form-label" for="profile_image">Profile image URL</label>
+                <input type="url" class="form-control" id="profile_image" name="profile_image" value="{{ form_data.profile_image }}" placeholder="https://…" />
+                <p class="small text-muted mb-0">Paste a public image link (optional).</p>
+              </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-md-4">
+                <label class="form-label" for="first_name">First name</label>
+                <input type="text" class="form-control" id="first_name" name="first_name" value="{{ form_data.first_name }}" required minlength="2" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="middle_name">Middle name</label>
+                <input type="text" class="form-control" id="middle_name" name="middle_name" value="{{ form_data.middle_name }}" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="last_name">Last name</label>
+                <input type="text" class="form-control" id="last_name" name="last_name" value="{{ form_data.last_name }}" required minlength="2" />
+              </div>
+            </div>
+
+            <div class="mb-4">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-control" value="{{ form_data.email }}" disabled />
+              <p class="small text-muted mb-0">Email is managed through your login account.</p>
+            </div>
+
+            <button type="submit" class="btn ltcato-btn-pill"><i class="ph ph-floppy-disk"></i> Save profile</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block script %}
+<script>
+  (function () {
+    var input = document.getElementById("profile_image");
+    if (!input) return;
+    input.addEventListener("change", function () {
+      var url = input.value.trim();
+      if (!url) return;
+      var img = document.getElementById("avatar-preview-img");
+      if (img) {
+        img.src = url;
+      }
+    });
+  })();
+</script>
+{% endblock %}
