@@ -100,25 +100,7 @@
           </button>
         </form>
 
-        <details class="dashboard-login__demo">
-          <summary class="small text-muted">Demo accounts (development)</summary>
-          <p class="small text-muted mt-2 mb-2">Password for all demo users: <code>ltcato2026</code></p>
-          <ul class="dashboard-login__demo-list">
-            {% for account in demo_accounts %}
-            <li>
-              <button
-                type="button"
-                class="dashboard-demo-fill"
-                data-demo-email="{{ account.email }}"
-                data-demo-password="ltcato2026"
-              >
-                <span class="dashboard-login__demo-role">{{ account.role }}</span>
-                <span class="dashboard-login__demo-email">{{ account.email }}</span>
-              </button>
-            </li>
-            {% endfor %}
-          </ul>
-        </details>
+
       </div>
     </div>
   </div>

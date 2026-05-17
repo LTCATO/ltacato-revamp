@@ -9,7 +9,7 @@ from typing import Any
 from services.supabase_client import get_supabase
 
 PROFILE_FIELDS = (
-    "id, first_name, last_name, middle_name, email, role_id, lgu_id, "
+    "id, first_name, last_name, middle_name, email, role_id, lgu_id, position, "
     "is_active, created_at, "
     "roles(id, role_key, role_name), lgus(id, name)"
 )

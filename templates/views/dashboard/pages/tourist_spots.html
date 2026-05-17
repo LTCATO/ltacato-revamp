@@ -31,12 +31,13 @@
 </div>
 
 <div class="modal fade" id="ownerModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
-<form method="post" action="{{ url_for('dashboard.form_save_stub') }}"><input type="hidden" name="form_type" value="establishment_owner" />
+<form method="post" action="{{ url_for('dashboard.create_owner_account') }}"><input type="hidden" name="form_type" value="establishment_owner" />
 <div class="modal-header"><h5 class="modal-title">Create establishment owner</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
 <div class="modal-body row g-3">
   <div class="col-md-6"><label class="form-label">First name</label><input name="first_name" class="form-control" required /></div>
   <div class="col-md-6"><label class="form-label">Last name</label><input name="last_name" class="form-control" required /></div>
   <div class="col-12"><label class="form-label">Email</label><input type="email" name="email" class="form-control" required /></div>
+  <div class="col-12"><label class="form-label">Position</label><input name="position" class="form-control" placeholder="e.g. Resort Manager" required /></div>
 </div>
 <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn dashboard-btn-primary">Create</button></div>
 </form></div></div>

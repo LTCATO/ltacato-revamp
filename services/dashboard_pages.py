@@ -48,7 +48,7 @@ def get_dashboard_overview(role: str, *, lgu_id: int | None = None) -> dict[str,
             {"badge": "Spots", "title": f"{analytics.get('pending_ltcato_spots', 0)} establishments to confirm", "due": "LGU management", "status": "warning"},
             {"badge": "Arrivals", "title": "Review monthly LGU submissions", "due": "This month", "status": "primary"},
         ]
-    elif role == "lgu":
+    elif role == "lgu_admin":
         stats = [
             {"icon": "bx-store", "label": "Managed spots", "value": analytics.get("spot_total", "—")},
             {"icon": "bx-message", "label": "Feedback received", "value": analytics.get("feedback_count", "—")},
@@ -125,7 +125,7 @@ def get_workflow_cards(role: str) -> list[dict[str, Any]]:
             {"title": "Promotions", "text": "Post events pending super admin approval.", "icon": "bx-calendar-event", "endpoint": "dashboard.promotions"},
             {"title": "Chatbot", "text": "Maintain FAQ entries for the AI assistant.", "icon": "bx-bot", "endpoint": "dashboard.chatbot"},
         ],
-        "lgu": [
+        "lgu_admin": [
             {"title": "Tourist spots", "text": "Register establishments and owner accounts.", "icon": "bx-map", "endpoint": "dashboard.tourist_spots"},
             {"title": "Arrival data", "text": "Receive daily/weekly; send monthly to LTCATO.", "icon": "bx-upload", "endpoint": "dashboard.arrivals"},
             {"title": "Feedback", "text": "Comments from tourists on your spots.", "icon": "bx-message-square-dots", "endpoint": "dashboard.feedback"},
