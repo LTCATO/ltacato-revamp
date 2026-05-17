@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}{{ itinerary.title }}{% endblock %}
+
+{% block style %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+{% endblock %}
+
+{% block content %}
+<section class="page-hero page-hero--planner">
+  <div class="container-xl">
+    <nav class="page-breadcrumb" aria-label="Breadcrumb">
+      <a href="{{ url_for('public.home') }}">Home</a>
+      <i class="ph ph-caret-right"></i>
+      <a href="{{ url_for('itinerary.my_itineraries') }}">My trips</a>
+      <i class="ph ph-caret-right"></i>
+      <span>{{ itinerary.title }}</span>
+    </nav>
+    <h1 class="page-hero__title">{{ itinerary.title }}</h1>
+    <p class="page-hero__lead">Saved itinerary · created {{ itinerary.created_at[:10] if itinerary.created_at else '' }}</p>
+    <div class="d-flex flex-wrap gap-2 mt-2">
+      <a href="{{ url_for('itinerary.planner') }}" class="btn btn-sm ltcato-btn-outline-lg"><i class="ph ph-plus"></i> New trip</a>
+      <form method="post" action="{{ url_for('itinerary.itinerary_delete', itinerary_id=itinerary.id) }}" onsubmit="return confirm('Delete this itinerary?');">
+        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="ph ph-trash"></i> Delete</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<section class="planner-section">
+  <div class="container-xl">
+    {% include "views/site/itinerary/_plan_preview.html" %}
+  </div>
+</section>
+{% endblock %}
+
+{% block script %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+  window.LTCATO_PLANNER_MAP = {{ map_points | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/planner.js') }}"></script>
+{% endblock %}
