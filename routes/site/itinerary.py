@@ -110,6 +110,10 @@ def _build_plan_from_request() -> dict:
         start_date=start,
         end_date=end,
         starting_point=(request.form.get("starting_point") or "").strip(),
+        starting_lat=_form_float("starting_lat"),
+        starting_lng=_form_float("starting_lng"),
+        departure_time=(request.form.get("departure_time") or "08:00").strip(),
+        return_time=(request.form.get("return_time") or "18:00").strip(),
         traveler_count=max(1, _form_int("traveler_count", 1)),
         trip_purpose=(request.form.get("trip_purpose") or "vacation").strip(),
         total_budget=_form_float("total_budget"),
@@ -142,7 +146,11 @@ def _planner_context(
         "title": request.form.get("title") or "My Laguna Adventure",
         "start_date": request.form.get("start_date") or date.today().isoformat(),
         "end_date": request.form.get("end_date") or (date.today() + timedelta(days=2)).isoformat(),
+        "departure_time": request.form.get("departure_time") or "08:00",
+        "return_time": request.form.get("return_time") or "18:00",
         "starting_point": request.form.get("starting_point") or "",
+        "starting_lat": request.form.get("starting_lat") or "",
+        "starting_lng": request.form.get("starting_lng") or "",
         "traveler_count": _form_int("traveler_count", 1) or 1,
         "trip_purpose": request.form.get("trip_purpose") or "vacation",
         "total_budget": request.form.get("total_budget") or "",
@@ -163,6 +171,23 @@ def _planner_context(
                     }
                 )
 
+    all_spots_json = []
+    for s in spots:
+        try:
+            lat = float(s.get("latitude"))
+            lng = float(s.get("longitude"))
+            cat = s.get("attraction_categories")
+            cat_name = cat.get("name") if isinstance(cat, dict) else ""
+            all_spots_json.append({
+                "id": s["id"],
+                "name": s["name"],
+                "lat": lat,
+                "lng": lng,
+                "category_name": cat_name
+            })
+        except (TypeError, ValueError, AttributeError):
+            continue
+
     return {
         **options,
         "spots": spots,
@@ -174,6 +199,7 @@ def _planner_context(
         "active_category": category_id,
         "active_lgu": lgu_id,
         "map_points": map_points,
+        "all_spots_json": all_spots_json,
         "map_api_key": (os.getenv("MAP_API_KEY") or "").strip(),
     }
 

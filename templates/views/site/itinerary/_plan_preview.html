@@ -30,40 +30,35 @@
     </div>
   </div>
 
-  <div class="row g-4 mb-4">
-    <div class="col-lg-7">
-      <div id="planner-route-map" class="planner-map" role="img" aria-label="Itinerary route map"></div>
-    </div>
-    <div class="col-lg-5">
-      <div class="planner-form planner-form--aside h-100">
-        <h3 class="planner-form__title h6"><i class="ph ph-cloud-sun"></i> Weather &amp; tips</h3>
-        {% if plan.weather and plan.weather.daily %}
-        <ul class="planner-smart-list mb-3">
-          {% for day_key, wx in plan.weather.daily.items() %}
-          <li>
-            <i class="ph ph-drop"></i>
-            <span>
-              <strong>{{ day_key }}</strong> —
-              {% if wx.temp_min is not none %}{{ wx.temp_min|round }}–{{ wx.temp_max|round }}°C{% endif %}
-              {{ wx.description or '' }}
-              {% if wx.rain_chance %}({{ wx.rain_chance|round }}% rain){% endif %}
-            </span>
-          </li>
-          {% endfor %}
-        </ul>
-        {% endif %}
-        {% if plan.weather and plan.weather.alerts %}
-        {% for alert in plan.weather.alerts %}
-        <p class="small text-warning mb-2"><i class="ph ph-warning"></i> {{ alert }}</p>
+  <div class="mb-4">
+    <div class="planner-form planner-form--aside h-100">
+      <h3 class="planner-form__title h6"><i class="ph ph-cloud-sun"></i> Weather &amp; tips</h3>
+      {% if plan.weather and plan.weather.daily %}
+      <ul class="planner-smart-list mb-3">
+        {% for day_key, wx in plan.weather.daily.items() %}
+        <li>
+          <i class="ph ph-drop"></i>
+          <span>
+            <strong>{{ day_key }}</strong> —
+            {% if wx.temp_min is not none %}{{ wx.temp_min|round }}–{{ wx.temp_max|round }}°C{% endif %}
+            {{ wx.description or '' }}
+            {% if wx.rain_chance %}({{ wx.rain_chance|round }}% rain){% endif %}
+          </span>
+        </li>
         {% endfor %}
-        {% endif %}
-        <h4 class="h6 mt-3">Smart recommendations</h4>
-        <ul class="planner-smart-list">
-          {% for tip in plan.smart_tips or [] %}
-          <li><i class="ph ph-sparkle"></i><span>{{ tip }}</span></li>
-          {% endfor %}
-        </ul>
-      </div>
+      </ul>
+      {% endif %}
+      {% if plan.weather and plan.weather.alerts %}
+      {% for alert in plan.weather.alerts %}
+      <p class="small text-warning mb-2"><i class="ph ph-warning"></i> {{ alert }}</p>
+      {% endfor %}
+      {% endif %}
+      <h4 class="h6 mt-3">Smart recommendations</h4>
+      <ul class="planner-smart-list">
+        {% for tip in plan.smart_tips or [] %}
+        <li><i class="ph ph-sparkle"></i><span>{{ tip }}</span></li>
+        {% endfor %}
+      </ul>
     </div>
   </div>
 
@@ -81,20 +76,42 @@
     {% if day.clothing_tip %}
     <p class="small text-muted mb-3"><i class="ph ph-t-shirt"></i> {{ day.clothing_tip }}</p>
     {% endif %}
+    
     <ol class="planner-stops">
+      {% set prev_coords = namespace(lat=none, lng=none) %}
+      
       {% for stop in day.stops %}
-      <li class="planner-stop">
+      
+      {% if not loop.first and prev_coords.lat and stop.latitude %}
+      <div class="planner-directions-wrapper position-relative ms-4 ps-3 border-start border-2 border-primary mb-3">
+         <button type="button" class="btn btn-sm btn-outline-primary rounded-pill get-directions-btn" data-start-lat="{{ prev_coords.lat }}" data-start-lng="{{ prev_coords.lng }}" data-end-lat="{{ stop.latitude }}" data-end-lng="{{ stop.longitude }}">
+           <i class="ph ph-car"></i> Get Directions {% if stop.travel_minutes %}(~{{ stop.travel_minutes }} min){% endif %}
+         </button>
+         <div class="directions-container mt-2 d-none small p-3 bg-light rounded text-muted"></div>
+      </div>
+      {% endif %}
+      
+      <li class="planner-stop {% if stop.type in ['dining', 'accommodation'] %}planner-stop--suggestion{% endif %}"
+          {% if stop.type in ['dining', 'accommodation'] and prev_coords.lat %}
+          data-suggestion-type="{{ stop.type }}" data-search-lat="{{ prev_coords.lat }}" data-search-lng="{{ prev_coords.lng }}"
+          {% endif %}>
         <div class="planner-stop__time">
           <span>{{ stop.activity_time[:5] if stop.activity_time else '' }}</span>
-          <small class="d-block text-muted">{{ slot_label(stop.time_slot) }}</small>
+          <small class="d-block text-muted">{{ slot_label(stop.time_slot) if stop.time_slot else '' }}</small>
         </div>
         <div class="planner-stop__body">
           <div class="planner-stop__media">
+            {% if stop.type == 'dining' %}
+            <div class="planner-stop__placeholder bg-warning text-dark"><i class="ph ph-bowl-food"></i></div>
+            {% elif stop.type == 'accommodation' %}
+            <div class="planner-stop__placeholder bg-info text-dark"><i class="ph ph-bed"></i></div>
+            {% else %}
             {% set img = stop.main_image_url | normalize_image_url %}
             {% if img %}
             <img src="{{ img }}" alt="" loading="lazy" />
             {% else %}
             <div class="planner-stop__placeholder"><i class="ph ph-image"></i></div>
+            {% endif %}
             {% endif %}
           </div>
           <div class="flex-grow-1">
@@ -103,42 +120,55 @@
               <a href="{{ url_for('spots.spot_detail', spot_id=stop.tourist_spot_id) }}">{{ stop.name }}</a>
               {% else %}{{ stop.name }}{% endif %}
             </h4>
-            <p class="small text-muted mb-1">
-              <i class="ph ph-map-pin"></i> {{ stop.lgu_name or 'Laguna' }}
-              {% if stop.category_name %} · {{ stop.category_name }}{% endif %}
-              {% if stop.rating %} · <i class="ph ph-star"></i> {{ stop.rating }}{% endif %}
-            </p>
-            {% if stop.travel_minutes and loop.index > 1 %}
-            <p class="planner-stop__travel small"><i class="ph ph-car"></i> ~{{ stop.travel_minutes }} min from previous stop</p>
-            {% endif %}
-            {% if stop.opening_hours %}
-            <p class="small mb-1"><i class="ph ph-clock"></i> {{ stop.opening_hours }}</p>
-            {% endif %}
-            {% if stop.entrance_fees %}
-            <p class="small mb-1"><i class="ph ph-ticket"></i> {{ stop.entrance_fees }}</p>
-            {% endif %}
-            {% if stop.food_options %}
-            <p class="small mb-1"><i class="ph ph-bowl-food"></i> {{ stop.food_options|truncate_text(120) }}</p>
-            {% endif %}
-            <p class="small mb-2">{{ stop.description|truncate_text(160) }}</p>
-            <span class="badge bg-light text-dark border me-1">{{ stop.priority|replace('_', ' ')|title }}</span>
-            {% if stop.estimated_cost %}<span class="badge bg-light text-dark border">~₱{{ '%.0f'|format(stop.estimated_cost) }}</span>{% endif %}
-            {% if stop.latitude and stop.longitude %}
-            <a
-              class="small ms-1"
-              href="https://www.google.com/maps?q={{ stop.latitude }},{{ stop.longitude }}"
-              target="_blank"
-              rel="noopener"
-            >Directions</a>
-            {% endif %}
-            {% if show_passport_stamps|default(false) and passport and stop.tourist_spot_id and stamp_itinerary_id %}
-            <form method="post" action="{{ url_for('itinerary.itinerary_stamp', itinerary_id=stamp_itinerary_id, spot_id=stop.tourist_spot_id) }}" class="d-inline ms-1">
-              <button type="submit" class="btn btn-link btn-sm p-0 align-baseline"><i class="ph ph-stamp"></i> Stamp passport</button>
-            </form>
+            
+            {% if stop.type in ['dining', 'accommodation'] %}
+              <p class="small text-muted mb-2"><i class="ph ph-lightbulb"></i> AI Suggestion {% if stop.lgu_name %}· {{ stop.lgu_name }}{% endif %}</p>
+              
+              <div class="suggestion-results-container">
+                  <p class="small mb-2 fst-italic placeholder-text">{{ stop.description }}</p>
+                  {% if prev_coords.lat %}
+                  <button type="button" class="btn btn-sm btn-light border rounded-pill load-suggestion-btn">
+                     <i class="ph ph-magnifying-glass"></i> Find real {{ 'restaurants' if stop.type == 'dining' else 'hotels' }} nearby
+                  </button>
+                  <div class="real-suggestions-list mt-2 d-flex flex-column gap-2 d-none"></div>
+                  {% endif %}
+              </div>
+              
+              {% if stop.notes %}
+              <p class="small mb-2 text-primary"><i class="ph ph-info"></i> {{ stop.notes }}</p>
+              {% endif %}
+              {% if stop.estimated_cost %}<span class="badge bg-light text-dark border">~₱{{ '%.0f'|format(stop.estimated_cost) }}</span>{% endif %}
+            {% else %}
+              <p class="small text-muted mb-1">
+                <i class="ph ph-map-pin"></i> {{ stop.lgu_name or 'Laguna' }}
+                {% if stop.category_name %} · {{ stop.category_name }}{% endif %}
+                {% if stop.rating %} · <i class="ph ph-star"></i> {{ stop.rating }}{% endif %}
+              </p>
+              {% if stop.travel_minutes and loop.index > 1 and not (prev_coords.lat and stop.latitude) %}
+              <p class="planner-stop__travel small"><i class="ph ph-car"></i> ~{{ stop.travel_minutes }} min from previous stop</p>
+              {% endif %}
+              {% if stop.opening_hours %}
+              <p class="small mb-1"><i class="ph ph-clock"></i> {{ stop.opening_hours }}</p>
+              {% endif %}
+              {% if stop.entrance_fees %}
+              <p class="small mb-1"><i class="ph ph-ticket"></i> {{ stop.entrance_fees }}</p>
+              {% endif %}
+              {% if stop.food_options %}
+              <p class="small mb-1"><i class="ph ph-bowl-food"></i> {{ stop.food_options|truncate_text(120) }}</p>
+              {% endif %}
+              <p class="small mb-2">{{ stop.description|truncate_text(160) }}</p>
+              <span class="badge bg-light text-dark border me-1">{{ stop.priority|replace('_', ' ')|title }}</span>
+              {% if stop.estimated_cost %}<span class="badge bg-light text-dark border">~₱{{ '%.0f'|format(stop.estimated_cost) }}</span>{% endif %}
             {% endif %}
           </div>
         </div>
       </li>
+      
+      {% if stop.latitude and stop.longitude %}
+        {% set prev_coords.lat = stop.latitude %}
+        {% set prev_coords.lng = stop.longitude %}
+      {% endif %}
+      
       {% endfor %}
     </ol>
   </article>
