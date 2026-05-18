@@ -4,7 +4,6 @@ from routes.dashboard.blueprint import dashboard_bp
 from routes.dashboard.helpers import dashboard_login_required
 from services.dashboard_auth import (
     get_current_dashboard_user,
-    get_demo_accounts,
     login_dashboard,
     logout_dashboard,
     request_path,
@@ -40,7 +39,6 @@ def login():
     return render_template(
         "views/auth/dashboard-login.html",
         form_data=form_data,
-        demo_accounts=get_demo_accounts(),
     )
 
 

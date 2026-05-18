@@ -1,0 +1,850 @@
+<div
+    class="modal fade"
+    id="eventModal"
+    tabindex="-1"
+    aria-labelledby="eventModalLabel"
+    aria-hidden="true"
+>
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content event-promotion-modal">
+            <form
+                method="post"
+                action="{{ url_for('dashboard.save_event') }}"
+                enctype="multipart/form-data"
+                id="eventPromotionForm"
+            >
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title" id="eventModalLabel">
+                            Post promotion / event
+                        </h5>
+                        <p class="text-muted small mb-0">
+                            Complete all sections. Gallery supports multiple
+                            images.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Close"
+                    ></button>
+                </div>
+
+                <div class="modal-body p-0">
+                    <ul
+                        class="nav nav-tabs event-promotion-tabs px-3 pt-2"
+                        role="tablist"
+                    >
+                        <li class="nav-item">
+                            <button
+                                class="nav-link active"
+                                data-bs-toggle="tab"
+                                data-bs-target="#ep-basic"
+                                type="button"
+                            >
+                                Basic
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button
+                                class="nav-link"
+                                data-bs-toggle="tab"
+                                data-bs-target="#ep-branding"
+                                type="button"
+                            >
+                                Branding
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button
+                                class="nav-link"
+                                data-bs-toggle="tab"
+                                data-bs-target="#ep-schedule"
+                                type="button"
+                            >
+                                Schedule &amp; venue
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button
+                                class="nav-link"
+                                data-bs-toggle="tab"
+                                data-bs-target="#ep-content"
+                                type="button"
+                            >
+                                Tourism content
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button
+                                class="nav-link"
+                                data-bs-toggle="tab"
+                                data-bs-target="#ep-pavilion"
+                                type="button"
+                            >
+                                LGU pavilion
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button
+                                class="nav-link"
+                                data-bs-toggle="tab"
+                                data-bs-target="#ep-media"
+                                type="button"
+                            >
+                                Media
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button
+                                class="nav-link"
+                                data-bs-toggle="tab"
+                                data-bs-target="#ep-exhibitor"
+                                type="button"
+                            >
+                                Exhibitors
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content event-promotion-tab-content p-3">
+                        <div
+                            class="tab-pane fade show active"
+                            id="ep-basic"
+                            role="tabpanel"
+                        >
+                            <div class="row g-3">
+                                <div class="col-md-8">
+                                    <label class="form-label"
+                                        >Event title
+                                        <span class="text-danger"
+                                            >*</span
+                                        ></label
+                                    >
+                                    <input
+                                        name="title"
+                                        class="form-control"
+                                        required
+                                        data-slug-source
+                                    />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Event slug</label>
+                                    <input
+                                        name="slug"
+                                        class="form-control"
+                                        placeholder="auto-from-title"
+                                        data-slug-target
+                                    />
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label"
+                                        >Short description
+                                        <span class="text-danger"
+                                            >*</span
+                                        ></label
+                                    >
+                                    <textarea
+                                        name="short_description"
+                                        class="form-control"
+                                        rows="2"
+                                        maxlength="500"
+                                        placeholder="Brief summary for cards and search"
+                                        required
+                                    ></textarea>
+                                </div>
+                                <div class="col-12">
+                                    <div class="card border mb-2">
+                                        <div
+                                            class="card-header d-flex justify-content-between align-items-center bg-white"
+                                            data-bs-toggle="collapse"
+                                            data-bs-target="#collapseFullDesc"
+                                            aria-expanded="true"
+                                            style="cursor: pointer"
+                                        >
+                                            <label
+                                                class="form-label mb-0"
+                                                style="cursor: pointer"
+                                                >Full description
+                                                <span
+                                                    class="text-muted fw-normal"
+                                                    >(rich editor)</span
+                                                >
+                                                <span class="text-danger"
+                                                    >*</span
+                                                ></label
+                                            >
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-light"
+                                            >
+                                                Toggle
+                                            </button>
+                                        </div>
+                                        <div
+                                            id="collapseFullDesc"
+                                            class="collapse show"
+                                        >
+                                            <div
+                                                class="card-body p-0 d-flex flex-column"
+                                                style="min-height: 300px"
+                                            >
+                                                <div
+                                                    id="fullDescriptionEditor"
+                                                    class="event-rich-editor border-0 flex-grow-1"
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <input
+                                        type="hidden"
+                                        name="full_description"
+                                        id="fullDescriptionInput"
+                                    />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label"
+                                        >Category
+                                        <span class="text-danger"
+                                            >*</span
+                                        ></label
+                                    >
+                                    <select
+                                        name="category"
+                                        class="form-select"
+                                        required
+                                    >
+                                        <option value="festival">
+                                            Festival
+                                        </option>
+                                        <option value="cultural">
+                                            Cultural
+                                        </option>
+                                        <option value="food">
+                                            Food &amp; Drink
+                                        </option>
+                                        <option value="adventure">
+                                            Adventure
+                                        </option>
+                                        <option value="arts">
+                                            Arts &amp; Trade
+                                        </option>
+                                        <option value="trade">
+                                            Trade fair
+                                        </option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label"
+                                        >Subcategory</label
+                                    >
+                                    <input
+                                        name="subcategory"
+                                        class="form-control"
+                                        placeholder="e.g. Harvest fair"
+                                    />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label"
+                                        >Tourism campaign type</label
+                                    >
+                                    <input
+                                        name="tourism_campaign_type"
+                                        class="form-control"
+                                        placeholder="Provincial / LGU / National"
+                                    />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Status</label>
+                                    <select
+                                        name="event_status"
+                                        class="form-select"
+                                    >
+                                        <option value="draft">Draft</option>
+                                        <option value="upcoming" selected>
+                                            Upcoming
+                                        </option>
+                                        <option value="ongoing">Ongoing</option>
+                                        <option value="finished">
+                                            Finished
+                                        </option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Visibility</label>
+                                    <select
+                                        name="visibility"
+                                        class="form-select"
+                                    >
+                                        <option value="public" selected>
+                                            Public
+                                        </option>
+                                        <option value="private">Private</option>
+                                        <option value="featured">
+                                            Featured
+                                        </option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label"
+                                        >LGU / municipality</label
+                                    >
+                                    <select name="lgu_id" class="form-select">
+                                        <option value="">Provincial</option>
+                                        {% for l in lgus %}
+                                        <option value="{{ l.id }}">
+                                            {{ l.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Organizer</label>
+                                    <input
+                                        name="organizer"
+                                        class="form-control"
+                                        placeholder="LTCATO / LGU tourism office"
+                                    />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label"
+                                        >Contact person</label
+                                    >
+                                    <input
+                                        name="contact_person"
+                                        class="form-control"
+                                        placeholder="Name, phone, or email"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            class="tab-pane fade"
+                            id="ep-branding"
+                            role="tabpanel"
+                        >
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Theme</label>
+                                    <input name="theme" class="form-control" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Tagline</label>
+                                    <input
+                                        name="tagline"
+                                        class="form-control"
+                                    />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label"
+                                        >Official banner</label
+                                    >
+                                    <input
+                                        type="file"
+                                        name="official_banner"
+                                        class="form-control"
+                                        accept="image/*"
+                                    />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Event logo</label>
+                                    <input
+                                        type="file"
+                                        name="event_logo"
+                                        class="form-control"
+                                        accept="image/*"
+                                    />
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label"
+                                        >Featured cover video</label
+                                    >
+                                    <input
+                                        type="file"
+                                        name="featured_cover_video"
+                                        class="form-control"
+                                        accept="video/mp4,video/webm,video/quicktime"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            class="tab-pane fade"
+                            id="ep-schedule"
+                            role="tabpanel"
+                        >
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label"
+                                        >Start date
+                                        <span class="text-danger"
+                                            >*</span
+                                        ></label
+                                    >
+                                    <input
+                                        type="date"
+                                        name="start_date"
+                                        class="form-control"
+                                        required
+                                    />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label"
+                                        >End date
+                                        <span class="text-danger"
+                                            >*</span
+                                        ></label
+                                    >
+                                    <input
+                                        type="date"
+                                        name="end_date"
+                                        class="form-control"
+                                        required
+                                    />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label"
+                                        >Venue name
+                                        <span class="text-danger"
+                                            >*</span
+                                        ></label
+                                    >
+                                    <input
+                                        name="venue_name"
+                                        class="form-control"
+                                        required
+                                    />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Venue type</label>
+                                    <select
+                                        name="venue_type"
+                                        class="form-select"
+                                    >
+                                        <option value="">—</option>
+                                        <option value="indoor">Indoor</option>
+                                        <option value="outdoor">Outdoor</option>
+                                        <option value="mixed">Mixed</option>
+                                        <option value="virtual">Virtual</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label">Barangay</label>
+                                    <input
+                                        name="barangay"
+                                        class="form-control"
+                                    />
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label"
+                                        >Map pin URL
+                                        <small class="text-muted fw-normal"
+                                            >(Go to Google Maps, find the place,
+                                            click Share, and copy the
+                                            link)</small
+                                        ></label
+                                    >
+                                    <input
+                                        name="map_pin"
+                                        class="form-control"
+                                        placeholder="e.g. https://maps.app.goo.gl/..."
+                                    />
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label"
+                                        >Virtual event link</label
+                                    >
+                                    <input
+                                        name="virtual_event_link"
+                                        class="form-control"
+                                        type="url"
+                                        placeholder="https://..."
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            class="tab-pane fade"
+                            id="ep-content"
+                            role="tabpanel"
+                        >
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label class="form-label">Overview</label>
+                                    <textarea
+                                        name="overview"
+                                        class="form-control"
+                                        rows="2"
+                                    ></textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label"
+                                        >Historical background</label
+                                    >
+                                    <textarea
+                                        name="historical_background"
+                                        class="form-control"
+                                        rows="3"
+                                    ></textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label"
+                                        >Significance</label
+                                    >
+                                    <textarea
+                                        name="significance"
+                                        class="form-control"
+                                        rows="3"
+                                    ></textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label"
+                                        >Cultural importance</label
+                                    >
+                                    <textarea
+                                        name="cultural_importance"
+                                        class="form-control"
+                                        rows="3"
+                                    ></textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label"
+                                        >Tourism impact</label
+                                    >
+                                    <textarea
+                                        name="tourism_impact"
+                                        class="form-control"
+                                        rows="3"
+                                    ></textarea>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label"
+                                        >Expected visitors</label
+                                    >
+                                    <input
+                                        type="number"
+                                        name="expected_visitors"
+                                        class="form-control"
+                                        min="0"
+                                    />
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label"
+                                        >Economic contribution</label
+                                    >
+                                    <input
+                                        name="economic_contribution"
+                                        class="form-control"
+                                        placeholder="Estimated revenue or jobs supported"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            class="tab-pane fade"
+                            id="ep-pavilion"
+                            role="tabpanel"
+                        >
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label"
+                                        >Tourism office</label
+                                    >
+                                    <input
+                                        name="tourism_office"
+                                        class="form-control"
+                                    />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Booth no.</label>
+                                    <input
+                                        name="pavilion_booth_no"
+                                        class="form-control"
+                                    />
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label"
+                                        >Products showcased</label
+                                    >
+                                    <textarea
+                                        name="pavilion_products"
+                                        class="form-control"
+                                        rows="2"
+                                    ></textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label"
+                                        >Featured destination</label
+                                    >
+                                    <input
+                                        name="featured_destination"
+                                        class="form-control"
+                                    />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label"
+                                        >Representative</label
+                                    >
+                                    <input
+                                        name="representative"
+                                        class="form-control"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            class="tab-pane fade"
+                            id="ep-media"
+                            role="tabpanel"
+                        >
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label"
+                                        >Cover image</label
+                                    >
+                                    <input
+                                        type="file"
+                                        name="cover_image"
+                                        class="form-control"
+                                        accept="image/*"
+                                    />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label"
+                                        >Gallery images
+                                        <span class="text-muted"
+                                            >(multiple)</span
+                                        ></label
+                                    >
+                                    <input
+                                        type="file"
+                                        name="gallery_images"
+                                        class="form-control"
+                                        accept="image/*"
+                                        multiple
+                                        data-gallery-input
+                                    />
+                                    <div
+                                        class="event-gallery-preview mt-2"
+                                        data-gallery-preview
+                                    ></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label"
+                                        >Promo video</label
+                                    >
+                                    <input
+                                        type="file"
+                                        name="promo_video"
+                                        class="form-control"
+                                        accept="video/*"
+                                    />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label"
+                                        >Drone footage</label
+                                    >
+                                    <input
+                                        type="file"
+                                        name="drone_footage"
+                                        class="form-control"
+                                        accept="video/*"
+                                    />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label"
+                                        >Poster (PDF)</label
+                                    >
+                                    <input
+                                        type="file"
+                                        name="poster_pdf"
+                                        class="form-control"
+                                        accept=".pdf,application/pdf"
+                                    />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label"
+                                        >Brochure (PDF)</label
+                                    >
+                                    <input
+                                        type="file"
+                                        name="brochure"
+                                        class="form-control"
+                                        accept=".pdf,application/pdf"
+                                    />
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label"
+                                        >Social assets
+                                        <span class="text-muted"
+                                            >(multiple images)</span
+                                        ></label
+                                    >
+                                    <input
+                                        type="file"
+                                        name="social_assets"
+                                        class="form-control"
+                                        accept="image/*"
+                                        multiple
+                                    />
+                                </div>
+                                <div class="col-12">
+                                    <p class="small text-muted mb-0">
+                                        Engagement metrics (likes, bookmarks,
+                                        shares, reviews, attendance) are tracked
+                                        automatically after publication.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            class="tab-pane fade"
+                            id="ep-exhibitor"
+                            role="tabpanel"
+                        >
+                            <p class="small text-muted">
+                                Add one or more booth / business exhibitors.
+                            </p>
+                            <div id="exhibitorRows" data-exhibitor-rows>
+                                <div
+                                    class="exhibitor-row border rounded p-3 mb-3"
+                                    data-exhibitor-row
+                                >
+                                    <div
+                                        class="d-flex justify-content-between align-items-center mb-2"
+                                    >
+                                        <h6 class="mb-0 text-muted small">
+                                            Exhibitor Details
+                                        </h6>
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-danger"
+                                            aria-label="Remove exhibitor"
+                                            data-remove-exhibitor
+                                        >
+                                            <i class="bx bx-trash"></i>
+                                        </button>
+                                    </div>
+                                    <div class="row g-2">
+                                        <div class="col-md-6">
+                                            <label class="form-label"
+                                                >Business name</label
+                                            >
+                                            <input
+                                                name="exhibitor_business_name"
+                                                class="form-control"
+                                            />
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label"
+                                                >Owner</label
+                                            >
+                                            <input
+                                                name="exhibitor_owner"
+                                                class="form-control"
+                                            />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label"
+                                                >Category</label
+                                            >
+                                            <input
+                                                name="exhibitor_category"
+                                                class="form-control"
+                                            />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label"
+                                                >Booth number</label
+                                            >
+                                            <input
+                                                name="exhibitor_booth_number"
+                                                class="form-control"
+                                            />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label"
+                                                >Municipality</label
+                                            >
+                                            <select
+                                                name="exhibitor_lgu_id"
+                                                class="form-select"
+                                            >
+                                                <option value="">—</option>
+                                                {% for l in lgus %}
+                                                <option value="{{ l.id }}">
+                                                    {{ l.name }}
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label"
+                                                >Products</label
+                                            >
+                                            <textarea
+                                                name="exhibitor_products"
+                                                class="form-control"
+                                                rows="2"
+                                            ></textarea>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label"
+                                                >Facebook page</label
+                                            >
+                                            <input
+                                                name="exhibitor_fb_page"
+                                                class="form-control"
+                                            />
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label"
+                                                >Website</label
+                                            >
+                                            <input
+                                                name="exhibitor_website"
+                                                class="form-control"
+                                                type="url"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-outline-secondary"
+                                data-add-exhibitor
+                            >
+                                <i class="bx bx-plus"></i> Add exhibitor
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        data-bs-dismiss="modal"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        class="btn dashboard-btn-primary"
+                        id="epNextPublishBtn"
+                    >
+                        Next
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

@@ -9,7 +9,7 @@ from typing import Any
 from services.supabase_client import get_supabase
 
 PROFILE_FIELDS = (
-    "id, first_name, last_name, middle_name, email, role_id, lgu_id, "
+    "id, first_name, last_name, middle_name, email, role_id, lgu_id, position, "
     "is_active, created_at, "
     "roles(id, role_key, role_name), lgus(id, name)"
 )
@@ -42,3 +42,56 @@ def profile_role_label(row: dict[str, Any]) -> str:
     if isinstance(role, dict):
         return role.get("role_name") or role.get("role_key") or "—"
     return "—"
+
+
+TOURIST_PROFILE_FIELDS = (
+    "id, first_name, last_name, middle_name, email, profile_image, created_at, "
+    "roles(id, role_key, role_name)"
+)
+
+
+def get_tourist_profile(user_id: str) -> dict[str, Any] | None:
+    try:
+        response = (
+            get_supabase()
+            .table("profiles")
+            .select(TOURIST_PROFILE_FIELDS)
+            .eq("id", user_id)
+            .single()
+            .execute()
+        )
+        return response.data
+    except Exception:
+        return None
+
+
+def update_tourist_profile(
+    user_id: str,
+    *,
+    first_name: str,
+    last_name: str,
+    middle_name: str = "",
+    profile_image: str | None = None,
+) -> tuple[bool, str | None]:
+    first_name = (first_name or "").strip()
+    last_name = (last_name or "").strip()
+    middle_name = (middle_name or "").strip()
+
+    if len(first_name) < 2:
+        return False, "Please enter your first name."
+    if len(last_name) < 2:
+        return False, "Please enter your last name."
+
+    payload: dict[str, Any] = {
+        "first_name": first_name,
+        "last_name": last_name,
+        "middle_name": middle_name or None,
+    }
+    if profile_image is not None:
+        payload["profile_image"] = profile_image.strip() or None
+
+    try:
+        get_supabase().table("profiles").update(payload).eq("id", user_id).execute()
+        return True, None
+    except Exception:
+        return False, "Unable to update your profile right now. Please try again."

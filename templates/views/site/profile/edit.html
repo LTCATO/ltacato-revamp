@@ -1,0 +1,417 @@
+{% extends "base.html" %} {% block title %}My Profile{% endblock %} {% block
+content %}
+
+<section class="page-hero page-hero--planner">
+    <div class="container-xl">
+        <nav class="page-breadcrumb" aria-label="Breadcrumb">
+            <a href="{{ url_for('public.home') }}">Home</a>
+            <i class="ph ph-caret-right"></i>
+            <span>Profile</span>
+        </nav>
+        <div class="profile-hero-row">
+            <div class="profile-hero-avatar">
+                {% if avatar %}
+                <img
+                    src="{{ avatar }}"
+                    alt="{{ display_name }}"
+                    class="profile-hero-avatar__img"
+                />
+                {% else %}
+                <div class="profile-hero-avatar__placeholder">
+                    {{ display_name[0] | upper if display_name else 'U' }}
+                </div>
+                {% endif %}
+            </div>
+            <div>
+                <span class="section-eyebrow">Tourist account</span>
+                <h1 class="page-hero__title mb-0">{{ display_name }}</h1>
+                <p class="page-hero__lead mb-0">{{ current_tourist.email }}</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="profile-section">
+    <div class="container-xl">
+        <!-- Tab nav -->
+        <ul class="nav nav-pills profile-tabs mb-4" role="tablist">
+            <li class="nav-item">
+                <button
+                    class="nav-link active"
+                    data-bs-toggle="pill"
+                    data-bs-target="#tab-overview"
+                    type="button"
+                >
+                    <i class="ph ph-house-line"></i> Overview
+                </button>
+            </li>
+            <li class="nav-item">
+                <button
+                    class="nav-link"
+                    data-bs-toggle="pill"
+                    data-bs-target="#tab-saved"
+                    type="button"
+                >
+                    <i class="ph ph-bookmark-simple"></i> Saved {% if
+                    saved_spots or saved_events %}
+                    <span class="profile-tab-count"
+                        >{{ (saved_spots|length) + (saved_events|length)
+                        }}</span
+                    >
+                    {% endif %}
+                </button>
+            </li>
+            <li class="nav-item">
+                <button
+                    class="nav-link"
+                    data-bs-toggle="pill"
+                    data-bs-target="#tab-settings"
+                    type="button"
+                >
+                    <i class="ph ph-gear"></i> Settings
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <!-- TAB 1: Overview -->
+            <div
+                class="tab-pane fade show active"
+                id="tab-overview"
+                role="tabpanel"
+            >
+                <div class="row g-4">
+                    <div class="col-lg-4">
+                        <!-- Passport -->
+                        <div class="planner-form planner-passport-card mb-4">
+                            <h2 class="h5 planner-form__title">
+                                <i class="ph ph-identification-badge"></i>
+                                Laguna Passport
+                            </h2>
+                            {% if passport %}
+                            <p class="mb-1">
+                                <strong>{{ passport.passport_number }}</strong>
+                            </p>
+                            <p class="small text-muted mb-3">
+                                {{ passport.points or 0 }} exploration points
+                            </p>
+                            {% if stamps %}
+                            <p class="small fw-semibold mb-2">Recent stamps</p>
+                            <ul class="planner-smart-list mb-0">
+                                {% for stamp in stamps[:8] %} {% set spot =
+                                stamp.tourist_spots or {} %}
+                                <li>
+                                    <i class="ph ph-stamp"></i
+                                    ><span
+                                        >{{ spot.name or 'Spot' }} — {{
+                                        stamp.stamped_at[:10] if
+                                        stamp.stamped_at else '' }}</span
+                                    >
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <p class="small text-muted mb-0">
+                                Visit spots and collect stamps.
+                            </p>
+                            {% endif %} {% else %}
+                            <p class="small text-muted">
+                                Passport will be created when you save your
+                                first trip.
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-lg-8">
+                        <!-- Saved trips -->
+                        <div class="planner-form">
+                            <h3 class="h6 planner-form__title">
+                                <i class="ph ph-suitcase"></i> Saved trips
+                            </h3>
+                            {% if trips %}
+                            <ul class="list-unstyled mb-0">
+                                {% for trip in trips %}
+                                <li class="mb-2">
+                                    <a
+                                        href="{{ url_for('itinerary.itinerary_detail', itinerary_id=trip.id) }}"
+                                        >{{ trip.title }}</a
+                                    >
+                                    <span class="small text-muted d-block"
+                                        >{{ trip.start_date or '' }}{% if
+                                        trip.end_date %} – {{ trip.end_date }}{%
+                                        endif %}</span
+                                    >
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            <a
+                                href="{{ url_for('itinerary.my_itineraries') }}"
+                                class="itinerary-card__link mt-2 d-inline-flex"
+                                >View all</a
+                            >
+                            {% else %}
+                            <p class="small text-muted">
+                                No saved itineraries yet.
+                            </p>
+                            <a
+                                href="{{ url_for('itinerary.planner') }}"
+                                class="btn btn-sm ltcato-btn-pill"
+                                >Plan a trip</a
+                            >
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: Saved -->
+            <div class="tab-pane fade" id="tab-saved" role="tabpanel">
+                {% if saved_spots %}
+                <h3 class="profile-saved-title">
+                    <i class="ph ph-map-pin"></i> Saved spots
+                </h3>
+                <div class="row g-3 mb-5">
+                    {% for spot in saved_spots %}
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <a
+                            href="{{ url_for('spots.spot_detail', spot_id=spot.id) }}"
+                            class="profile-saved-card"
+                        >
+                            <div class="profile-saved-card__img">
+                                {% if spot.main_image_url %}
+                                <img
+                                    src="{{ spot.main_image_url | normalize_image_url }}"
+                                    alt="{{ spot.name }}"
+                                    loading="lazy"
+                                />
+                                {% else %}
+                                <div class="profile-saved-card__img-empty">
+                                    <i class="ph ph-image"></i>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="profile-saved-card__body">
+                                <strong
+                                    >{{ spot.name | truncate_text(30) }}</strong
+                                >
+                                {% if spot.lgus %}<span
+                                    >{{ spot.lgus.name }}</span
+                                >{% endif %}
+                            </div>
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %} {% if saved_events %}
+                <h3 class="profile-saved-title">
+                    <i class="ph ph-calendar-star"></i> Saved events
+                </h3>
+                <div class="row g-3">
+                    {% for ev in saved_events %}
+                    <div class="col-6 col-md-4 col-lg-3">
+                        <a
+                            href="{{ url_for('events.event_detail', event_id=ev.id) }}"
+                            class="profile-saved-card"
+                        >
+                            <div class="profile-saved-card__img">
+                                {% if ev.cover_image %}
+                                <img
+                                    src="{{ ev.cover_image | normalize_image_url }}"
+                                    alt="{{ ev.title }}"
+                                    loading="lazy"
+                                />
+                                {% else %}
+                                <div class="profile-saved-card__img-empty">
+                                    <i class="ph ph-calendar-blank"></i>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="profile-saved-card__body">
+                                <strong
+                                    >{{ ev.title | truncate_text(30) }}</strong
+                                >
+                                {% if ev.start_date %}<span
+                                    >{{ ev.start_date }}</span
+                                >{% endif %}
+                            </div>
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %} {% if not saved_spots and not saved_events %}
+                <div class="spots-empty">
+                    <i class="ph ph-bookmark-simple"></i>
+                    <h3>Nothing saved yet</h3>
+                    <p>Bookmark spots and events to find them here.</p>
+                    <a
+                        href="{{ url_for('spots.spots_list') }}"
+                        class="btn ltcato-btn-pill"
+                        >Browse spots</a
+                    >
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- TAB 3: Settings -->
+            <div class="tab-pane fade" id="tab-settings" role="tabpanel">
+                <div class="row g-4">
+                    <div class="col-lg-7">
+                        <div class="planner-form">
+                            <h2 class="planner-form__title">
+                                <i class="ph ph-gear"></i> Account settings
+                            </h2>
+                            <form
+                                method="post"
+                                action="{{ url_for('profile.tourist_profile') }}"
+                            >
+                                <input
+                                    type="hidden"
+                                    name="action"
+                                    value="profile"
+                                />
+                                <div
+                                    class="d-flex align-items-center gap-3 mb-4"
+                                >
+                                    <div class="profile-avatar-preview">
+                                        {% if avatar %}
+                                        <img
+                                            src="{{ avatar }}"
+                                            alt=""
+                                            class="profile-avatar-preview__img"
+                                            id="avatar-preview-img"
+                                        />
+                                        {% else %}
+                                        <div
+                                            class="profile-avatar-preview__placeholder"
+                                            id="avatar-preview-placeholder"
+                                        >
+                                            <i class="ph ph-user"></i>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <label
+                                            class="form-label"
+                                            for="profile_image"
+                                            >Profile image URL</label
+                                        >
+                                        <input
+                                            type="url"
+                                            class="form-control"
+                                            id="profile_image"
+                                            name="profile_image"
+                                            value="{{ form_data.profile_image }}"
+                                            placeholder="https://…"
+                                        />
+                                        <p class="small text-muted mb-0">
+                                            Paste a public image link
+                                            (optional).
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-4">
+                                        <label
+                                            class="form-label"
+                                            for="first_name"
+                                            >First name</label
+                                        >
+                                        <input
+                                            type="text"
+                                            class="form-control"
+                                            id="first_name"
+                                            name="first_name"
+                                            value="{{ form_data.first_name }}"
+                                            required
+                                            minlength="2"
+                                        />
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label
+                                            class="form-label"
+                                            for="middle_name"
+                                            >Middle name</label
+                                        >
+                                        <input
+                                            type="text"
+                                            class="form-control"
+                                            id="middle_name"
+                                            name="middle_name"
+                                            value="{{ form_data.middle_name }}"
+                                        />
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label
+                                            class="form-label"
+                                            for="last_name"
+                                            >Last name</label
+                                        >
+                                        <input
+                                            type="text"
+                                            class="form-control"
+                                            id="last_name"
+                                            name="last_name"
+                                            value="{{ form_data.last_name }}"
+                                            required
+                                            minlength="2"
+                                        />
+                                    </div>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="form-label">Email</label>
+                                    <input
+                                        type="email"
+                                        class="form-control"
+                                        value="{{ form_data.email }}"
+                                        disabled
+                                    />
+                                    <p class="small text-muted mb-0">
+                                        Email cannot be changed here.
+                                    </p>
+                                </div>
+                                <button
+                                    type="submit"
+                                    class="btn ltcato-btn-pill"
+                                >
+                                    <i class="ph ph-floppy-disk"></i> Save
+                                    changes
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %} {% block script %}
+<script>
+    (function () {
+      var input = document.getElementById("profile_image");
+      if (!input) return;
+      input.addEventListener("input", function () {
+        var url = input.value.trim();
+        var img = document.getElementById("avatar-preview-img");
+        var ph = document.getElementById("avatar-preview-placeholder");
+        if (url) {
+          if (!img) {
+            var preview = document.querySelector(".profile-avatar-preview");
+            img = document.createElement("img");
+            img.id = "avatar-preview-img";
+            img.className = "profile-avatar-preview__img";
+            img.alt = "";
+            preview.innerHTML = "";
+            preview.appendChild(img);
+          }
+          img.src = url;
+          if (ph) ph.style.display = "none";
+        }
+      });
+      // Open settings tab if there's a flash message (profile save feedback)
+      {% if get_flashed_messages() %}
+      var settingsBtn = document.querySelector('[data-bs-target="#tab-settings"]');
+      if (settingsBtn) settingsBtn.click();
+      {% endif %}
+    })();
+</script>
+{% endblock %}

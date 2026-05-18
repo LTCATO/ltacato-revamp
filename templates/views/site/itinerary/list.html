@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}My Trips{% endblock %}
+
+{% block content %}
+<section class="page-hero page-hero--planner">
+  <div class="container-xl">
+    <nav class="page-breadcrumb" aria-label="Breadcrumb">
+      <a href="{{ url_for('public.home') }}">Home</a>
+      <i class="ph ph-caret-right"></i>
+      <span>My trips</span>
+    </nav>
+    <span class="section-eyebrow">Saved itineraries</span>
+    <h1 class="page-hero__title">Your Laguna trips</h1>
+    <p class="page-hero__lead">View and open itineraries you have saved from the planner.</p>
+    <a href="{{ url_for('itinerary.planner') }}" class="btn ltcato-btn-pill mt-2">
+      <i class="ph ph-plus"></i> Plan a new trip
+    </a>
+  </div>
+</section>
+
+<section class="planner-section">
+  <div class="container-xl">
+    {% if trips %}
+    <div class="row g-4">
+      {% for trip in trips %}
+      <div class="col-md-6 col-lg-4">
+        <a href="{{ url_for('itinerary.itinerary_detail', itinerary_id=trip.id) }}" class="itinerary-card">
+          <h3 class="h5 mb-1">{{ trip.title }}</h3>
+          <p class="small text-muted mb-2">
+            {% if trip.start_date %}{{ trip.start_date }}{% endif %}
+            {% if trip.end_date %} → {{ trip.end_date }}{% endif %}
+          </p>
+          <p class="small mb-2">
+            <i class="ph ph-users"></i> {{ trip.traveler_count or 1 }} traveler{{ 's' if (trip.traveler_count or 1) != 1 else '' }}
+            {% if trip.trip_purpose %} · {{ trip.trip_purpose|replace('_', ' ')|title }}{% endif %}
+          </p>
+          {% if trip.estimated_expense %}
+          <p class="small mb-0"><i class="ph ph-wallet"></i> Est. ₱{{ '%.0f'|format(trip.estimated_expense) }}</p>
+          {% endif %}
+          <span class="itinerary-card__link">View itinerary <i class="ph ph-arrow-right"></i></span>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="planner-empty">
+      <i class="ph ph-suitcase"></i>
+      <h3>No saved trips yet</h3>
+      <p class="text-muted">Use the itinerary planner to build a route and save it here.</p>
+      <a href="{{ url_for('itinerary.planner') }}" class="btn ltcato-btn-pill">Open planner</a>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,173 @@
+{% macro slot_label(slot) -%}
+  {%- if slot == 'morning' -%}Morning
+  {%- elif slot == 'afternoon' -%}Afternoon
+  {%- elif slot == 'evening' -%}Evening
+  {%- else -%}{{ slot|title }}{%- endif -%}
+{%- endmacro %}
+
+{% if plan and plan.ok %}
+<div class="planner-result" id="itinerary-preview">
+  <div class="planner-result__header">
+    <div>
+      <h2 class="planner-result__title">{{ plan.title }}</h2>
+      <p class="text-muted small mb-2">
+        {{ plan.start_date }} → {{ plan.end_date }}
+        · {{ plan.duration_days }} day{{ 's' if plan.duration_days != 1 else '' }}
+        · {{ plan.traveler_count }} traveler{{ 's' if plan.traveler_count != 1 else '' }}
+      </p>
+      <div class="planner-summary-chips">
+        <span><i class="ph ph-target"></i> {{ plan.trip_purpose|replace('_', ' ')|title }}</span>
+        {% if plan.starting_point %}<span><i class="ph ph-map-pin-line"></i> {{ plan.starting_point }}</span>{% endif %}
+        <span><i class="ph ph-currency-circle-dollar"></i> Est. ₱{{ '%.0f'|format(plan.estimated_expense or 0) }}</span>
+        {% if plan.total_budget %}<span><i class="ph ph-wallet"></i> Budget ₱{{ '%.0f'|format(plan.total_budget) }}</span>{% endif %}
+        <span><i class="ph ph-clock"></i> {{ plan.timezone or 'Asia/Manila' }}</span>
+      </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2 align-items-start">
+      <button type="button" class="btn btn-sm ltcato-btn-outline-lg" onclick="window.print()">
+        <i class="ph ph-printer"></i> Print
+      </button>
+    </div>
+  </div>
+
+  <div class="row g-4 mb-4">
+    <div class="col-lg-7">
+      <div id="planner-route-map" class="planner-map" role="img" aria-label="Itinerary route map"></div>
+    </div>
+    <div class="col-lg-5">
+      <div class="planner-form planner-form--aside h-100">
+        <h3 class="planner-form__title h6"><i class="ph ph-cloud-sun"></i> Weather &amp; tips</h3>
+        {% if plan.weather and plan.weather.daily %}
+        <ul class="planner-smart-list mb-3">
+          {% for day_key, wx in plan.weather.daily.items() %}
+          <li>
+            <i class="ph ph-drop"></i>
+            <span>
+              <strong>{{ day_key }}</strong> —
+              {% if wx.temp_min is not none %}{{ wx.temp_min|round }}–{{ wx.temp_max|round }}°C{% endif %}
+              {{ wx.description or '' }}
+              {% if wx.rain_chance %}({{ wx.rain_chance|round }}% rain){% endif %}
+            </span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {% if plan.weather and plan.weather.alerts %}
+        {% for alert in plan.weather.alerts %}
+        <p class="small text-warning mb-2"><i class="ph ph-warning"></i> {{ alert }}</p>
+        {% endfor %}
+        {% endif %}
+        <h4 class="h6 mt-3">Smart recommendations</h4>
+        <ul class="planner-smart-list">
+          {% for tip in plan.smart_tips or [] %}
+          <li><i class="ph ph-sparkle"></i><span>{{ tip }}</span></li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  {% for day in plan.days %}
+  <article class="planner-day">
+    <div class="planner-day__head">
+      <h3>Day {{ day.day_number }} — {{ day.label }}</h3>
+      {% if day.weather %}
+      <span class="small text-muted">
+        {{ day.weather.description or '' }}
+        {% if day.weather.temp_max %}· up to {{ day.weather.temp_max }}°C{% endif %}
+      </span>
+      {% endif %}
+    </div>
+    {% if day.clothing_tip %}
+    <p class="small text-muted mb-3"><i class="ph ph-t-shirt"></i> {{ day.clothing_tip }}</p>
+    {% endif %}
+    <ol class="planner-stops">
+      {% for stop in day.stops %}
+      <li class="planner-stop">
+        <div class="planner-stop__time">
+          <span>{{ stop.activity_time[:5] if stop.activity_time else '' }}</span>
+          <small class="d-block text-muted">{{ slot_label(stop.time_slot) }}</small>
+        </div>
+        <div class="planner-stop__body">
+          <div class="planner-stop__media">
+            {% set img = stop.main_image_url | normalize_image_url %}
+            {% if img %}
+            <img src="{{ img }}" alt="" loading="lazy" />
+            {% else %}
+            <div class="planner-stop__placeholder"><i class="ph ph-image"></i></div>
+            {% endif %}
+          </div>
+          <div class="flex-grow-1">
+            <h4>
+              {% if stop.tourist_spot_id %}
+              <a href="{{ url_for('spots.spot_detail', spot_id=stop.tourist_spot_id) }}">{{ stop.name }}</a>
+              {% else %}{{ stop.name }}{% endif %}
+            </h4>
+            <p class="small text-muted mb-1">
+              <i class="ph ph-map-pin"></i> {{ stop.lgu_name or 'Laguna' }}
+              {% if stop.category_name %} · {{ stop.category_name }}{% endif %}
+              {% if stop.rating %} · <i class="ph ph-star"></i> {{ stop.rating }}{% endif %}
+            </p>
+            {% if stop.travel_minutes and loop.index > 1 %}
+            <p class="planner-stop__travel small"><i class="ph ph-car"></i> ~{{ stop.travel_minutes }} min from previous stop</p>
+            {% endif %}
+            {% if stop.opening_hours %}
+            <p class="small mb-1"><i class="ph ph-clock"></i> {{ stop.opening_hours }}</p>
+            {% endif %}
+            {% if stop.entrance_fees %}
+            <p class="small mb-1"><i class="ph ph-ticket"></i> {{ stop.entrance_fees }}</p>
+            {% endif %}
+            {% if stop.food_options %}
+            <p class="small mb-1"><i class="ph ph-bowl-food"></i> {{ stop.food_options|truncate_text(120) }}</p>
+            {% endif %}
+            <p class="small mb-2">{{ stop.description|truncate_text(160) }}</p>
+            <span class="badge bg-light text-dark border me-1">{{ stop.priority|replace('_', ' ')|title }}</span>
+            {% if stop.estimated_cost %}<span class="badge bg-light text-dark border">~₱{{ '%.0f'|format(stop.estimated_cost) }}</span>{% endif %}
+            {% if stop.latitude and stop.longitude %}
+            <a
+              class="small ms-1"
+              href="https://www.google.com/maps?q={{ stop.latitude }},{{ stop.longitude }}"
+              target="_blank"
+              rel="noopener"
+            >Directions</a>
+            {% endif %}
+            {% if show_passport_stamps|default(false) and passport and stop.tourist_spot_id and stamp_itinerary_id %}
+            <form method="post" action="{{ url_for('itinerary.itinerary_stamp', itinerary_id=stamp_itinerary_id, spot_id=stop.tourist_spot_id) }}" class="d-inline ms-1">
+              <button type="submit" class="btn btn-link btn-sm p-0 align-baseline"><i class="ph ph-stamp"></i> Stamp passport</button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+  </article>
+  {% endfor %}
+
+  <div class="row g-4 mt-2">
+    <div class="col-md-6">
+      <div class="planner-form">
+        <h3 class="h6 planner-form__title"><i class="ph ph-bus"></i> Local transport</h3>
+        <ul class="planner-smart-list mb-0">
+          {% for card in plan.transport_cards or [] %}
+          <li>
+            <i class="ph ph-identification-card"></i>
+            <span><strong>{{ card.name }}</strong> — {{ card.detail }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="planner-form">
+        <h3 class="h6 planner-form__title"><i class="ph ph-first-aid"></i> Safety &amp; emergency</h3>
+        <ul class="planner-passport-facts mb-0">
+          <li><i class="ph ph-phone"></i> Emergency: {{ plan.emergency.police if plan.emergency else '911' }}</li>
+          <li><i class="ph ph-hospital"></i> Nearest hospital: use Google Maps near your stop</li>
+          <li><i class="ph ph-info"></i> {{ plan.emergency.tourist_hotline if plan.emergency else 'LTCATO office' }}</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}

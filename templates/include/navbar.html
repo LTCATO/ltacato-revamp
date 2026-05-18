@@ -1,69 +1,185 @@
 <header class="site-header" id="siteHeader">
-  <div class="site-header__bar">
-    <nav class="navbar navbar-expand-lg ltcato-navbar">
-      <div class="container-xl">
-        <a class="navbar-brand ltcato-brand" href="{{ url_for('public.home') }}">
-          <img
-            src="{{ url_for('static', filename='images/ltcato-logo.png') }}"
-            alt="LTCATO"
-            class="ltcato-brand__icon"
-            width="44"
-            height="44"
-          />
-          <span class="ltcato-brand__text">
-            <span class="ltcato-brand__name">LTCATO</span>
-            <span class="ltcato-brand__tagline">Laguna Tourism, Culture, Arts &amp; Trade</span>
-          </span>
-        </a>
+    <div class="site-header__bar">
+        <nav class="navbar navbar-expand-lg ltcato-navbar">
+            <div class="container-xl">
+                <a
+                    class="navbar-brand ltcato-brand"
+                    href="{{ url_for('public.home') }}"
+                >
+                    <img
+                        src="{{ url_for('static', filename='images/ltcato-logo.png') }}"
+                        alt="LTCATO"
+                        class="ltcato-brand__icon"
+                        width="44"
+                        height="44"
+                    />
+                    <span class="ltcato-brand__text">
+                        <span class="ltcato-brand__name">LTCATO</span>
+                        <span class="ltcato-brand__tagline"
+                            >Laguna Tourism, Culture, Arts &amp; Trade</span
+                        >
+                    </span>
+                </a>
 
-        <button
-          class="navbar-toggler"
-          type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#ltcatoNav"
-          aria-controls="ltcatoNav"
-          aria-expanded="false"
-          aria-label="Toggle navigation"
-        >
-          <span class="navbar-toggler-icon"></span>
-        </button>
+                <button
+                    class="navbar-toggler"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#ltcatoNav"
+                    aria-controls="ltcatoNav"
+                    aria-expanded="false"
+                    aria-label="Toggle navigation"
+                >
+                    <span class="navbar-toggler-icon"></span>
+                </button>
 
-        <div class="collapse navbar-collapse" id="ltcatoNav">
-          <ul class="navbar-nav ltcato-nav mx-auto mb-2 mb-lg-0">
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('spots.spots_list') }}">Spots</a></li>
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('lgu.lgu_list') }}">LGU</a></li>
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('events.events_list') }}">Events</a></li>
-            <li class="nav-item"><a class="nav-link" href="#">Planner</a></li>
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('public.about') }}">About</a></li>
-          </ul>
-          <div class="ltcato-nav-auth">
-            {% if current_tourist %}
-            <div class="ltcato-nav-user">
-              <span class="ltcato-nav-user__name" title="{{ current_tourist.email }}">
-                <i class="ph ph-user-circle"></i> {{ current_tourist.name }}
-              </span>
-              <form method="post" action="{{ url_for('auth.logout') }}" class="d-inline">
-                <button type="submit" class="ltcato-btn-logout">Sign out</button>
-              </form>
+                <div class="collapse navbar-collapse" id="ltcatoNav">
+                    <ul class="navbar-nav ltcato-nav mx-auto mb-2 mb-lg-0">
+                        <li class="nav-item">
+                            <a
+                                class="nav-link"
+                                href="{{ url_for('spots.spots_list') }}"
+                                >Spots</a
+                            >
+                        </li>
+                        <li class="nav-item">
+                            <a
+                                class="nav-link"
+                                href="{{ url_for('lgu.lgu_list') }}"
+                                >LGU</a
+                            >
+                        </li>
+                        <li class="nav-item">
+                            <a
+                                class="nav-link"
+                                href="{{ url_for('events.events_list') }}"
+                                >Events</a
+                            >
+                        </li>
+                        <li class="nav-item">
+                            <a
+                                class="nav-link"
+                                href="{{ url_for('itinerary.planner') }}"
+                                >Planner</a
+                            >
+                        </li>
+
+                        <li class="nav-item">
+                            <a
+                                class="nav-link"
+                                href="{{ url_for('public.about') }}"
+                                >About</a
+                            >
+                        </li>
+                    </ul>
+                    <div class="ltcato-nav-auth">
+                        {% if current_tourist %}
+                        <div class="ltcato-nav-user dropdown">
+                            <button
+                                class="ltcato-nav-user__toggle dropdown-toggle"
+                                type="button"
+                                data-bs-toggle="dropdown"
+                                aria-expanded="false"
+                                id="navUserDropdown"
+                            >
+                                {% if tourist_profile_image %}
+                                <img
+                                    src="{{ tourist_profile_image }}"
+                                    alt="{{ current_tourist.name }}"
+                                    class="ltcato-nav-avatar ltcato-nav-avatar--photo"
+                                />
+                                {% else %}
+                                <span
+                                    class="ltcato-nav-avatar ltcato-nav-avatar--initials"
+                                    aria-label="{{ current_tourist.name }}"
+                                >
+                                    {{ current_tourist.name[0] | upper if
+                                    current_tourist.name else 'U' }}
+                                </span>
+                                {% endif %}
+                                <span class="ltcato-nav-user__name"
+                                    >{{ current_tourist.name }}</span
+                                >
+                            </button>
+                            <ul
+                                class="dropdown-menu dropdown-menu-end ltcato-nav-dropdown"
+                                aria-labelledby="navUserDropdown"
+                            >
+                                <li class="ltcato-nav-dropdown__header">
+                                    <span class="ltcato-nav-dropdown__name"
+                                        >{{ current_tourist.name }}</span
+                                    >
+                                    <span class="ltcato-nav-dropdown__email"
+                                        >{{ current_tourist.email }}</span
+                                    >
+                                </li>
+                                <li><hr class="dropdown-divider my-1" /></li>
+                                <li>
+                                    <a
+                                        class="dropdown-item"
+                                        href="{{ url_for('profile.tourist_profile') }}"
+                                    >
+                                        <i class="ph ph-user-circle"></i> My
+                                        profile
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        class="dropdown-item"
+                                        href="{{ url_for('itinerary.my_itineraries') }}"
+                                    >
+                                        <i class="ph ph-suitcase"></i> My trips
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider my-1" /></li>
+                                <li>
+                                    <form
+                                        method="post"
+                                        action="{{ url_for('auth.logout') }}"
+                                        class="m-0"
+                                    >
+                                        <button
+                                            type="submit"
+                                            class="dropdown-item ltcato-nav-dropdown__signout"
+                                        >
+                                            <i class="ph ph-sign-out"></i> Sign
+                                            out
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
+                        {% else %}
+                        <a
+                            class="ltcato-btn-signup"
+                            href="{{ url_for('auth.register') }}"
+                            >Sign up</a
+                        >
+                        <a
+                            class="btn ltcato-btn-login"
+                            href="{{ url_for('auth.login') }}"
+                            >Login</a
+                        >
+                        <a
+                            class="ltcato-btn-staff"
+                            href="{{ url_for('dashboard.login') }}"
+                            title="LTCATO staff &amp; partners"
+                            >Staff</a
+                        >
+                        {% endif %}
+                    </div>
+                </div>
             </div>
-            {% else %}
-            <a class="ltcato-btn-signup" href="{{ url_for('auth.register') }}">Sign up</a>
-            <a class="btn ltcato-btn-login" href="{{ url_for('auth.login') }}">Login</a>
-            <a class="ltcato-btn-staff" href="{{ url_for('dashboard.login') }}" title="LTCATO staff &amp; partners">Staff</a>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-    </nav>
+        </nav>
 
-    <div class="pennant-rope" aria-hidden="true"></div>
-    <div class="pennant-strip pennant-strip--nav" aria-hidden="true">
-      {% for _ in range(14) %}
-      <span class="pennant pennant--red"></span>
-      <span class="pennant pennant--green"></span>
-      <span class="pennant pennant--gold"></span>
-      <span class="pennant pennant--white"></span>
-      {% endfor %}
+        <div class="pennant-rope" aria-hidden="true"></div>
+        <div class="pennant-strip pennant-strip--nav" aria-hidden="true">
+            {% for _ in range(14) %}
+            <span class="pennant pennant--red"></span>
+            <span class="pennant pennant--green"></span>
+            <span class="pennant pennant--gold"></span>
+            <span class="pennant pennant--white"></span>
+            {% endfor %}
+        </div>
     </div>
-  </div>
 </header>
