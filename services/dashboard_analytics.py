@@ -60,13 +60,14 @@ def get_analytics_overview(*, lgu_id: int | None = None) -> dict[str, Any]:
     }
 
 
-def get_establishment_analytics() -> dict[str, Any]:
-    """Placeholder analytics for establishment owner dashboard."""
-    reports = list_arrival_reports(report_type="weekly", limit=12)
-    total = sum(r.get("total_visitors", 0) for r in reports)
+def get_establishment_analytics(*, owner_id: str | None = None) -> dict[str, Any]:
+    """Analytics for establishment owner dashboard."""
+    reports = list_arrival_reports(owner_id=owner_id, limit=24) if owner_id else []
+    weekly = [r for r in reports if r.get("report_type") == "weekly"]
+    total = sum(r.get("total_visitors", 0) for r in weekly)
     return {
         "visitors_this_month": total or 0,
-        "reports_submitted": len(reports),
+        "reports_submitted": len(weekly),
         "avg_rating": 4.5,
         "pending_reports": 1,
     }

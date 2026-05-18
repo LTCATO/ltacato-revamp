@@ -73,11 +73,58 @@ NAV_BY_ROLE: dict[str, list[dict[str, Any]]] = {
 }
 
 
+def fetch_profile_lgu_id(user_id: str) -> int | None:
+    """Load lgu_id from profiles (session may be stale or empty)."""
+    if not user_id:
+        return None
+    from services.supabase_client import get_supabase
+
+    res = (
+        get_supabase()
+        .table("profiles")
+        .select("lgu_id, lgus(name)")
+        .eq("id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        return None
+    row = res.data[0]
+    lid = row.get("lgu_id")
+    if lid is None:
+        return None
+    lid = int(lid)
+    session["dashboard_lgu_id"] = lid
+    lgu_info = row.get("lgus")
+    if isinstance(lgu_info, dict) and lgu_info.get("name"):
+        session["dashboard_organization"] = lgu_info["name"]
+    return lid
+
+
+def resolve_dashboard_lgu_id(user: dict[str, Any] | None = None) -> int | None:
+    """Return LGU id for the logged-in user, refreshing from Supabase when needed."""
+    if user is None:
+        user = get_current_dashboard_user()
+    if not user:
+        return None
+    lid = user.get("lgu_id")
+    if lid is not None and lid != "":
+        return int(lid)
+    return fetch_profile_lgu_id(str(user.get("id") or ""))
+
+
+def assign_profile_lgu_id(user_id: str, lgu_id: int) -> None:
+    from services.supabase_client import get_supabase
+
+    get_supabase().table("profiles").update({"lgu_id": lgu_id}).eq("id", user_id).execute()
+    session["dashboard_lgu_id"] = lgu_id
+
+
 def get_current_dashboard_user() -> dict[str, Any] | None:
     role = session.get("dashboard_role")
     if not role:
         return None
-    return {
+    user = {
         "id": session.get("dashboard_user_id", ""),
         "email": session.get("dashboard_email", ""),
         "name": session.get("dashboard_name", "User"),
@@ -86,6 +133,9 @@ def get_current_dashboard_user() -> dict[str, Any] | None:
         "organization": session.get("dashboard_organization", ""),
         "lgu_id": session.get("dashboard_lgu_id"),
     }
+    if role in ("lgu_admin", "establishment_owner"):
+        user["lgu_id"] = resolve_dashboard_lgu_id(user)
+    return user
 
 
 def get_nav_items(role: str) -> list[dict[str, Any]]:

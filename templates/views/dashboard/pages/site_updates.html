@@ -7,7 +7,18 @@
 {% block content %}
 {% set header_actions %}
 {% if spot %}
-<button type="button" class="btn dashboard-btn-primary" data-bs-toggle="modal" data-bs-target="#siteModal"><i class="bx bx-edit"></i> Update listing</button>
+<button type="button" class="btn dashboard-btn-primary" data-bs-toggle="modal" data-bs-target="#siteModal">
+  <i class="bx bx-edit"></i> Update listing
+</button>
+{% else %}
+{% if claimable_spots %}
+<button type="button" class="btn btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#claimSpotModal">
+  <i class="bx bx-link"></i> Claim existing spot
+</button>
+{% endif %}
+<button type="button" class="btn dashboard-btn-primary" data-bs-toggle="modal" data-bs-target="#registerSpotModal">
+  <i class="bx bx-plus"></i> Register new
+</button>
 {% endif %}
 {% endset %}
 {% include "include/dashboard/module_header.html" %}
@@ -65,8 +76,187 @@
   </div>
 </div>
 {% else %}
-<div class="dashboard-card">
-  <p class="text-muted mb-0">No establishment is linked to your account yet. Contact your LGU tourism office to register your property.</p>
+{% if claimable_spots %}
+<div class="dashboard-card mb-4">
+  <h3 class="dashboard-card__title h5">Claim an existing listing</h3>
+  <p class="text-muted small">
+    These establishments are already in the system for your LGU but have no owner account linked yet.
+  </p>
+  <div class="table-responsive">
+    <table class="table dashboard-table mb-0">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Category</th>
+          <th>Code</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in claimable_spots %}
+        <tr>
+          <td><strong>{{ s.name }}</strong></td>
+          <td>{{ (s.attraction_categories.name if s.attraction_categories else '—') }}</td>
+          <td>{{ s.code or '—' }}</td>
+          <td>{{ status_badge(s.approval_status) }}</td>
+          <td>
+            <form method="post" action="{{ url_for('dashboard.claim_establishment_spot') }}" class="d-inline">
+              <input type="hidden" name="spot_id" value="{{ s.id }}" />
+              <button type="submit" class="btn btn-sm dashboard-btn-primary">Claim</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
+{% endif %}
+
+<div class="dashboard-card">
+  <p class="text-muted mb-3">
+    {% if claimable_spots %}
+      If your property is not listed above, register a new establishment. Your LGU will review new submissions.
+    {% else %}
+      Register your establishment to appear on the Laguna tourism portal. Your LGU will review and approve the listing.
+    {% endif %}
+  </p>
+  <p class="text-muted small mb-0">Use <strong>Claim existing spot</strong> or <strong>Register new</strong> above.</p>
+</div>
+
+<div class="modal fade" id="registerSpotModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('dashboard.register_establishment_spot') }}">
+        <div class="modal-header">
+          <h5 class="modal-title">Register your establishment</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body row g-3">
+          <div class="col-12">
+            <label class="form-label">Establishment name</label>
+            <input name="name" class="form-control" required />
+          </div>
+          <div class="col-12">
+            <label class="form-label">Description</label>
+            <textarea name="description" class="form-control" rows="3"></textarea>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Address</label>
+            <input name="address" class="form-control" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Opening hours</label>
+            <input name="opening_hours" class="form-control" />
+          </div>
+          {% if categories %}
+          <div class="col-md-6">
+            <label class="form-label">Category</label>
+            <select name="category_id" id="registerCategory" class="form-select" required>
+              <option value="">Select category</option>
+              {% for c in categories %}
+              <option value="{{ c.id }}">{{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Attraction code</label>
+            <select name="code" id="registerCode" class="form-select" required disabled>
+              <option value="">Select category first</option>
+            </select>
+            <div class="form-text">From attraction_subcategories for the selected category.</div>
+          </div>
+          {% endif %}
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn dashboard-btn-primary">Submit for LGU approval</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% if claimable_spots %}
+<div class="modal fade" id="claimSpotModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Claim existing establishment</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small">Select your property from listings already registered under your LGU.</p>
+        <div class="list-group">
+          {% for s in claimable_spots %}
+          <div class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <strong>{{ s.name }}</strong>
+              <span class="d-block small text-muted">
+                {{ (s.attraction_categories.name if s.attraction_categories else 'No category') }}
+                {% if s.code %} · Code {{ s.code }}{% endif %}
+              </span>
+            </div>
+            <form method="post" action="{{ url_for('dashboard.claim_establishment_spot') }}">
+              <input type="hidden" name="spot_id" value="{{ s.id }}" />
+              <button type="submit" class="btn btn-sm dashboard-btn-primary">Claim this spot</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block script %}
+{% if not spot and categories %}
+<script>
+(function () {
+  const subcategoriesByCategory = {{ subcategories_by_category | tojson }};
+  const apiUrl = {{ url_for('dashboard.attraction_subcategories_api') | tojson }};
+  const categoryEl = document.getElementById('registerCategory');
+  const codeEl = document.getElementById('registerCode');
+  if (!categoryEl || !codeEl) return;
+
+  function fillCodes(items) {
+    codeEl.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = items.length ? 'Select attraction code' : 'No codes for this category';
+    codeEl.appendChild(placeholder);
+    items.forEach(function (item) {
+      const opt = document.createElement('option');
+      opt.value = String(item.code);
+      opt.textContent = item.code + ' — ' + item.name;
+      codeEl.appendChild(opt);
+    });
+    codeEl.disabled = !items.length;
+    codeEl.required = items.length > 0;
+  }
+
+  categoryEl.addEventListener('change', function () {
+    const cid = categoryEl.value;
+    if (!cid) {
+      fillCodes([]);
+      codeEl.disabled = true;
+      return;
+    }
+    const cached = subcategoriesByCategory[cid] || subcategoriesByCategory[parseInt(cid, 10)];
+    if (cached && cached.length) {
+      fillCodes(cached);
+      return;
+    }
+    fetch(apiUrl + '?category_id=' + encodeURIComponent(cid))
+      .then(function (r) { return r.json(); })
+      .then(fillCodes)
+      .catch(function () { fillCodes([]); });
+  });
+})();
+</script>
 {% endif %}
 {% endblock %}

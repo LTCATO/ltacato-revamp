@@ -18,7 +18,7 @@
           Provincial command center for tourism arrivals, account management, and promotions across Laguna.
         {% elif user.role == 'ltcato_staff' %}
           Coordinate tourist spot listings, events, and arrival data with LGUs and establishments.
-        {% elif user.role == 'lgu' %}
+        {% elif user.role == 'lgu_admin' %}
           Consolidate establishment reports and submit monthly tourist arrivals to LTCATO.
         {% else %}
           Keep your establishment listing accurate and report visitor counts to your LGU on schedule.
@@ -171,8 +171,8 @@
       <p class="text-muted small mb-3">How each stakeholder connects in the Laguna tourism platform.</p>
       <div class="dashboard-roles-grid">
         <div class="dashboard-role-chip">
-          <strong>Super Admin</strong>
-          <span>Receives monthly LGU reports; manages accounts and promotions.</span>
+          <strong>LTCATO Head</strong>
+          <span>Oversees monthly LGU arrivals; downloads DOT reports; manages accounts and promotions.</span>
         </div>
         <div class="dashboard-role-chip">
           <strong>LTCATO Staff</strong>

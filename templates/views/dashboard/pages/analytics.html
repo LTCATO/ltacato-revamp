@@ -125,7 +125,7 @@
     <div class="dashboard-card h-100">
       <h3 class="dashboard-card__title">How this module works</h3>
       <p class="text-muted small">
-        {% if user.role == 'lgu' %}
+        {% if user.role == 'lgu_admin' %}
           Analytics for your LGU combines approved tourist spots, tourist feedback, and arrival reports submitted by establishments you manage.
         {% elif user.role == 'establishment_owner' %}
           Track visitor submissions and ratings for your property. Daily and weekly counts flow to your LGU; they compile monthly totals for LTCATO.
