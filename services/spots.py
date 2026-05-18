@@ -9,6 +9,7 @@ from typing import Any
 from services.supabase_client import get_supabase
 
 APPROVED_STATUS = "approved"
+REJECTED_STATUS = "rejected"
 
 SPOT_LIST_FIELDS = (
     "id, name, code, description, hook_title, hook_text, address, main_image_url, "
@@ -31,7 +32,11 @@ def _apply_spot_filters(
     q: str | None,
     approval_status: str | None = APPROVED_STATUS,
 ):
-    if approval_status:
+    if approval_status == APPROVED_STATUS:
+        # On the public site, show all spots that haven't been rejected
+        # (pending_lgu, pending_ltcato, and approved are all visible).
+        query = query.neq("approval_status", REJECTED_STATUS)
+    elif approval_status:
         query = query.eq("approval_status", approval_status)
     if category_id:
         query = query.eq("category_id", category_id)
@@ -90,7 +95,9 @@ def subcategories_grouped_by_category() -> dict[int, list[dict[str, Any]]]:
     return grouped
 
 
-def list_claimable_spots_for_lgu(lgu_id: int, *, limit: int = 100) -> list[dict[str, Any]]:
+def list_claimable_spots_for_lgu(
+    lgu_id: int, *, limit: int = 100
+) -> list[dict[str, Any]]:
     """Legacy spots in the same LGU with no establishment owner assigned."""
     response = (
         get_supabase()
@@ -106,7 +113,9 @@ def list_claimable_spots_for_lgu(lgu_id: int, *, limit: int = 100) -> list[dict[
 
 
 def code_belongs_to_category(*, category_id: int, code: int) -> bool:
-    return any(s.get("code") == code for s in get_subcategories(category_id=category_id))
+    return any(
+        s.get("code") == code for s in get_subcategories(category_id=category_id)
+    )
 
 
 def list_spots(
@@ -122,9 +131,15 @@ def list_spots(
     start = (page - 1) * PER_PAGE
     end = start + PER_PAGE - 1
 
-    query = get_supabase().table("tourist_spots").select(SPOT_LIST_FIELDS, count="exact")
+    query = (
+        get_supabase().table("tourist_spots").select(SPOT_LIST_FIELDS, count="exact")
+    )
     query = _apply_spot_filters(
-        query, category_id=category_id, lgu_id=lgu_id, q=q, approval_status=approval_status
+        query,
+        category_id=category_id,
+        lgu_id=lgu_id,
+        q=q,
+        approval_status=approval_status,
     )
 
     if sort == "rating":
@@ -232,7 +247,9 @@ def claim_tourist_spot_for_owner(
         .execute()
     )
     if not update_res.data:
-        raise RuntimeError("Could not claim establishment. It may have been claimed by someone else.")
+        raise RuntimeError(
+            "Could not claim establishment. It may have been claimed by someone else."
+        )
     return update_res.data[0]
 
 
@@ -273,7 +290,8 @@ def get_spot(spot_id: int, *, public_only: bool = True) -> dict[str, Any] | None
             .eq("id", spot_id)
         )
         if public_only:
-            query = query.eq("approval_status", APPROVED_STATUS)
+            # Show the spot as long as it hasn't been rejected.
+            query = query.neq("approval_status", REJECTED_STATUS)
         response = query.single().execute()
         return response.data
     except Exception:
@@ -284,7 +302,9 @@ def get_spot_feedbacks(spot_id: int, limit: int = 20) -> list[dict[str, Any]]:
     response = (
         get_supabase()
         .table("feedbacks")
-        .select("id, guest_name, rating, comments, suggestions, sentiment, source, created_at")
+        .select(
+            "id, guest_name, rating, comments, suggestions, sentiment, source, created_at"
+        )
         .eq("tourist_spot_id", spot_id)
         .order("created_at", desc=True)
         .limit(limit)
@@ -303,7 +323,7 @@ def get_related_spots(spot: dict[str, Any], limit: int = 3) -> list[dict[str, An
         get_supabase()
         .table("tourist_spots")
         .select(SPOT_LIST_FIELDS)
-        .eq("approval_status", APPROVED_STATUS)
+        .neq("approval_status", REJECTED_STATUS)
         .neq("id", spot_id)
     )
     if category_id:

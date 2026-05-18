@@ -1,12 +1,15 @@
 # pyrefly: ignore [missing-import]
 from datetime import date
-
 from io import BytesIO
 
 from flask import flash, jsonify, redirect, request, send_file, url_for
 
 from routes.dashboard.blueprint import dashboard_bp
-from routes.dashboard.helpers import dashboard_login_required, render_dashboard, role_required
+from routes.dashboard.helpers import (
+    dashboard_login_required,
+    render_dashboard,
+    role_required,
+)
 from services.arrival_export import export_day_tour_workbook, export_overnight_workbook
 from services.arrival_reports import (
     establishment_reports_for_lgu,
@@ -14,7 +17,10 @@ from services.arrival_reports import (
     monthly_spot_reports_for_export,
 )
 from services.chatbot_knowledge import list_knowledge
-from services.dashboard_analytics import get_analytics_overview, get_establishment_analytics
+from services.dashboard_analytics import (
+    get_analytics_overview,
+    get_establishment_analytics,
+)
 from services.dashboard_auth import get_current_dashboard_user, resolve_dashboard_lgu_id
 from services.dashboard_pages import get_dashboard_overview, get_workflow_cards
 from services.events import list_events
@@ -61,7 +67,9 @@ def analytics():
     if user["role"] == "establishment_owner":
         data = get_establishment_analytics(owner_id=user.get("id"))
     else:
-        data = get_analytics_overview(lgu_id=lgu_id if user["role"] == "lgu_admin" else None)
+        data = get_analytics_overview(
+            lgu_id=lgu_id if user["role"] == "lgu_admin" else None
+        )
     return render_dashboard(
         "views/dashboard/pages/analytics.html",
         user,
@@ -180,9 +188,13 @@ def arrivals_export(category: str):
 
     export_category = "day_tour" if category == "day_tour" else "overnight"
     if category == "day_tour":
-        data, filename = export_day_tour_workbook(lgu_id=lgu_id, report_date=report_date)
+        data, filename = export_day_tour_workbook(
+            lgu_id=lgu_id, report_date=report_date
+        )
     elif category == "overnight":
-        data, filename = export_overnight_workbook(lgu_id=lgu_id, report_date=report_date)
+        data, filename = export_overnight_workbook(
+            lgu_id=lgu_id, report_date=report_date
+        )
     else:
         flash("Unknown export type.", "warning")
         return redirect(url_for("dashboard.arrivals"))
@@ -230,22 +242,14 @@ def accounts():
 @role_required("super_admin", "ltcato_staff")
 def promotions():
     user = get_current_dashboard_user()
-    if user["role"] == "super_admin":
-        events = list_events(approval_status=None, limit=80)
-        can_approve = True
-        desc = "Review and approve events posted by LTCATO staff."
-    else:
-        events = list_events(approval_status=None, limit=80)
-        can_approve = False
-        desc = "Create provincial promotions and events for the public site."
+    events = list_events(approval_status=None, limit=80)
     return render_dashboard(
         "views/dashboard/pages/promotions.html",
         user,
         events=events,
-        can_approve=can_approve,
         lgus=list_lgus_simple(),
         page_title="Promotions & events",
-        page_description=desc,
+        page_description="Create and manage provincial promotions and events for the public site.",
         page_icon="bx-calendar-event",
     )
 
@@ -348,7 +352,9 @@ def site_updates():
         user,
         spot=spot,
         categories=categories,
-        subcategories_by_category=subcategories_grouped_by_category() if categories else {},
+        subcategories_by_category=subcategories_grouped_by_category()
+        if categories
+        else {},
         claimable_spots=claimable_spots,
         page_title="Site updates",
         page_description="Claim, register, or update your establishment on the public portal.",

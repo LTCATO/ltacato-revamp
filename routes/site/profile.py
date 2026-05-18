@@ -2,10 +2,20 @@ from __future__ import annotations
 
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
+from services.event_engagement import get_user_saved_events
 from services.itineraries import list_user_itineraries
-from services.profiles import get_tourist_profile, profile_display_name, update_tourist_profile
+from services.profiles import (
+    get_tourist_profile,
+    profile_display_name,
+    update_tourist_profile,
+)
+from services.spot_engagement import get_user_saved_spots
 from services.tourist_auth import get_current_tourist
-from services.tourist_passport import get_or_create_passport, list_passport_stamps, stamp_spot
+from services.tourist_passport import (
+    get_or_create_passport,
+    list_passport_stamps,
+    stamp_spot,
+)
 from utils.jinja_helpers import normalize_image_url
 from utils.tourist_helpers import tourist_login_required
 
@@ -29,6 +39,17 @@ def tourist_profile():
         stamps = list_passport_stamps(passport["id"])
 
     trips = list_user_itineraries(tourist["id"], limit=6)
+
+    saved_spots = []
+    saved_events = []
+    try:
+        saved_spots = get_user_saved_spots(tourist["id"])
+    except Exception:
+        pass
+    try:
+        saved_events = get_user_saved_events(tourist["id"])
+    except Exception:
+        pass
 
     form_data = {
         "first_name": profile.get("first_name") or "",
@@ -63,10 +84,12 @@ def tourist_profile():
             profile_image=profile_image,
         )
         if ok:
-            session["tourist_name"] = f"{first_name} {last_name}".strip() or session.get(
-                "tourist_name", "Traveler"
+            session["tourist_name"] = (
+                f"{first_name} {last_name}".strip()
+                or session.get("tourist_name", "Traveler")
             )
             flash("Profile updated successfully.", "success")
+            session.pop("tourist_profile_image", None)  # refresh navbar avatar cache
             return redirect(url_for("profile.tourist_profile"))
         flash(err or "Update failed.", "danger")
         form_data = {
@@ -88,4 +111,6 @@ def tourist_profile():
         passport=passport,
         stamps=stamps,
         trips=trips,
+        saved_spots=saved_spots,
+        saved_events=saved_events,
     )
