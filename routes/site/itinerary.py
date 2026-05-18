@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
+
+logger = logging.getLogger(__name__)
+
 from datetime import date, timedelta
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
@@ -141,7 +145,8 @@ def _planner_context(
     form_values = form_values or {
         "title": request.form.get("title") or "My Laguna Adventure",
         "start_date": request.form.get("start_date") or date.today().isoformat(),
-        "end_date": request.form.get("end_date") or (date.today() + timedelta(days=2)).isoformat(),
+        "end_date": request.form.get("end_date")
+        or (date.today() + timedelta(days=2)).isoformat(),
         "starting_point": request.form.get("starting_point") or "",
         "traveler_count": _form_int("traveler_count", 1) or 1,
         "trip_purpose": request.form.get("trip_purpose") or "vacation",
@@ -189,7 +194,9 @@ def planner():
         if action == "save":
             if not tourist:
                 flash("Sign in to save your itinerary.", "warning")
-                return redirect(url_for("auth.login", next=url_for("itinerary.planner")))
+                return redirect(
+                    url_for("auth.login", next=url_for("itinerary.planner"))
+                )
 
             plan_raw = request.form.get("plan_json")
             try:
@@ -205,7 +212,9 @@ def planner():
             ok, saved_id, err = save_itinerary_from_plan(tourist["id"], plan)
             if ok and saved_id:
                 flash("Your itinerary has been saved.", "success")
-                return redirect(url_for("itinerary.itinerary_detail", itinerary_id=saved_id))
+                return redirect(
+                    url_for("itinerary.itinerary_detail", itinerary_id=saved_id)
+                )
             flash(err or "Save failed.", "danger")
 
         plan = _build_plan_from_request()
@@ -269,7 +278,9 @@ def itinerary_detail(itinerary_id: int):
     )
 
 
-@itinerary_bp.route("/my-trips/<int:itinerary_id>/stamp/<int:spot_id>", methods=["POST"])
+@itinerary_bp.route(
+    "/my-trips/<int:itinerary_id>/stamp/<int:spot_id>", methods=["POST"]
+)
 @tourist_login_required
 def itinerary_stamp(itinerary_id: int, spot_id: int):
     tourist = get_current_tourist()

@@ -3,19 +3,21 @@ from flask import flash, redirect, request, url_for
 
 from routes.dashboard.blueprint import dashboard_bp
 from routes.dashboard.helpers import dashboard_login_required, role_required
-from services.supabase_client import get_supabase
 from services.dashboard_auth import (
     assign_profile_lgu_id,
     get_current_dashboard_user,
     resolve_dashboard_lgu_id,
 )
+from services.supabase_client import get_supabase
 
 
 @dashboard_bp.route("/actions/event/<int:event_id>/approve", methods=["POST"])
 @dashboard_login_required
 @role_required("super_admin")
 def approve_event(event_id: int):
-    get_supabase().table("events").update({"approval_status": "approved"}).eq("id", event_id).execute()
+    get_supabase().table("events").update({"approval_status": "approved"}).eq(
+        "id", event_id
+    ).execute()
     flash("Event approved and can appear on the public site.", "success")
     return redirect(url_for("dashboard.promotions"))
 
@@ -24,7 +26,9 @@ def approve_event(event_id: int):
 @dashboard_login_required
 @role_required("super_admin")
 def reject_event(event_id: int):
-    get_supabase().table("events").update({"approval_status": "rejected"}).eq("id", event_id).execute()
+    get_supabase().table("events").update({"approval_status": "rejected"}).eq(
+        "id", event_id
+    ).execute()
     flash("Event rejected.", "info")
     return redirect(url_for("dashboard.promotions"))
 
@@ -33,7 +37,9 @@ def reject_event(event_id: int):
 @dashboard_login_required
 @role_required("super_admin")
 def approve_chatbot(entry_id: int):
-    get_supabase().table("chatbot_knowledge").update({"approval_status": "approved"}).eq("id", entry_id).execute()
+    get_supabase().table("chatbot_knowledge").update(
+        {"approval_status": "approved"}
+    ).eq("id", entry_id).execute()
     flash("FAQ entry approved for the chatbot.", "success")
     return redirect(url_for("dashboard.chatbot"))
 
@@ -42,7 +48,9 @@ def approve_chatbot(entry_id: int):
 @dashboard_login_required
 @role_required("super_admin")
 def reject_chatbot(entry_id: int):
-    get_supabase().table("chatbot_knowledge").update({"approval_status": "rejected"}).eq("id", entry_id).execute()
+    get_supabase().table("chatbot_knowledge").update(
+        {"approval_status": "rejected"}
+    ).eq("id", entry_id).execute()
     flash("FAQ entry rejected.", "info")
     return redirect(url_for("dashboard.chatbot"))
 
@@ -51,7 +59,9 @@ def reject_chatbot(entry_id: int):
 @dashboard_login_required
 @role_required("ltcato_staff")
 def approve_spot_ltcato(spot_id: int):
-    get_supabase().table("tourist_spots").update({"approval_status": "approved"}).eq("id", spot_id).execute()
+    get_supabase().table("tourist_spots").update({"approval_status": "approved"}).eq(
+        "id", spot_id
+    ).execute()
     flash("Tourist spot approved for the public directory.", "success")
     return redirect(url_for("dashboard.lgu_management"))
 
@@ -60,7 +70,9 @@ def approve_spot_ltcato(spot_id: int):
 @dashboard_login_required
 @role_required("ltcato_staff")
 def reject_spot(spot_id: int):
-    get_supabase().table("tourist_spots").update({"approval_status": "rejected"}).eq("id", spot_id).execute()
+    get_supabase().table("tourist_spots").update({"approval_status": "rejected"}).eq(
+        "id", spot_id
+    ).execute()
     flash("Tourist spot rejected.", "info")
     return redirect(url_for("dashboard.lgu_management"))
 
@@ -75,6 +87,30 @@ def form_save_stub():
         return _save_site_update()
     flash(f"{form_type.replace('_', ' ').title()} saved successfully.", "success")
     return redirect(request.referrer or url_for("dashboard.index"))
+
+
+@dashboard_bp.route("/actions/event/save", methods=["POST"])
+@dashboard_login_required
+@role_required("ltcato_staff")
+def save_event():
+    from services.events import create_event_from_request
+
+    user = get_current_dashboard_user()
+    try:
+        create_event_from_request(
+            request.form, request.files, created_by=str(user.get("id") or "")
+        )
+        flash("Event published successfully.", "success")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    except Exception as exc:
+        flash(
+            f"Could not save event: {exc}. "
+            "If you just added new columns, run the Supabase migration. "
+            "For uploads, ensure Storage bucket exists (see SUPABASE_STORAGE_BUCKET).",
+            "danger",
+        )
+    return redirect(url_for("dashboard.promotions"))
 
 
 def _save_arrival_report():
@@ -140,8 +176,14 @@ def _save_arrival_report():
         return redirect(url_for("dashboard.arrivals"))
 
     count_fields = (
-        "this_city_male", "this_city_female", "other_city_male", "other_city_female",
-        "other_province_male", "other_province_female", "foreign_male", "foreign_female",
+        "this_city_male",
+        "this_city_female",
+        "other_city_male",
+        "other_city_female",
+        "other_province_male",
+        "other_province_female",
+        "foreign_male",
+        "foreign_female",
     )
     payload: dict = {
         "tourist_spot_id": tourist_spot_id,
@@ -173,6 +215,7 @@ def _save_arrival_report():
         flash(f"Could not save report: {exc}", "danger")
     return redirect(url_for("dashboard.arrivals"))
 
+
 @dashboard_bp.route("/actions/accounts/staff", methods=["POST"])
 @dashboard_login_required
 @role_required("super_admin", "ltcato_staff")
@@ -183,32 +226,45 @@ def create_staff_account():
     position = request.form.get("position", "").strip()
 
     try:
-        response = get_supabase().auth.admin.create_user({
-            "email": email,
-            "password": "ltcato@2026",
-            "email_confirm": True,
-            "user_metadata": {
-                "first_name": first_name,
-                "last_name": last_name,
-                "role": "ltcato_staff"
+        response = get_supabase().auth.admin.create_user(
+            {
+                "email": email,
+                "password": "ltcato@2026",
+                "email_confirm": True,
+                "user_metadata": {
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "role": "ltcato_staff",
+                },
             }
-        })
+        )
         user = response.user
-        
+
         # Insert into profiles
-        role_res = get_supabase().table("roles").select("id").eq("role_key", "ltcato_staff").execute()
+        role_res = (
+            get_supabase()
+            .table("roles")
+            .select("id")
+            .eq("role_key", "ltcato_staff")
+            .execute()
+        )
         if role_res.data:
             role_id = role_res.data[0]["id"]
-            get_supabase().table("profiles").upsert({
-                "id": user.id,
-                "first_name": first_name,
-                "last_name": last_name,
-                "email": email,
-                "role_id": role_id,
-                "position": position
-            }).execute()
+            get_supabase().table("profiles").upsert(
+                {
+                    "id": user.id,
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "email": email,
+                    "role_id": role_id,
+                    "position": position,
+                }
+            ).execute()
 
-        flash(f"LTCATO staff account created for {email} with default password ltcato@2026", "success")
+        flash(
+            f"LTCATO staff account created for {email} with default password ltcato@2026",
+            "success",
+        )
     except Exception as e:
         flash(f"Failed to create account: {str(e)}", "danger")
 
@@ -226,34 +282,47 @@ def create_lgu_account():
     lgu_id = request.form.get("lgu_id")
 
     try:
-        response = get_supabase().auth.admin.create_user({
-            "email": email,
-            "password": "ltcato@2026",
-            "email_confirm": True,
-            "user_metadata": {
-                "first_name": first_name,
-                "last_name": last_name,
-                "role": "lgu_admin",
-                "lgu_id": int(lgu_id) if lgu_id else None
+        response = get_supabase().auth.admin.create_user(
+            {
+                "email": email,
+                "password": "ltcato@2026",
+                "email_confirm": True,
+                "user_metadata": {
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "role": "lgu_admin",
+                    "lgu_id": int(lgu_id) if lgu_id else None,
+                },
             }
-        })
+        )
         user = response.user
-        
+
         # Insert into profiles
-        role_res = get_supabase().table("roles").select("id").eq("role_key", "lgu_admin").execute()
+        role_res = (
+            get_supabase()
+            .table("roles")
+            .select("id")
+            .eq("role_key", "lgu_admin")
+            .execute()
+        )
         if role_res.data:
             role_id = role_res.data[0]["id"]
-            get_supabase().table("profiles").upsert({
-                "id": user.id,
-                "first_name": first_name,
-                "last_name": last_name,
-                "email": email,
-                "role_id": role_id,
-                "lgu_id": int(lgu_id) if lgu_id else None,
-                "position": position
-            }).execute()
+            get_supabase().table("profiles").upsert(
+                {
+                    "id": user.id,
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "email": email,
+                    "role_id": role_id,
+                    "lgu_id": int(lgu_id) if lgu_id else None,
+                    "position": position,
+                }
+            ).execute()
 
-        flash(f"LGU account created for {email} with default password ltcato@2026", "success")
+        flash(
+            f"LGU account created for {email} with default password ltcato@2026",
+            "success",
+        )
     except Exception as e:
         flash(f"Failed to create LGU account: {str(e)}", "danger")
 
@@ -268,7 +337,7 @@ def create_owner_account():
     last_name = request.form.get("last_name", "").strip()
     email = request.form.get("email", "").strip()
     position = request.form.get("position", "").strip()
-    
+
     user = get_current_dashboard_user()
     if user["role"] == "lgu_admin":
         lgu_id = resolve_dashboard_lgu_id(user)
@@ -286,34 +355,47 @@ def create_owner_account():
     lgu_id_int = int(lgu_id) if lgu_id is not None else None
 
     try:
-        response = get_supabase().auth.admin.create_user({
-            "email": email,
-            "password": "ltcato@2026",
-            "email_confirm": True,
-            "user_metadata": {
-                "first_name": first_name,
-                "last_name": last_name,
-                "role": "establishment_owner",
-                "lgu_id": lgu_id_int,
+        response = get_supabase().auth.admin.create_user(
+            {
+                "email": email,
+                "password": "ltcato@2026",
+                "email_confirm": True,
+                "user_metadata": {
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "role": "establishment_owner",
+                    "lgu_id": lgu_id_int,
+                },
             }
-        })
+        )
         new_user = response.user
-        
+
         # Upsert into profiles
-        role_res = get_supabase().table("roles").select("id").eq("role_key", "establishment_owner").execute()
+        role_res = (
+            get_supabase()
+            .table("roles")
+            .select("id")
+            .eq("role_key", "establishment_owner")
+            .execute()
+        )
         if role_res.data:
             role_id = role_res.data[0]["id"]
-            get_supabase().table("profiles").upsert({
-                "id": new_user.id,
-                "first_name": first_name,
-                "last_name": last_name,
-                "email": email,
-                "role_id": role_id,
-                "lgu_id": lgu_id_int,
-                "position": position,
-            }).execute()
+            get_supabase().table("profiles").upsert(
+                {
+                    "id": new_user.id,
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "email": email,
+                    "role_id": role_id,
+                    "lgu_id": lgu_id_int,
+                    "position": position,
+                }
+            ).execute()
 
-        flash(f"Establishment owner account created for {email} with default password ltcato@2026", "success")
+        flash(
+            f"Establishment owner account created for {email} with default password ltcato@2026",
+            "success",
+        )
     except Exception as e:
         flash(f"Failed to create owner account: {str(e)}", "danger")
 
@@ -324,7 +406,11 @@ def create_owner_account():
 @dashboard_login_required
 @role_required("establishment_owner")
 def register_establishment_spot():
-    from services.spots import create_tourist_spot_for_owner, list_spots_for_dashboard, owner_has_spot
+    from services.spots import (
+        create_tourist_spot_for_owner,
+        list_spots_for_dashboard,
+        owner_has_spot,
+    )
 
     user = get_current_dashboard_user()
     owner_id = str(user.get("id") or "")

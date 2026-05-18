@@ -1,6 +1,10 @@
+import logging
+
 from flask import Blueprint, abort, render_template, request
 
 from services.lgus import get_lgu, get_lgu_spots, get_related_lgus, list_lgus
+
+logger = logging.getLogger(__name__)
 
 lgu_bp = Blueprint("lgu", __name__)
 
@@ -14,13 +18,17 @@ def lgu_list():
 
     try:
         lgus, summary = list_lgus(type_filter=type_filter, q=q)
-    except Exception:
-        lgus, summary = [], {
-            "total": 0,
-            "cities": 0,
-            "municipalities": 0,
-            "with_spots": 0,
-        }
+    except Exception as exc:
+        logger.exception("Failed to load LGU list: %s", exc)
+        lgus, summary = (
+            [],
+            {
+                "total": 0,
+                "cities": 0,
+                "municipalities": 0,
+                "with_spots": 0,
+            },
+        )
 
     cities = [m for m in lgus if m["type_normalized"] == "city"]
     towns = [m for m in lgus if m["type_normalized"] == "municipality"]

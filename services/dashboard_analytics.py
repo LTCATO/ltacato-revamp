@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import Any
 
 from services.arrival_reports import arrival_summary_by_lgu, list_arrival_reports
-from services.events import list_events
+from services.event_analytics import get_provincial_event_analytics
 from services.feedbacks import list_feedbacks
 from services.lgus import list_lgus_simple
 from services.spots import APPROVED_STATUS, list_spots, list_spots_for_dashboard
@@ -36,6 +36,13 @@ def get_analytics_overview(*, lgu_id: int | None = None) -> dict[str, Any]:
     pending_events = _count_table("events", approval_status="pending")
     pending_chatbot = _count_table("chatbot_knowledge", approval_status="pending")
 
+    event_promo_analytics: dict[str, Any] | None = None
+    if lgu_id is None:
+        try:
+            event_promo_analytics = get_provincial_event_analytics(limit=12)
+        except Exception:
+            event_promo_analytics = None
+
     monthly_arrivals = list_arrival_reports(lgu_id=lgu_id, report_type="monthly", limit=50)
     monthly_total = sum(r.get("total_visitors", 0) for r in monthly_arrivals)
 
@@ -57,6 +64,7 @@ def get_analytics_overview(*, lgu_id: int | None = None) -> dict[str, Any]:
         "avg_feedback_rating": avg_rating,
         "lgu_count": len(list_lgus_simple()),
         "arrival_by_lgu": arrival_summary_by_lgu("monthly")[:8],
+        "event_promo_analytics": event_promo_analytics,
     }
 
 
