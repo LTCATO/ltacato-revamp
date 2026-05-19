@@ -2,103 +2,885 @@
 {% from "include/dashboard/macros.html" import status_badge %}
 
 {% block title %}{{ page_title }}{% endblock %}
+{% block page_header %}<h1>{{ page_title }}</h1><p>{{ page_description }}</p>{% endblock %}
 
-{% block page_header %}
-<h1>{{ page_title }}</h1>
-<p>{{ page_description }}</p>
+{% block style %}
+<style>
+  .an-kpi { background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:1rem 1.1rem; display:flex; flex-direction:column; gap:.25rem; }
+  .an-kpi__icon { font-size:1.5rem; color:var(--primary); }
+  .an-kpi__value { font-size:1.6rem; font-weight:700; line-height:1.1; color:var(--foreground); }
+  .an-kpi__label { font-size:.75rem; color:var(--muted-foreground); }
+  .an-kpi--accent { border-left:4px solid var(--primary); }
+  .an-kpi--success { border-left:4px solid #198754; }
+  .an-kpi--warning { border-left:4px solid #fd7e14; }
+  .an-kpi--danger  { border-left:4px solid #dc3545; }
+  .an-kpi--info    { border-left:4px solid #0dcaf0; }
+
+  .an-bar-row { display:flex; align-items:center; gap:.6rem; margin-bottom:.55rem; }
+  .an-bar-row__label { font-size:.77rem; flex:0 0 130px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .an-bar-row__track { flex:1; height:10px; background:var(--muted); border-radius:5px; overflow:hidden; }
+  .an-bar-row__fill  { height:100%; border-radius:5px; background:var(--primary); }
+  .an-bar-row__val   { font-size:.75rem; font-weight:600; flex:0 0 50px; text-align:right; }
+
+  .an-trend-bar { display:flex; align-items:flex-end; gap:4px; height:80px; }
+  .an-trend-bar__col { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .an-trend-bar__fill { width:100%; border-radius:3px 3px 0 0; background:var(--primary); min-height:4px; transition:height .3s; }
+  .an-trend-bar__lbl  { font-size:.58rem; color:var(--muted-foreground); white-space:nowrap; }
+
+  .an-donut { position:relative; width:90px; height:90px; }
+  .an-donut svg { transform:rotate(-90deg); }
+  .an-donut__center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:.65rem; font-weight:700; line-height:1.2; }
+
+  .an-section-title { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted-foreground); margin-bottom:.75rem; }
+
+  .an-spot-rank { display:flex; align-items:center; gap:.6rem; padding:.45rem 0; border-bottom:1px solid var(--border); }
+  .an-spot-rank:last-child { border-bottom:none; }
+  .an-spot-rank__num { width:22px; height:22px; border-radius:50%; background:var(--primary); color:#fff; font-size:.65rem; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .an-spot-rank__name { flex:1; font-size:.8rem; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .an-spot-rank__val  { font-size:.78rem; font-weight:700; color:var(--primary); }
+
+  .an-fb-row { display:flex; gap:.5rem; align-items:flex-start; padding:.45rem 0; border-bottom:1px solid var(--border); }
+  .an-fb-row:last-child { border-bottom:none; }
+  .an-fb-row__star { color:#f59e0b; font-size:.72rem; }
+  .an-fb-row__text { font-size:.76rem; flex:1; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  .an-fb-row__meta { font-size:.65rem; color:var(--muted-foreground); white-space:nowrap; }
+
+  .an-pill { display:inline-flex; align-items:center; gap:.3rem; padding:.2rem .55rem; border-radius:999px; font-size:.68rem; font-weight:600; }
+  .an-pill--green  { background:#d1e7dd; color:#0a3622; }
+  .an-pill--red    { background:#f8d7da; color:#842029; }
+  .an-pill--yellow { background:#fff3cd; color:#664d03; }
+  .an-pill--blue   { background:#cff4fc; color:#055160; }
+  .an-pill--gray   { background:#e2e3e5; color:#383d41; }
+</style>
 {% endblock %}
 
 {% block content %}
 {% include "include/dashboard/module_header.html" %}
 
+{# ═══════════════════════════════════════════════════════════════════════════
+   ESTABLISHMENT OWNER VIEW
+   ═══════════════════════════════════════════════════════════════════════════ #}
+{% if user.role == 'establishment_owner' %}
+
+{# KPI row #}
 <div class="row g-3 mb-4">
-  {% if user.role == 'establishment_owner' %}
   <div class="col-6 col-lg-3">
-    <div class="dashboard-stat-card">
-      <i class="bx bx-user dashboard-stat-card__icon"></i>
-      <strong>{{ analytics.visitors_this_month }}</strong>
-      <span>Visitors (recent)</span>
+    <div class="an-kpi an-kpi--accent">
+      <i class="bx bx-user an-kpi__icon"></i>
+      <span class="an-kpi__value">{{ analytics.visitors_this_month }}</span>
+      <span class="an-kpi__label">Total visitors reported</span>
     </div>
   </div>
   <div class="col-6 col-lg-3">
-    <div class="dashboard-stat-card">
-      <i class="bx bx-file dashboard-stat-card__icon"></i>
-      <strong>{{ analytics.reports_submitted }}</strong>
-      <span>Reports submitted</span>
+    <div class="an-kpi an-kpi--success">
+      <i class="bx bx-file an-kpi__icon" style="color:#198754"></i>
+      <span class="an-kpi__value">{{ analytics.reports_submitted }}</span>
+      <span class="an-kpi__label">Reports submitted</span>
     </div>
   </div>
   <div class="col-6 col-lg-3">
-    <div class="dashboard-stat-card">
-      <i class="bx bx-star dashboard-stat-card__icon"></i>
-      <strong>{{ analytics.avg_rating }}</strong>
-      <span>Average rating</span>
+    <div class="an-kpi an-kpi--warning">
+      <i class="bx bx-star an-kpi__icon" style="color:#fd7e14"></i>
+      <span class="an-kpi__value">{{ analytics.avg_rating or '—' }}</span>
+      <span class="an-kpi__label">Average rating / 5</span>
     </div>
   </div>
   <div class="col-6 col-lg-3">
-    <div class="dashboard-stat-card">
-      <i class="bx bx-time dashboard-stat-card__icon"></i>
-      <strong>{{ analytics.pending_reports }}</strong>
-      <span>Due reports</span>
+    <div class="an-kpi an-kpi--info">
+      <i class="bx bx-heart an-kpi__icon" style="color:#0dcaf0"></i>
+      <span class="an-kpi__value">{{ analytics.spot_likes }}</span>
+      <span class="an-kpi__label">Spot likes</span>
     </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi">
+      <i class="bx bx-bookmark an-kpi__icon"></i>
+      <span class="an-kpi__value">{{ analytics.spot_bookmarks }}</span>
+      <span class="an-kpi__label">Bookmarks</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi">
+      <i class="bx bx-badge-check an-kpi__icon"></i>
+      <span class="an-kpi__value">{{ analytics.stamp_count }}</span>
+      <span class="an-kpi__label">Passport stamps earned</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi">
+      <i class="bx bx-sun an-kpi__icon"></i>
+      <span class="an-kpi__value">{{ analytics.visitor_breakdown.day_tour }}</span>
+      <span class="an-kpi__label">Day tour visitors</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi">
+      <i class="bx bx-moon an-kpi__icon"></i>
+      <span class="an-kpi__value">{{ analytics.visitor_breakdown.overnight }}</span>
+      <span class="an-kpi__label">Overnight visitors</span>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  {# Visitor trend #}
+  <div class="col-lg-5">
+    <div class="dashboard-card h-100">
+      <p class="an-section-title">Visitor trend (recent months)</p>
+      {% if analytics.monthly_trend %}
+      {% set max_v = analytics.monthly_trend | map(attribute='visitors') | max %}
+      <div class="an-trend-bar">
+        {% for m in analytics.monthly_trend %}
+        {% set pct = ((m.visitors / max_v * 100) | int) if max_v > 0 else 4 %}
+        <div class="an-trend-bar__col">
+          <span style="font-size:.65rem;color:var(--primary);font-weight:600;">{{ m.visitors }}</span>
+          <div class="an-trend-bar__fill" style="height:{{ pct }}%;"></div>
+          <span class="an-trend-bar__lbl">{{ m.month[5:] }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-muted small">No report data yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Visitor origin breakdown #}
+  <div class="col-lg-4">
+    <div class="dashboard-card h-100">
+      <p class="an-section-title">Visitor origin</p>
+      {% set vb = analytics.visitor_breakdown %}
+      {% set total_v = (vb.this_city + vb.other_city + vb.other_province + vb.foreign) or 1 %}
+      {% for label, val in [('This city', vb.this_city), ('Other city', vb.other_city), ('Other province', vb.other_province), ('Foreign', vb.foreign)] %}
+      <div class="an-bar-row">
+        <span class="an-bar-row__label">{{ label }}</span>
+        <div class="an-bar-row__track"><div class="an-bar-row__fill" style="width:{{ (val/total_v*100)|int }}%;"></div></div>
+        <span class="an-bar-row__val">{{ val }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# Gender split #}
+  <div class="col-lg-3">
+    <div class="dashboard-card h-100">
+      <p class="an-section-title">Gender split</p>
+      {% set gb = analytics.gender_breakdown %}
+      {% set total_g = (gb.male + gb.female) or 1 %}
+      <div class="d-flex justify-content-center mb-3">
+        <div class="an-donut">
+          <svg viewBox="0 0 36 36" width="90" height="90">
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e2e3e5" stroke-width="3.5"/>
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke="#0dcaf0" stroke-width="3.5"
+              stroke-dasharray="{{ (gb.male/total_g*100)|int }} {{ 100 - (gb.male/total_g*100)|int }}"
+              stroke-dashoffset="0"/>
+          </svg>
+          <div class="an-donut__center"><span style="color:#0dcaf0;">{{ (gb.male/total_g*100)|int }}%</span><span>Male</span></div>
+        </div>
+      </div>
+      <div class="d-flex justify-content-around text-center small">
+        <div><strong>{{ gb.male }}</strong><br><span class="text-muted" style="font-size:.7rem;">Male</span></div>
+        <div><strong>{{ gb.female }}</strong><br><span class="text-muted" style="font-size:.7rem;">Female</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  {# Feedback sentiment #}
+  <div class="col-lg-5">
+    <div class="dashboard-card h-100">
+      <p class="an-section-title">Feedback sentiment</p>
+      {% set fs = analytics.feedback_stats %}
+      {% if fs.count > 0 %}
+      <div class="d-flex gap-2 mb-3 flex-wrap">
+        <span class="an-pill an-pill--green"><i class="bx bx-smile"></i> {{ fs.positive }} positive ({{ fs.positive_pct }}%)</span>
+        <span class="an-pill an-pill--gray"><i class="bx bx-meh"></i> {{ fs.neutral }} neutral</span>
+        <span class="an-pill an-pill--red"><i class="bx bx-sad"></i> {{ fs.negative }} negative ({{ fs.negative_pct }}%)</span>
+      </div>
+      <div class="mb-1 small d-flex justify-content-between"><span>Positive</span><strong class="text-success">{{ fs.positive_pct }}%</strong></div>
+      <div class="progress mb-2" style="height:8px;"><div class="progress-bar bg-success" style="width:{{ fs.positive_pct }}%"></div></div>
+      <div class="mb-1 small d-flex justify-content-between"><span>Neutral</span><strong class="text-secondary">{{ fs.neutral_pct }}%</strong></div>
+      <div class="progress mb-2" style="height:8px;"><div class="progress-bar bg-secondary" style="width:{{ fs.neutral_pct }}%"></div></div>
+      <div class="mb-1 small d-flex justify-content-between"><span>Negative</span><strong class="text-danger">{{ fs.negative_pct }}%</strong></div>
+      <div class="progress mb-2" style="height:8px;"><div class="progress-bar bg-danger" style="width:{{ fs.negative_pct }}%"></div></div>
+      {% else %}
+      <p class="text-muted small">No feedback yet for your establishment.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Recent feedback #}
+  <div class="col-lg-7">
+    <div class="dashboard-card h-100">
+      <p class="an-section-title">Recent feedback</p>
+      {% if analytics.recent_feedbacks %}
+      {% for f in analytics.recent_feedbacks %}
+      <div class="an-fb-row">
+        <div>
+          {% if f.rating %}{% for i in range(1,6) %}<i class="bx {{ 'bxs-star' if i <= f.rating else 'bx-star' }} an-fb-row__star"></i>{% endfor %}{% endif %}
+          <div class="an-fb-row__meta">{{ f.guest_name or 'Tourist' }} · {{ (f.created_at or '')[:10] }}</div>
+        </div>
+        <span class="an-fb-row__text">{{ f.comments or '(no comment)' }}</span>
+        <span>{{ status_badge(f.sentiment or 'neutral') }}</span>
+      </div>
+      {% endfor %}
+      {% else %}
+      <p class="text-muted small">No feedback received yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# ═══════════════════════════════════════════════════════════════════════════
+   LGU ADMIN VIEW
+   ═══════════════════════════════════════════════════════════════════════════ #}
+{% elif user.role == 'lgu_admin' %}
+
+{# KPI row #}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi an-kpi--accent">
+      <i class="bx bx-map an-kpi__icon"></i>
+      <span class="an-kpi__value">{{ analytics.spot_total }}</span>
+      <span class="an-kpi__label">Approved spots</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi an-kpi--success">
+      <i class="bx bx-line-chart an-kpi__icon" style="color:#198754"></i>
+      <span class="an-kpi__value">{{ analytics.monthly_arrival_total }}</span>
+      <span class="an-kpi__label">Monthly visitors (total)</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi an-kpi--warning">
+      <i class="bx bx-message an-kpi__icon" style="color:#fd7e14"></i>
+      <span class="an-kpi__value">{{ analytics.feedback_count }}</span>
+      <span class="an-kpi__label">Feedback received</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi an-kpi--info">
+      <i class="bx bx-star an-kpi__icon" style="color:#0dcaf0"></i>
+      <span class="an-kpi__value">{{ analytics.avg_feedback_rating or '—' }}</span>
+      <span class="an-kpi__label">Avg rating / 5</span>
+    </div>
+  </div>
+</div>
+
+{# Spot approval status row #}
+<div class="row g-3 mb-4">
+  {% set sa = analytics.spot_approval %}
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi">
+      <i class="bx bx-check-circle an-kpi__icon" style="color:#198754"></i>
+      <span class="an-kpi__value">{{ sa.approved }}</span>
+      <span class="an-kpi__label">Spots approved</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi">
+      <i class="bx bx-time an-kpi__icon" style="color:#fd7e14"></i>
+      <span class="an-kpi__value">{{ sa.pending_lgu }}</span>
+      <span class="an-kpi__label">Pending LGU review</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi">
+      <i class="bx bx-hourglass an-kpi__icon" style="color:#0dcaf0"></i>
+      <span class="an-kpi__value">{{ sa.pending_ltcato }}</span>
+      <span class="an-kpi__label">Pending LTCATO review</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi">
+      <i class="bx bx-x-circle an-kpi__icon" style="color:#dc3545"></i>
+      <span class="an-kpi__value">{{ sa.rejected }}</span>
+      <span class="an-kpi__label">Spots rejected</span>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  {# Visitor trend #}
+  <div class="col-lg-5">
+    <div class="dashboard-card h-100">
+      <p class="an-section-title">Monthly visitor trend</p>
+      {% if analytics.monthly_trend %}
+      {% set max_v = analytics.monthly_trend | map(attribute='visitors') | max %}
+      <div class="an-trend-bar">
+        {% for m in analytics.monthly_trend %}
+        {% set pct = ((m.visitors / max_v * 100) | int) if max_v > 0 else 4 %}
+        <div class="an-trend-bar__col">
+          <span style="font-size:.65rem;color:var(--primary);font-weight:600;">{{ m.visitors }}</span>
+          <div class="an-trend-bar__fill" style="height:{{ pct }}%;"></div>
+          <span class="an-trend-bar__lbl">{{ m.month[5:] }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-muted small">No monthly arrival data yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Visitor origin #}
+  <div class="col-lg-4">
+    <div class="dashboard-card h-100">
+      <p class="an-section-title">Visitor origin breakdown</p>
+      {% set vb = analytics.visitor_breakdown %}
+      {% set total_v = (vb.this_city + vb.other_city + vb.other_province + vb.foreign) or 1 %}
+      {% for label, val in [('This city/municipality', vb.this_city), ('Other city', vb.other_city), ('Other province', vb.other_province), ('Foreign', vb.foreign)] %}
+      <div class="an-bar-row">
+        <span class="an-bar-row__label">{{ label }}</span>
+        <div class="an-bar-row__track"><div class="an-bar-row__fill" style="width:{{ (val/total_v*100)|int }}%;"></div></div>
+        <span class="an-bar-row__val">{{ val }}</span>
+      </div>
+      {% endfor %}
+      <hr class="my-2">
+      <div class="d-flex gap-3 small">
+        <span><i class="bx bx-sun text-warning"></i> Day tour: <strong>{{ vb.day_tour }}</strong></span>
+        <span><i class="bx bx-moon" style="color:#6366f1"></i> Overnight: <strong>{{ vb.overnight }}</strong></span>
+      </div>
+    </div>
+  </div>
+
+  {# Gender split #}
+  <div class="col-lg-3">
+    <div class="dashboard-card h-100">
+      <p class="an-section-title">Gender split</p>
+      {% set gb = analytics.gender_breakdown %}
+      {% set total_g = (gb.male + gb.female) or 1 %}
+      <div class="d-flex justify-content-center mb-3">
+        <div class="an-donut">
+          <svg viewBox="0 0 36 36" width="90" height="90">
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e2e3e5" stroke-width="3.5"/>
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--primary)" stroke-width="3.5"
+              stroke-dasharray="{{ (gb.male/total_g*100)|int }} {{ 100 - (gb.male/total_g*100)|int }}"
+              stroke-dashoffset="0"/>
+          </svg>
+          <div class="an-donut__center"><span style="color:var(--primary);">{{ (gb.male/total_g*100)|int }}%</span><span>Male</span></div>
+        </div>
+      </div>
+      <div class="d-flex justify-content-around text-center small">
+        <div><strong>{{ gb.male }}</strong><br><span class="text-muted" style="font-size:.7rem;">Male</span></div>
+        <div><strong>{{ gb.female }}</strong><br><span class="text-muted" style="font-size:.7rem;">Female</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  {# Top spots by visitors #}
+  <div class="col-lg-5">
+    <div class="dashboard-card h-100">
+      <p class="an-section-title">Top spots by visitors</p>
+      {% if analytics.spot_ranking %}
+      {% for s in analytics.spot_ranking %}
+      <div class="an-spot-rank">
+        <span class="an-spot-rank__num">{{ loop.index }}</span>
+        <span class="an-spot-rank__name">{{ s.spot_name }}</span>
+        <span class="an-spot-rank__val">{{ s.total_visitors }}</span>
+      </div>
+      {% endfor %}
+      {% else %}
+      <p class="text-muted small">No arrival data yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Top rated spots #}
+  <div class="col-lg-4">
+    <div class="dashboard-card h-100">
+      <p class="an-section-title">Top rated spots</p>
+      {% if analytics.top_rated_spots %}
+      {% for s in analytics.top_rated_spots %}
+      <div class="an-spot-rank">
+        <span class="an-spot-rank__num">{{ loop.index }}</span>
+        <span class="an-spot-rank__name">{{ s.name }}</span>
+        <span class="an-spot-rank__val">{{ s.rating }}★ <span class="text-muted" style="font-size:.65rem;">({{ s.reviews_count }})</span></span>
+      </div>
+      {% endfor %}
+      {% else %}
+      <p class="text-muted small">No rated spots yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Feedback sentiment #}
+  <div class="col-lg-3">
+    <div class="dashboard-card h-100">
+      <p class="an-section-title">Feedback sentiment</p>
+      {% set fs = analytics.feedback_stats %}
+      {% if fs.count > 0 %}
+      <div class="mb-1 small d-flex justify-content-between"><span>Positive</span><strong class="text-success">{{ fs.positive_pct }}%</strong></div>
+      <div class="progress mb-2" style="height:8px;"><div class="progress-bar bg-success" style="width:{{ fs.positive_pct }}%"></div></div>
+      <div class="mb-1 small d-flex justify-content-between"><span>Neutral</span><strong class="text-secondary">{{ fs.neutral_pct }}%</strong></div>
+      <div class="progress mb-2" style="height:8px;"><div class="progress-bar bg-secondary" style="width:{{ fs.neutral_pct }}%"></div></div>
+      <div class="mb-1 small d-flex justify-content-between"><span>Negative</span><strong class="text-danger">{{ fs.negative_pct }}%</strong></div>
+      <div class="progress mb-2" style="height:8px;"><div class="progress-bar bg-danger" style="width:{{ fs.negative_pct }}%"></div></div>
+      <p class="text-muted small mt-2 mb-0">{{ fs.count }} total feedbacks · avg {{ fs.avg_rating }}/5</p>
+      {% else %}
+      <p class="text-muted small">No feedback yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# Recent feedback #}
+<div class="dashboard-card mb-4">
+  <p class="an-section-title">Recent feedback from tourists</p>
+  {% if analytics.recent_feedbacks %}
+  <div class="table-responsive">
+    <table class="table dashboard-table mb-0">
+      <thead><tr><th>Spot</th><th>Guest</th><th>Rating</th><th>Sentiment</th><th>Comment</th><th>Date</th></tr></thead>
+      <tbody>
+        {% for f in analytics.recent_feedbacks %}
+        {% set spot = f.tourist_spots or {} %}
+        <tr>
+          <td><strong>{{ spot.name or '—' }}</strong></td>
+          <td>{{ f.guest_name or 'Tourist' }}</td>
+          <td>{% if f.rating %}{% for i in range(1,6) %}<i class="bx {{ 'bxs-star' if i <= f.rating else 'bx-star' }}" style="color:#f59e0b;font-size:.74rem;"></i>{% endfor %}{% else %}—{% endif %}</td>
+          <td>{{ status_badge(f.sentiment or 'neutral') }}</td>
+          <td class="small">{{ (f.comments or '')[:100] }}</td>
+          <td class="small text-muted">{{ (f.created_at or '')[:10] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
   {% else %}
-  <div class="col-6 col-lg-3">
-    <div class="dashboard-stat-card">
-      <i class="bx bx-map dashboard-stat-card__icon"></i>
-      <strong>{{ analytics.spot_total }}</strong>
-      <span>Approved spots</span>
-    </div>
-  </div>
-  <div class="col-6 col-lg-3">
-    <div class="dashboard-stat-card">
-      <i class="bx bx-line-chart dashboard-stat-card__icon"></i>
-      <strong>{{ analytics.monthly_arrival_total }}</strong>
-      <span>Monthly visitors</span>
-    </div>
-  </div>
-  <div class="col-6 col-lg-3">
-    <div class="dashboard-stat-card">
-      <i class="bx bx-message dashboard-stat-card__icon"></i>
-      <strong>{{ analytics.feedback_count }}</strong>
-      <span>Feedback (recent)</span>
-    </div>
-  </div>
-  <div class="col-6 col-lg-3">
-    <div class="dashboard-stat-card">
-      <i class="bx bx-star dashboard-stat-card__icon"></i>
-      <strong>{{ analytics.avg_feedback_rating }}</strong>
-      <span>Avg rating</span>
-    </div>
-  </div>
+  <p class="text-muted small">No feedback yet.</p>
   {% endif %}
 </div>
 
-{% if analytics.arrival_by_lgu and user.role in ('super_admin', 'ltcato_staff') %}
-<div class="dashboard-card mb-4">
-  <div class="dashboard-card__header d-flex justify-content-between align-items-center flex-wrap gap-2">
-    <div>
-      <h3 class="dashboard-card__title mb-0">Arrivals by LGU (monthly)</h3>
-      <p class="text-muted small mb-0">Consolidated visitor totals from arrival_reports</p>
+{# ═══════════════════════════════════════════════════════════════════════════
+   LTCATO STAFF + SUPER ADMIN VIEW
+   ═══════════════════════════════════════════════════════════════════════════ #}
+{% else %}{# super_admin or ltcato_staff #}
+
+{# KPI row 1 — core metrics #}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi an-kpi--accent">
+      <i class="bx bx-map an-kpi__icon"></i>
+      <span class="an-kpi__value">{{ analytics.spot_total }}</span>
+      <span class="an-kpi__label">Approved tourist spots</span>
     </div>
   </div>
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi an-kpi--success">
+      <i class="bx bx-buildings an-kpi__icon" style="color:#198754"></i>
+      <span class="an-kpi__value">{{ analytics.lgu_count }}</span>
+      <span class="an-kpi__label">LGUs in directory</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi an-kpi--warning">
+      <i class="bx bx-line-chart an-kpi__icon" style="color:#fd7e14"></i>
+      <span class="an-kpi__value">{{ analytics.monthly_arrival_total }}</span>
+      <span class="an-kpi__label">Monthly visitors (total)</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi an-kpi--info">
+      <i class="bx bx-star an-kpi__icon" style="color:#0dcaf0"></i>
+      <span class="an-kpi__value">{{ analytics.avg_feedback_rating or '—' }}</span>
+      <span class="an-kpi__label">Avg feedback rating / 5</span>
+    </div>
+  </div>
+</div>
+
+{# KPI row 2 — pending queues #}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi an-kpi--danger">
+      <i class="bx bx-time an-kpi__icon" style="color:#dc3545"></i>
+      <span class="an-kpi__value">{{ analytics.pending_lgu_spots }}</span>
+      <span class="an-kpi__label">Spots pending LGU</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi an-kpi--warning">
+      <i class="bx bx-hourglass an-kpi__icon" style="color:#fd7e14"></i>
+      <span class="an-kpi__value">{{ analytics.pending_ltcato_spots }}</span>
+      <span class="an-kpi__label">Spots pending LTCATO</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi an-kpi--warning">
+      <i class="bx bx-calendar-event an-kpi__icon" style="color:#fd7e14"></i>
+      <span class="an-kpi__value">{{ analytics.pending_events }}</span>
+      <span class="an-kpi__label">Events awaiting approval</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi an-kpi--info">
+      <i class="bx bx-bot an-kpi__icon" style="color:#0dcaf0"></i>
+      <span class="an-kpi__value">{{ analytics.pending_chatbot }}</span>
+      <span class="an-kpi__label">Chatbot FAQs pending</span>
+    </div>
+  </div>
+</div>
+
+{# KPI row 3 — engagement & tourist activity (super_admin only) #}
+{% if user.role == 'super_admin' and analytics.engagement %}
+{% set eng = analytics.engagement %}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi">
+      <i class="bx bx-heart an-kpi__icon"></i>
+      <span class="an-kpi__value">{{ eng.spot_likes }}</span>
+      <span class="an-kpi__label">Spot likes</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi">
+      <i class="bx bx-bookmark an-kpi__icon"></i>
+      <span class="an-kpi__value">{{ eng.spot_bookmarks }}</span>
+      <span class="an-kpi__label">Spot bookmarks</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi">
+      <i class="bx bx-calendar-heart an-kpi__icon"></i>
+      <span class="an-kpi__value">{{ eng.event_likes }}</span>
+      <span class="an-kpi__label">Event likes</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi">
+      <i class="bx bx-calendar-check an-kpi__icon"></i>
+      <span class="an-kpi__value">{{ eng.event_bookmarks }}</span>
+      <span class="an-kpi__label">Event bookmarks</span>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# KPI row 4 — itineraries & passports (super_admin only) #}
+{% if user.role == 'super_admin' and analytics.itinerary_stats %}
+{% set it = analytics.itinerary_stats %}
+{% set pp = analytics.passport_stats %}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi">
+      <i class="bx bx-map-alt an-kpi__icon"></i>
+      <span class="an-kpi__value">{{ it.total }}</span>
+      <span class="an-kpi__label">Itineraries created</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi">
+      <i class="bx bx-id-card an-kpi__icon"></i>
+      <span class="an-kpi__value">{{ pp.total_passports }}</span>
+      <span class="an-kpi__label">Tourist passports issued</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi">
+      <i class="bx bx-badge-check an-kpi__icon"></i>
+      <span class="an-kpi__value">{{ pp.total_stamps }}</span>
+      <span class="an-kpi__label">Passport stamps earned</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="an-kpi">
+      <i class="bx bx-message-square-dots an-kpi__icon"></i>
+      <span class="an-kpi__value">{{ analytics.feedback_count }}</span>
+      <span class="an-kpi__label">Total feedbacks</span>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# Main charts row #}
+<div class="row g-4 mb-4">
+  {# Monthly visitor trend #}
+  <div class="col-lg-5">
+    <div class="dashboard-card h-100">
+      <p class="an-section-title">Monthly visitor trend (all LGUs)</p>
+      {% if analytics.monthly_trend %}
+      {% set max_v = analytics.monthly_trend | map(attribute='visitors') | max %}
+      <div class="an-trend-bar">
+        {% for m in analytics.monthly_trend %}
+        {% set pct = ((m.visitors / max_v * 100) | int) if max_v > 0 else 4 %}
+        <div class="an-trend-bar__col">
+          <span style="font-size:.65rem;color:var(--primary);font-weight:600;">{{ m.visitors }}</span>
+          <div class="an-trend-bar__fill" style="height:{{ pct }}%;"></div>
+          <span class="an-trend-bar__lbl">{{ m.month[5:] }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-muted small">No monthly arrival data yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Visitor origin breakdown #}
+  <div class="col-lg-4">
+    <div class="dashboard-card h-100">
+      <p class="an-section-title">Visitor origin (all reports)</p>
+      {% set vb = analytics.visitor_breakdown %}
+      {% set total_v = (vb.this_city + vb.other_city + vb.other_province + vb.foreign) or 1 %}
+      {% for label, val in [('This city/municipality', vb.this_city), ('Other city', vb.other_city), ('Other province', vb.other_province), ('Foreign', vb.foreign)] %}
+      <div class="an-bar-row">
+        <span class="an-bar-row__label">{{ label }}</span>
+        <div class="an-bar-row__track"><div class="an-bar-row__fill" style="width:{{ (val/total_v*100)|int }}%;"></div></div>
+        <span class="an-bar-row__val">{{ val }}</span>
+      </div>
+      {% endfor %}
+      <hr class="my-2">
+      <div class="d-flex gap-3 small">
+        <span><i class="bx bx-sun text-warning"></i> Day tour: <strong>{{ vb.day_tour }}</strong></span>
+        <span><i class="bx bx-moon" style="color:#6366f1"></i> Overnight: <strong>{{ vb.overnight }}</strong></span>
+      </div>
+    </div>
+  </div>
+
+  {# Gender split #}
+  <div class="col-lg-3">
+    <div class="dashboard-card h-100">
+      <p class="an-section-title">Gender split</p>
+      {% set gb = analytics.gender_breakdown %}
+      {% set total_g = (gb.male + gb.female) or 1 %}
+      <div class="d-flex justify-content-center mb-3">
+        <div class="an-donut">
+          <svg viewBox="0 0 36 36" width="90" height="90">
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e2e3e5" stroke-width="3.5"/>
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--primary)" stroke-width="3.5"
+              stroke-dasharray="{{ (gb.male/total_g*100)|int }} {{ 100 - (gb.male/total_g*100)|int }}"
+              stroke-dashoffset="0"/>
+          </svg>
+          <div class="an-donut__center"><span style="color:var(--primary);">{{ (gb.male/total_g*100)|int }}%</span><span>Male</span></div>
+        </div>
+      </div>
+      <div class="d-flex justify-content-around text-center small">
+        <div><strong>{{ gb.male }}</strong><br><span class="text-muted" style="font-size:.7rem;">Male</span></div>
+        <div><strong>{{ gb.female }}</strong><br><span class="text-muted" style="font-size:.7rem;">Female</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Arrivals by LGU + Spot ranking #}
+<div class="row g-4 mb-4">
+  <div class="col-lg-6">
+    <div class="dashboard-card h-100">
+      <p class="an-section-title">Arrivals by LGU (monthly)</p>
+      {% if analytics.arrival_by_lgu %}
+      {% set max_lgu = analytics.arrival_by_lgu[0].total_visitors or 1 %}
+      {% for row in analytics.arrival_by_lgu %}
+      <div class="an-bar-row">
+        <span class="an-bar-row__label">{{ row.lgu_name }}</span>
+        <div class="an-bar-row__track"><div class="an-bar-row__fill" style="width:{{ (row.total_visitors/max_lgu*100)|int }}%;"></div></div>
+        <span class="an-bar-row__val">{{ row.total_visitors }}</span>
+      </div>
+      {% endfor %}
+      {% else %}
+      <p class="text-muted small">No monthly arrival data yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="dashboard-card h-100">
+      <p class="an-section-title">Top spots by visitors</p>
+      {% if analytics.spot_ranking %}
+      {% for s in analytics.spot_ranking %}
+      <div class="an-spot-rank">
+        <span class="an-spot-rank__num">{{ loop.index }}</span>
+        <span class="an-spot-rank__name">{{ s.spot_name }}</span>
+        <span class="an-spot-rank__val">{{ s.total_visitors }}</span>
+      </div>
+      {% endfor %}
+      {% else %}
+      <p class="text-muted small">No arrival data yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# Spot approval + Event status + Feedback sentiment #}
+<div class="row g-4 mb-4">
+  {# Spot approval breakdown #}
+  <div class="col-lg-4">
+    <div class="dashboard-card h-100">
+      <p class="an-section-title">Spot approval pipeline</p>
+      {% set sa = analytics.spot_approval %}
+      {% set total_sa = (sa.approved + sa.pending_lgu + sa.pending_ltcato + sa.rejected) or 1 %}
+      {% for label, val, color in [
+        ('Approved', sa.approved, '#198754'),
+        ('Pending LGU', sa.pending_lgu, '#fd7e14'),
+        ('Pending LTCATO', sa.pending_ltcato, '#0dcaf0'),
+        ('Rejected', sa.rejected, '#dc3545')
+      ] %}
+      <div class="an-bar-row">
+        <span class="an-bar-row__label">{{ label }}</span>
+        <div class="an-bar-row__track"><div class="an-bar-row__fill" style="width:{{ (val/total_sa*100)|int }}%;background:{{ color }};"></div></div>
+        <span class="an-bar-row__val">{{ val }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# Event status breakdown #}
+  <div class="col-lg-4">
+    <div class="dashboard-card h-100">
+      <p class="an-section-title">Event status breakdown</p>
+      {% set es = analytics.event_status %}
+      {% set total_es = (es.draft + es.upcoming + es.ongoing + es.finished) or 1 %}
+      {% for label, val, color in [
+        ('Upcoming', es.upcoming, '#0dcaf0'),
+        ('Ongoing', es.ongoing, '#198754'),
+        ('Finished', es.finished, '#6c757d'),
+        ('Draft', es.draft, '#adb5bd')
+      ] %}
+      <div class="an-bar-row">
+        <span class="an-bar-row__label">{{ label }}</span>
+        <div class="an-bar-row__track"><div class="an-bar-row__fill" style="width:{{ (val/total_es*100)|int }}%;background:{{ color }};"></div></div>
+        <span class="an-bar-row__val">{{ val }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# Feedback sentiment #}
+  <div class="col-lg-4">
+    <div class="dashboard-card h-100">
+      <p class="an-section-title">Feedback sentiment</p>
+      {% set fs = analytics.feedback_stats %}
+      {% if fs.count > 0 %}
+      <div class="mb-1 small d-flex justify-content-between"><span>Positive</span><strong class="text-success">{{ fs.positive_pct }}%</strong></div>
+      <div class="progress mb-2" style="height:8px;"><div class="progress-bar bg-success" style="width:{{ fs.positive_pct }}%"></div></div>
+      <div class="mb-1 small d-flex justify-content-between"><span>Neutral</span><strong class="text-secondary">{{ fs.neutral_pct }}%</strong></div>
+      <div class="progress mb-2" style="height:8px;"><div class="progress-bar bg-secondary" style="width:{{ fs.neutral_pct }}%"></div></div>
+      <div class="mb-1 small d-flex justify-content-between"><span>Negative</span><strong class="text-danger">{{ fs.negative_pct }}%</strong></div>
+      <div class="progress mb-2" style="height:8px;"><div class="progress-bar bg-danger" style="width:{{ fs.negative_pct }}%"></div></div>
+      <p class="text-muted small mt-2 mb-0">{{ fs.count }} total · avg {{ fs.avg_rating }}/5</p>
+      {% else %}
+      <p class="text-muted small">No labeled feedback yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# Top rated spots + Recent feedback #}
+<div class="row g-4 mb-4">
+  <div class="col-lg-4">
+    <div class="dashboard-card h-100">
+      <p class="an-section-title">Top rated spots (province-wide)</p>
+      {% if analytics.top_rated_spots %}
+      {% for s in analytics.top_rated_spots %}
+      <div class="an-spot-rank">
+        <span class="an-spot-rank__num">{{ loop.index }}</span>
+        <div style="flex:1;min-width:0;">
+          <div class="an-spot-rank__name">{{ s.name }}</div>
+          <div style="font-size:.65rem;color:var(--muted-foreground);">{{ (s.lgus or {}).get('name','—') }}</div>
+        </div>
+        <span class="an-spot-rank__val">{{ s.rating }}★ <span class="text-muted" style="font-size:.65rem;">({{ s.reviews_count }})</span></span>
+      </div>
+      {% endfor %}
+      {% else %}
+      <p class="text-muted small">No rated spots yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div class="dashboard-card h-100">
+      <p class="an-section-title">Recent feedback (province-wide)</p>
+      {% if analytics.recent_feedbacks %}
+      <div class="table-responsive">
+        <table class="table dashboard-table mb-0">
+          <thead><tr><th>Spot</th><th>LGU</th><th>Rating</th><th>Sentiment</th><th>Comment</th><th>Date</th></tr></thead>
+          <tbody>
+            {% for f in analytics.recent_feedbacks %}
+            {% set spot = f.tourist_spots or {} %}
+            {% set lgu = (spot.lgus or {}) %}
+            <tr>
+              <td><strong>{{ spot.name or '—' }}</strong></td>
+              <td class="small">{{ lgu.name if lgu else '—' }}</td>
+              <td>{% if f.rating %}{% for i in range(1,6) %}<i class="bx {{ 'bxs-star' if i <= f.rating else 'bx-star' }}" style="color:#f59e0b;font-size:.74rem;"></i>{% endfor %}{% else %}—{% endif %}</td>
+              <td>{{ status_badge(f.sentiment or 'neutral') }}</td>
+              <td class="small">{{ (f.comments or '')[:90] }}</td>
+              <td class="small text-muted">{{ (f.created_at or '')[:10] }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted small">No feedback yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# Itinerary trip purpose breakdown (super_admin only) #}
+{% if user.role == 'super_admin' and analytics.itinerary_stats and analytics.itinerary_stats.total > 0 %}
+{% set it = analytics.itinerary_stats %}
+<div class="dashboard-card mb-4">
+  <p class="an-section-title">Itinerary trip purpose breakdown</p>
+  <div class="row g-3">
+    {% set total_it = it.total or 1 %}
+    {% for purpose, count in it.by_purpose.items() %}
+    <div class="col-6 col-md-4 col-lg-2">
+      <div class="an-kpi text-center">
+        <span class="an-kpi__value">{{ count }}</span>
+        <span class="an-kpi__label">{{ purpose | title }}</span>
+        <div class="progress mt-1" style="height:5px;"><div class="progress-bar" style="width:{{ (count/total_it*100)|int }}%;background:var(--primary);"></div></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{# Event promo analytics (super_admin + ltcato_staff) #}
+{% if analytics.event_promo_analytics %}
+{% set ep = analytics.event_promo_analytics %}
+<div class="dashboard-card mb-4">
+  <p class="an-section-title">Event promotion analytics</p>
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-lg-4">
+      <div class="an-kpi"><i class="bx bx-show an-kpi__icon"></i><span class="an-kpi__value">{{ ep.total_views }}</span><span class="an-kpi__label">Total event views</span></div>
+    </div>
+    <div class="col-6 col-lg-4">
+      <div class="an-kpi"><i class="bx bx-message-square-dots an-kpi__icon"></i><span class="an-kpi__value">{{ ep.total_feedbacks }}</span><span class="an-kpi__label">Total event feedbacks</span></div>
+    </div>
+    <div class="col-6 col-lg-4">
+      <div class="an-kpi"><i class="bx bx-trending-up an-kpi__icon"></i><span class="an-kpi__value">{{ ep.avg_engagement_rate }}%</span><span class="an-kpi__label">Avg engagement rate</span></div>
+    </div>
+  </div>
+  <p class="text-muted small mb-2">
+    <i class="bx bx-info-circle me-1"></i>
+    Engagement % = (likes + bookmarks + feedbacks + rating weight) ÷ views × 100 — sourced live from <code>event_feedbacks</code> and <code>event_engagements</code>.
+  </p>
   <div class="table-responsive">
     <table class="table dashboard-table mb-0">
-      <thead>
-        <tr>
-          <th>LGU</th>
-          <th>Reports</th>
-          <th>Total visitors</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Event</th><th>Views</th><th>Likes</th><th>Bookmarks</th><th>Feedbacks</th><th>Avg rating</th><th>Engagement %</th></tr></thead>
       <tbody>
-        {% for row in analytics.arrival_by_lgu %}
+        {% for row in ep.top_events %}
+        {% set meta = row.events or {} %}
         <tr>
-          <td><strong>{{ row.lgu_name }}</strong></td>
-          <td>{{ row.report_count }}</td>
-          <td>{{ row.total_visitors }}</td>
+          <td><strong>{% if meta.title %}{{ meta.title }}{% else %}#{{ row.event_id }}{% endif %}</strong>
+            {% if meta.event_status %}<span class="badge text-bg-light text-capitalize ms-1" style="font-size:.65rem;">{{ meta.event_status }}</span>{% endif %}
+          </td>
+          <td>{{ row.views or 0 }}</td>
+          <td>{{ row.likes or 0 }}</td>
+          <td>{{ row.bookmarks or 0 }}</td>
+          <td>{{ row.feedback_count or 0 }}</td>
+          <td>{{ row.avg_rating or '—' }}</td>
+          <td><strong>{{ row.engagement_rate or 0 }}%</strong></td>
         </tr>
         {% else %}
-        <tr><td colspan="3" class="text-muted text-center py-4">No monthly arrival data yet.</td></tr>
+        <tr><td colspan="7" class="text-muted text-center py-3">No event analytics rows yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -106,157 +888,22 @@
 </div>
 {% endif %}
 
-{% if analytics.event_promo_analytics and user.role in ('super_admin', 'ltcato_staff') %}
-{% set ep = analytics.event_promo_analytics %}
-<div class="row g-3 mb-4">
-  <div class="col-6 col-lg-3">
-    <div class="dashboard-stat-card">
-      <i class="bx bx-show dashboard-stat-card__icon"></i>
-      <strong>{{ ep.total_views }}</strong>
-      <span>Event views</span>
-    </div>
-  </div>
-  <div class="col-6 col-lg-3">
-    <div class="dashboard-stat-card">
-      <i class="bx bx-walk dashboard-stat-card__icon"></i>
-      <strong>{{ ep.total_visitors }}</strong>
-      <span>Visitors (events)</span>
-    </div>
-  </div>
-  <div class="col-6 col-lg-3">
-    <div class="dashboard-stat-card">
-      <i class="bx bx-group dashboard-stat-card__icon"></i>
-      <strong>{{ ep.total_attendance }}</strong>
-      <span>Attendance</span>
-    </div>
-  </div>
-  <div class="col-6 col-lg-3">
-    <div class="dashboard-stat-card">
-      <i class="bx bx-purchase-tag dashboard-stat-card__icon"></i>
-      <strong>{{ ep.revenue_estimate }}</strong>
-      <span>Revenue estimate</span>
-    </div>
-  </div>
+{% endif %}{# end super_admin / ltcato_staff #}
+
+{# ── How this module works ─────────────────────────────────────────────── #}
+<div class="dashboard-card">
+  <p class="an-section-title">How this module works</p>
+  <p class="text-muted small mb-0">
+    {% if user.role == 'lgu_admin' %}
+      Analytics for your LGU combines approved tourist spots, tourist feedback, and arrival reports submitted by establishments you manage. Visitor origin and gender data come from the arrival_reports table.
+    {% elif user.role == 'establishment_owner' %}
+      Track visitor submissions and ratings for your property. Daily and weekly counts flow to your LGU; they compile monthly totals for LTCATO. Feedback and engagement data update in real time.
+    {% elif user.role == 'ltcato_staff' %}
+      Provincial view across all LGUs, establishments, and monthly submissions. Arrivals, feedback sentiment, and event analytics are aggregated from Supabase in real time.
+    {% else %}
+      System-wide KPIs: approved destinations, pending approvals, monthly arrivals, feedback sentiment, tourist engagement, itineraries, and passport stamps across Laguna province.
+    {% endif %}
+  </p>
 </div>
 
-<div class="dashboard-card mb-4">
-  <div class="dashboard-card__header">
-    <h3 class="dashboard-card__title mb-0">Event promotions — reach and engagement</h3>
-    <p class="text-muted small mb-0">From <code>event_analytics</code> (per-event rows). Municipality reach, top searches, and tourist origin use JSON arrays on each row.</p>
-  </div>
-  <div class="p-3 border-top">
-    <p class="small mb-2"><strong>Engagement rate (avg across tracked events):</strong> {{ ep.avg_engagement_rate }}%</p>
-    <div class="row g-4">
-      <div class="col-lg-4">
-        <h4 class="h6">Municipality reach</h4>
-        <div class="table-responsive">
-          <table class="table table-sm dashboard-table mb-0">
-            <thead><tr><th>Municipality</th><th>Count</th></tr></thead>
-            <tbody>
-              {% for row in ep.municipality_reach %}
-              <tr><td>{{ row.name }}</td><td>{{ row.count }}</td></tr>
-              {% else %}
-              <tr><td colspan="2" class="text-muted">No reach data yet.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="col-lg-4">
-        <h4 class="h6">Top searches</h4>
-        <div class="table-responsive">
-          <table class="table table-sm dashboard-table mb-0">
-            <thead><tr><th>Query</th><th>Hits</th></tr></thead>
-            <tbody>
-              {% for row in ep.top_searches %}
-              <tr><td>{{ row.query }}</td><td>{{ row.count }}</td></tr>
-              {% else %}
-              <tr><td colspan="2" class="text-muted">No search data yet.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="col-lg-4">
-        <h4 class="h6">Tourist origin</h4>
-        <div class="table-responsive">
-          <table class="table table-sm dashboard-table mb-0">
-            <thead><tr><th>Origin</th><th>Count</th></tr></thead>
-            <tbody>
-              {% for row in ep.tourist_origin %}
-              <tr><td>{{ row.origin }}</td><td>{{ row.count }}</td></tr>
-              {% else %}
-              <tr><td colspan="2" class="text-muted">No origin data yet.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-    <h4 class="h6 mt-4">Top events by views</h4>
-    <div class="table-responsive">
-      <table class="table dashboard-table mb-0">
-        <thead>
-          <tr>
-            <th>Event</th>
-            <th>Views</th>
-            <th>Visitors</th>
-            <th>Attendance</th>
-            <th>Revenue est.</th>
-            <th>Engagement %</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in ep.top_events %}
-          <tr>
-            <td><strong>{% if row.events and row.events.title %}{{ row.events.title }}{% else %}#{{ row.event_id }}{% endif %}</strong></td>
-            <td>{{ row.views or 0 }}</td>
-            <td>{{ row.visitors or 0 }}</td>
-            <td>{{ row.attendance or 0 }}</td>
-            <td>{{ row.revenue_estimate or 0 }}</td>
-            <td>{{ row.engagement_rate or 0 }}</td>
-          </tr>
-          {% else %}
-          <tr><td colspan="6" class="text-muted">No event analytics rows yet.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
-{% endif %}
-
-<div class="row g-4">
-  <div class="col-lg-6">
-    <div class="dashboard-card h-100">
-      <h3 class="dashboard-card__title">Operational queue</h3>
-      <ul class="dashboard-kpi-list">
-        <li><span>Pending LTCATO spot review</span><strong>{{ analytics.pending_ltcato_spots or 0 }}</strong></li>
-        <li><span>Pending LGU spot review</span><strong>{{ analytics.pending_lgu_spots or 0 }}</strong></li>
-        <li><span>Events awaiting approval</span><strong>{{ analytics.pending_events or 0 }}</strong></li>
-        <li><span>Chatbot FAQ pending</span><strong>{{ analytics.pending_chatbot or 0 }}</strong></li>
-        {% if user.role in ('super_admin', 'ltcato_staff') %}
-        <li><span>LGUs in directory</span><strong>{{ analytics.lgu_count or 0 }}</strong></li>
-        {% endif %}
-      </ul>
-    </div>
-  </div>
-  <div class="col-lg-6">
-    <div class="dashboard-card h-100">
-      <h3 class="dashboard-card__title">How this module works</h3>
-      <p class="text-muted small">
-        {% if user.role == 'lgu_admin' %}
-          Analytics for your LGU combines approved tourist spots, tourist feedback, and arrival reports submitted by establishments you manage.
-        {% elif user.role == 'establishment_owner' %}
-          Track visitor submissions and ratings for your property. Daily and weekly counts flow to your LGU; they compile monthly totals for LTCATO.
-        {% elif user.role == 'ltcato_staff' %}
-          Provincial view across LGUs, establishments, and monthly submissions — aligned with reports sent by LGU tourism officers.
-        {% else %}
-          System-wide KPIs: approved destinations, pending approvals, monthly arrivals, and feedback sentiment across Laguna.
-        {% endif %}
-      </p>
-    </div>
-  </div>
-</div>
 {% endblock %}
-
