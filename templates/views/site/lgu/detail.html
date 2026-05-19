@@ -85,6 +85,34 @@
         </div>
         {% endif %}
 
+        {% if events %}
+        <div class="lgu-detail-block">
+          <div class="lgu-detail-block__header-row">
+            <h2 class="lgu-detail-block__title mb-0"><i class="ph ph-calendar-star"></i> Upcoming events</h2>
+            <a href="{{ url_for('events.events_list', municipality=municipality.id) }}" class="lgu-detail-block__link">
+              View all <i class="ph ph-arrow-right"></i>
+            </a>
+          </div>
+          <div class="row g-4 mt-1">
+            {% for event in events %}
+            <div class="col-md-6">
+              <a href="{{ url_for('events.event_detail', event_id=event.id) }}" class="lgu-spot-mini-card">
+                <div class="lgu-spot-mini-card__img">
+                  <img src="{{ event.image | normalize_image_url }}" alt="{{ event.title }}" loading="lazy" />
+                </div>
+                <div class="lgu-spot-mini-card__body">
+                  <span class="category-badge {{ event.category }}">{{ event.category | event_category_label }}</span>
+                  <h3>{{ event.title }}</h3>
+                  <p>{{ event.summary | truncate_text(90) }}</p>
+                  <p class="small text-muted mb-0"><i class="ph ph-calendar"></i> {{ event.date_label }}</p>
+                </div>
+              </a>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
         <div class="lgu-detail-block">
           <div class="lgu-detail-block__header-row">
             <h2 class="lgu-detail-block__title mb-0"><i class="ph ph-map-trifold"></i> Tourist spots</h2>

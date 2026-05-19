@@ -8,7 +8,20 @@ public_bp = Blueprint("public", __name__)
 
 @public_bp.route("/")
 def home():
-    return render_template("views/site/home.html")
+    from services.home_service import get_home_events, get_trending_spots
+    from utils.jinja_helpers import normalize_image_url
+
+    events = get_home_events(limit=3)
+    for event in events:
+        img = normalize_image_url(event.get("image"))
+        event["image"] = img or event.get("image")
+
+    trending = get_trending_spots(limit=3)
+    return render_template(
+        "views/site/home.html",
+        home_events=events,
+        trending_spots=trending,
+    )
 
 
 @public_bp.route("/about")

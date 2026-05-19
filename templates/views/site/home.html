@@ -1,457 +1,628 @@
-{% extends "base.html" %}
-
-{% block title %}Home{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% block title %}Home{% endblock %} {% block content
+%}
 <section class="hero-section">
-  <div class="hero-media">
-    <video
-      class="hero-video"
-      id="heroVideo"
-      autoplay
-      muted
-      loop
-      playsinline
-      poster="{{ url_for('static', filename='images/kapitolyo.jpg') }}"
+    <div class="hero-media">
+        <video
+            class="hero-video"
+            id="heroVideo"
+            autoplay
+            muted
+            loop
+            playsinline
+            poster="{{ url_for('static', filename='images/kapitolyo.jpg') }}"
+        >
+            <source
+                src="{{ url_for('static', filename='video/video-banner.mp4') }}"
+                type="video/mp4"
+            />
+        </video>
+        <div class="hero-media__fallback" aria-hidden="true"></div>
+    </div>
+
+    <button
+        type="button"
+        class="hero-sound-toggle"
+        id="heroSoundToggle"
+        aria-label="Unmute video"
+        aria-pressed="false"
+        title="Unmute video"
     >
-      <source src="{{ url_for('static', filename='video/video-banner.mp4') }}" type="video/mp4" />
-    </video>
-    <div class="hero-media__fallback" aria-hidden="true"></div>
-  </div>
+        <i
+            class="ph ph-speaker-slash hero-sound-toggle__icon"
+            aria-hidden="true"
+        ></i>
+        <span class="hero-sound-toggle__label">Sound off</span>
+    </button>
 
-  <button
-    type="button"
-    class="hero-sound-toggle"
-    id="heroSoundToggle"
-    aria-label="Unmute video"
-    aria-pressed="false"
-    title="Unmute video"
-  >
-    <i class="ph ph-speaker-slash hero-sound-toggle__icon" aria-hidden="true"></i>
-    <span class="hero-sound-toggle__label">Sound off</span>
-  </button>
+    <div class="hero-overlay"></div>
+    <div class="hero-grid" aria-hidden="true"></div>
 
-  <div class="hero-overlay"></div>
-  <div class="hero-grid" aria-hidden="true"></div>
-
-  <div class="pennant-strip pennant-strip--hero" aria-hidden="true">
-    {% for _ in range(14) %}
-    <span class="pennant pennant--red"></span>
-    <span class="pennant pennant--green"></span>
-    <span class="pennant pennant--gold"></span>
-    <span class="pennant pennant--white"></span>
-    {% endfor %}
-  </div>
-
-  <div class="container-xl hero-content">
-    <div class="hero-badge">
-      <i class="ph ph-sparkle"></i>
-      <span>Discover Laguna's Hidden Gems</span>
+    <div class="pennant-strip pennant-strip--hero" aria-hidden="true">
+        {% for _ in range(14) %}
+        <span class="pennant pennant--red"></span>
+        <span class="pennant pennant--green"></span>
+        <span class="pennant pennant--gold"></span>
+        <span class="pennant pennant--white"></span>
+        {% endfor %}
     </div>
 
-    <h1 class="hero-title">
-      Experience Laguna<br />
-      <span class="hero-title__accent">Like Never Before.</span>
-    </h1>
+    <div class="container-xl hero-content">
+        <div class="hero-badge">
+            <i class="ph ph-sparkle"></i>
+            <span>Discover Laguna's Hidden Gems</span>
+        </div>
 
-    <p class="hero-subtitle">
-      From majestic waterfalls to vibrant festival grounds — your next adventure in the Pearl of the Orient starts here.
-    </p>
+        <h1 class="hero-title">
+            Experience Laguna<br />
+            <span class="hero-title__accent">Like Never Before.</span>
+        </h1>
 
-    <form class="hero-search" action="#" role="search">
-      <input
-        type="search"
-        class="hero-search__input"
-        placeholder="Search destinations, municipalities, or categories..."
-        aria-label="Search destinations"
-      />
-      <button type="submit" class="hero-search__btn" aria-label="Search">
-        <i class="ph ph-magnifying-glass"></i>
-      </button>
-    </form>
+        <p class="hero-subtitle">
+            From majestic waterfalls to vibrant festival grounds — your next
+            adventure in the Pearl of the Orient starts here.
+        </p>
 
-    <div class="hero-actions">
-      <a href="#" class="btn hero-btn hero-btn--outline">
-        <i class="ph ph-map-trifold"></i>
-        Open Interactive Map
-      </a>
-      <a href="{{ url_for('itinerary.planner') }}" class="btn hero-btn hero-btn--primary">
-        <i class="ph ph-calendar-check"></i>
-        Plan My Itinerary
-      </a>
+        <form class="hero-search" action="#" role="search">
+            <input
+                type="search"
+                class="hero-search__input"
+                placeholder="Search destinations, municipalities, or categories..."
+                aria-label="Search destinations"
+            />
+            <button type="submit" class="hero-search__btn" aria-label="Search">
+                <i class="ph ph-magnifying-glass"></i>
+            </button>
+        </form>
+
+        <div class="hero-actions">
+            <a href="#" class="btn hero-btn hero-btn--outline">
+                <i class="ph ph-map-trifold"></i>
+                Open Interactive Map
+            </a>
+            <a
+                href="{{ url_for('itinerary.planner') }}"
+                class="btn hero-btn hero-btn--primary"
+            >
+                <i class="ph ph-calendar-check"></i>
+                Plan My Itinerary
+            </a>
+        </div>
+
+        <div class="hero-stats">
+            <div class="hero-stat">
+                <strong>150+</strong>
+                <span>Verified Spots</span>
+            </div>
+            <div class="hero-stat">
+                <strong>12k+</strong>
+                <span>Guest Reviews</span>
+            </div>
+            <div class="hero-stat">
+                <strong>24/7</strong>
+                <span>AI-Powered Guide</span>
+            </div>
+        </div>
     </div>
-
-    <div class="hero-stats">
-      <div class="hero-stat">
-        <strong>150+</strong>
-        <span>Verified Spots</span>
-      </div>
-      <div class="hero-stat">
-        <strong>12k+</strong>
-        <span>Guest Reviews</span>
-      </div>
-      <div class="hero-stat">
-        <strong>24/7</strong>
-        <span>AI-Powered Guide</span>
-      </div>
-    </div>
-  </div>
 </section>
 
 <section class="home-section about-section">
-  <div class="container-xl">
-    <div class="row align-items-center g-5">
-      <div class="col-lg-6">
-        <span class="section-eyebrow">Laguna Tourism, Culture, Arts &amp; Trade Office</span>
-        <h2 class="section-title">Your trusted guide to exploring Laguna</h2>
-        <p class="section-lead">
-          LTCATO brings together tourism, culture, arts, and trade in one platform—helping visitors
-          discover verified destinations, plan meaningful trips, and learn from real guest experiences
-          before they go.
-        </p>
-        <p class="text-muted mb-4">
-          Browse detailed spot descriptions, build itineraries with our planner, and read reviews and
-          feedback from travelers who have been there—so you can decide where to go with confidence.
-        </p>
-        <div class="about-pillars">
-          <div class="about-pillar">
-            <i class="ph ph-map-trifold"></i>
-            <div>
-              <strong>Tourist Spots</strong>
-              <span>Rich descriptions of Laguna's attractions</span>
+    <div class="container-xl">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-6">
+                <span class="section-eyebrow"
+                    >Laguna Tourism, Culture, Arts &amp; Trade Office</span
+                >
+                <h2 class="section-title">
+                    Your trusted guide to exploring Laguna
+                </h2>
+                <p class="section-lead">
+                    LTCATO brings together tourism, culture, arts, and trade in
+                    one platform—helping visitors discover verified
+                    destinations, plan meaningful trips, and learn from real
+                    guest experiences before they go.
+                </p>
+                <p class="text-muted mb-4">
+                    Browse detailed spot descriptions, build itineraries with
+                    our planner, and read reviews and feedback from travelers
+                    who have been there—so you can decide where to go with
+                    confidence.
+                </p>
+                <div class="about-pillars">
+                    <div class="about-pillar">
+                        <i class="ph ph-map-trifold"></i>
+                        <div>
+                            <strong>Tourist Spots</strong>
+                            <span
+                                >Rich descriptions of Laguna's attractions</span
+                            >
+                        </div>
+                    </div>
+                    <div class="about-pillar">
+                        <i class="ph ph-calendar-check"></i>
+                        <div>
+                            <strong>Itinerary Planner</strong>
+                            <span>Organize your trip day by day</span>
+                        </div>
+                    </div>
+                    <div class="about-pillar">
+                        <i class="ph ph-chat-circle-text"></i>
+                        <div>
+                            <strong>Reviews &amp; Feedback</strong>
+                            <span>Honest insights from fellow visitors</span>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
-          <div class="about-pillar">
-            <i class="ph ph-calendar-check"></i>
-            <div>
-              <strong>Itinerary Planner</strong>
-              <span>Organize your trip day by day</span>
+            <div class="col-lg-6">
+                <div class="about-visual">
+                    <img
+                        src="{{ url_for('static', filename='images/kapitolyo.jpg') }}"
+                        alt="Laguna provincial capitol"
+                        class="about-visual__img"
+                    />
+                    <div class="about-visual__badge">
+                        <i class="ph ph-seal-check"></i>
+                        <span>Official LTCATO Platform</span>
+                    </div>
+                </div>
             </div>
-          </div>
-          <div class="about-pillar">
-            <i class="ph ph-chat-circle-text"></i>
-            <div>
-              <strong>Reviews &amp; Feedback</strong>
-              <span>Honest insights from fellow visitors</span>
-            </div>
-          </div>
         </div>
-      </div>
-      <div class="col-lg-6">
-        <div class="about-visual">
-          <img
-            src="{{ url_for('static', filename='images/kapitolyo.jpg') }}"
-            alt="Laguna provincial capitol"
-            class="about-visual__img"
-          />
-          <div class="about-visual__badge">
-            <i class="ph ph-seal-check"></i>
-            <span>Official LTCATO Platform</span>
-          </div>
-        </div>
-      </div>
     </div>
-  </div>
 </section>
 
 <section class="home-section features-section">
-  <div class="container-xl">
-    <div class="text-center mb-5 section-intro">
-      <span class="section-eyebrow">What we offer</span>
-      <h2 class="section-title mb-3">Everything you need to explore Laguna</h2>
-      <p class="section-lead mx-auto">Smart tools and trusted information—designed to give you a clear view of where to go and how to get there.</p>
+    <div class="container-xl">
+        <div class="text-center mb-5 section-intro">
+            <span class="section-eyebrow">What we offer</span>
+            <h2 class="section-title mb-3">
+                Everything you need to explore Laguna
+            </h2>
+            <p class="section-lead mx-auto">
+                Smart tools and trusted information—designed to give you a clear
+                view of where to go and how to get there.
+            </p>
+        </div>
+        <div class="row g-4 justify-content-center">
+            <div class="col-md-4 col-sm-6">
+                <div class="feature-box">
+                    <div class="feature-icon-wrapper">
+                        <i class="ph ph-map-pin-line"></i>
+                    </div>
+                    <h4 class="fw-bold">Smart Mapping</h4>
+                    <p class="text-muted small mb-0">
+                        Navigate the province with an interactive map featuring
+                        pins and routes to verified destinations.
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-4 col-sm-6">
+                <div class="feature-box">
+                    <div class="feature-icon-wrapper">
+                        <i class="ph ph-brain"></i>
+                    </div>
+                    <h4 class="fw-bold">AI Recommendations</h4>
+                    <p class="text-muted small mb-0">
+                        Not sure where to go? Lara AI analyzes your preferences
+                        to suggest itineraries that fit your style.
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-4 col-sm-6">
+                <div class="feature-box">
+                    <div class="feature-icon-wrapper">
+                        <i class="ph ph-shield-check"></i>
+                    </div>
+                    <h4 class="fw-bold">Verified Destinations</h4>
+                    <p class="text-muted small mb-0">
+                        Spots are officially approved by LTCATO and local
+                        municipalities for your peace of mind.
+                    </p>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="row g-4 justify-content-center">
-      <div class="col-md-4 col-sm-6">
-        <div class="feature-box">
-          <div class="feature-icon-wrapper"><i class="ph ph-map-pin-line"></i></div>
-          <h4 class="fw-bold">Smart Mapping</h4>
-          <p class="text-muted small mb-0">Navigate the province with an interactive map featuring pins and routes to verified destinations.</p>
-        </div>
-      </div>
-      <div class="col-md-4 col-sm-6">
-        <div class="feature-box">
-          <div class="feature-icon-wrapper"><i class="ph ph-brain"></i></div>
-          <h4 class="fw-bold">AI Recommendations</h4>
-          <p class="text-muted small mb-0">Not sure where to go? Lara AI analyzes your preferences to suggest itineraries that fit your style.</p>
-        </div>
-      </div>
-      <div class="col-md-4 col-sm-6">
-        <div class="feature-box">
-          <div class="feature-icon-wrapper"><i class="ph ph-shield-check"></i></div>
-          <h4 class="fw-bold">Verified Destinations</h4>
-          <p class="text-muted small mb-0">Spots are officially approved by LTCATO and local municipalities for your peace of mind.</p>
-        </div>
-      </div>
-    </div>
-  </div>
 </section>
 
 <section class="home-section event-overview-section">
-  <div class="container-xl">
-    <div class="text-center mb-5 section-intro">
-      <span class="section-eyebrow">Upcoming Events</span>
-      <h2 class="section-title mb-3">Discover Laguna's vibrant events</h2>
-      <p class="section-lead mx-auto">From cultural festivals to community gatherings—experience the best of local celebrations.</p>
+    <div class="container-xl">
+        <div class="text-center mb-5 section-intro">
+            <span class="section-eyebrow">Upcoming Events</span>
+            <h2 class="section-title mb-3">Discover Laguna's vibrant events</h2>
+            <p class="section-lead mx-auto">
+                From cultural festivals to community gatherings—experience the
+                best of local celebrations.
+            </p>
+        </div>
+
+        <div class="row g-4">
+            {% if home_events %}
+            {% for ev in home_events %}
+            {% set lgu = ev.lgus or {} %}
+            {% set img = ev.image or ev.banner_image or ev.cover_image or ev.official_banner %}
+            {% set ev_month = ev.date_month or '' %}
+            {% set ev_day = ev.date_day or '' %}
+            {% set cat = (ev.category or 'General')|lower %}
+            <div class="col-lg-4 col-md-6">
+                <article class="event-card">
+                    <div class="event-image-container">
+                        {% if img %}
+                        <img
+                            src="{{ img | normalize_image_url }}"
+                            alt="{{ ev.title }}"
+                            class="event-image"
+                            loading="lazy"
+                        />
+                        {% else %}
+                        <div
+                            class="event-image"
+                            style="
+                                background: linear-gradient(
+                                    135deg,
+                                    #7f1d1d,
+                                    #9b2c2c
+                                );
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            "
+                        >
+                            <i
+                                class="ph ph-calendar-blank"
+                                style="
+                                    font-size: 3rem;
+                                    color: rgba(255, 255, 255, 0.4);
+                                "
+                            ></i>
+                        </div>
+                        {% endif %} {% if ev_month and ev_day %}
+                        <div class="event-date-badge">
+                            <div class="date-month">{{ ev_month }}</div>
+                            <div class="date-day">{{ ev_day }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="event-content">
+                        <span class="category-badge {{ cat }}">
+                            <i
+                                class="ph ph-{{ 'theater' if 'cultural' in cat else 'bowl-food' if 'food' in cat else 'tree' if 'eco' in cat or 'adventure' in cat else 'calendar-blank' }}"
+                            ></i>
+                            {{ ev.category or 'Event' }}
+                        </span>
+                        <h4 class="event-title">{{ ev.title }}</h4>
+                        <p class="event-description">
+                            {{ (ev.summary or ev.short_description or ev.description or '')|truncate_text(100) }}
+                        </p>
+                        <div class="event-details">
+                            <div class="event-detail-item">
+                                <i class="ph ph-map-pin"></i>
+                                <span>{{ ev.municipality or lgu.name or 'Laguna' }}{% if ev.venue_name or ev.venue %} · {{ ev.venue_name or ev.venue }}{% endif %}</span>
+                            </div>
+                            {% if ev.start_date %}
+                            <div class="event-detail-item">
+                                <i class="ph ph-calendar"></i>
+                                <span
+                                    >{{ ev.start_date }}{% if ev.end_date and
+                                    ev.end_date != ev.start_date %} – {{
+                                    ev.end_date }}{% endif %}</span
+                                >
+                            </div>
+                            {% endif %}
+                            <div class="event-detail-item">
+                                <i class="ph ph-radio-button"></i>
+                                <span
+                                    class="text-capitalize"
+                                    style="color:{{ '#16a34a' if (ev.status or ev.event_status)=='ongoing' else '#ca8a04' }};"
+                                    >{{ ev.status or ev.event_status or 'upcoming' }}</span
+                                >
+                            </div>
+                        </div>
+                        <div class="event-footer">
+                            <a
+                                href="{{ url_for('events.event_detail', event_id=ev.id) }}"
+                                class="btn btn-sm ltcato-btn-pill"
+                                >Learn More</a
+                            >
+                        </div>
+                    </div>
+                </article>
+            </div>
+            {% endfor %} {% else %}
+            <div class="col-12 text-center py-5">
+                <i
+                    class="ph ph-calendar-blank"
+                    style="font-size: 3rem; opacity: 0.3"
+                ></i>
+                <p class="text-muted mt-2">
+                    No upcoming events at the moment. Check back soon!
+                </p>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="text-center mt-5">
+            <a
+                href="{{ url_for('events.events_list') }}"
+                class="btn ltcato-btn-outline-lg"
+                >View All Events</a
+            >
+        </div>
     </div>
-
-    <div class="row g-4">
-      <div class="col-lg-4 col-md-6">
-        <article class="event-card">
-          <div class="event-image-container">
-            <img src="https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Cultural Festival" class="event-image" loading="lazy" />
-            <div class="event-date-badge">
-              <div class="date-month">MAR</div>
-              <div class="date-day">15</div>
-            </div>
-          </div>
-          <div class="event-content">
-            <span class="category-badge cultural"><i class="ph ph-theater"></i> Cultural</span>
-            <h4 class="event-title">Laguna Cultural Festival</h4>
-            <p class="event-description">Celebrate Laguna's heritage through traditional music, dance, and local cuisine.</p>
-            <div class="event-details">
-              <div class="event-detail-item"><i class="ph ph-map-pin"></i><span>Sta. Cruz, Laguna</span></div>
-              <div class="event-detail-item"><i class="ph ph-clock"></i><span>9:00 AM – 6:00 PM</span></div>
-            </div>
-            <div class="event-footer">
-              <span class="event-preview-note">Full listings coming soon</span>
-              <a href="{{ url_for('events.event_detail', event_id=1) }}" class="btn btn-sm ltcato-btn-pill">Learn More</a>
-            </div>
-          </div>
-        </article>
-      </div>
-
-      <div class="col-lg-4 col-md-6">
-        <article class="event-card">
-          <div class="event-image-container">
-            <img src="https://images.unsplash.com/photo-1549488344-1f9b8d2bd1f3?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Food Festival" class="event-image" loading="lazy" />
-            <div class="event-date-badge">
-              <div class="date-month">APR</div>
-              <div class="date-day">22</div>
-            </div>
-          </div>
-          <div class="event-content">
-            <span class="category-badge food"><i class="ph ph-bowl-food"></i> Food &amp; Drink</span>
-            <h4 class="event-title">Laguna Food Festival</h4>
-            <p class="event-description">Taste culinary delights from local restaurants showcasing signature Laguna dishes.</p>
-            <div class="event-details">
-              <div class="event-detail-item"><i class="ph ph-map-pin"></i><span>Calamba City, Laguna</span></div>
-              <div class="event-detail-item"><i class="ph ph-clock"></i><span>10:00 AM – 10:00 PM</span></div>
-            </div>
-            <div class="event-footer">
-              <span class="event-preview-note">Full listings coming soon</span>
-              <a href="{{ url_for('events.event_detail', event_id=2) }}" class="btn btn-sm ltcato-btn-pill">Learn More</a>
-            </div>
-          </div>
-        </article>
-      </div>
-
-      <div class="col-lg-4 col-md-6">
-        <article class="event-card">
-          <div class="event-image-container">
-            <img src="https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Eco-Tourism Adventure" class="event-image" loading="lazy" />
-            <div class="event-date-badge">
-              <div class="date-month">MAY</div>
-              <div class="date-day">08</div>
-            </div>
-          </div>
-          <div class="event-content">
-            <span class="category-badge adventure"><i class="ph ph-tree"></i> Adventure</span>
-            <h4 class="event-title">Eco-Tourism Adventure</h4>
-            <p class="event-description">Guided nature walks, waterfall tours, and conservation activities across Laguna.</p>
-            <div class="event-details">
-              <div class="event-detail-item"><i class="ph ph-map-pin"></i><span>Pagsanjan, Laguna</span></div>
-              <div class="event-detail-item"><i class="ph ph-clock"></i><span>6:00 AM – 4:00 PM</span></div>
-            </div>
-            <div class="event-footer">
-              <span class="event-preview-note">Full listings coming soon</span>
-              <a href="{{ url_for('events.event_detail', event_id=3) }}" class="btn btn-sm ltcato-btn-pill">Learn More</a>
-            </div>
-          </div>
-        </article>
-      </div>
-    </div>
-
-    <div class="text-center mt-5">
-      <a href="{{ url_for('events.events_list') }}" class="btn ltcato-btn-outline-lg">View All Events</a>
-    </div>
-  </div>
 </section>
 
 <section id="lara-ai" class="home-section showcase-section">
-  <div class="container-xl">
-    <div class="row align-items-center g-5">
-      <div class="col-lg-6">
-        <span class="section-eyebrow">Powered by Advanced AI</span>
-        <h2 class="section-title section-title--primary">Meet Lara AI</h2>
-        <p class="section-lead">
-          Your intelligent Laguna tourism companion—personalized recommendations, hidden gems,
-          and step-by-step guidance for every journey.
-        </p>
-        <ul class="showcase-list">
-          <li>
-            <i class="ph-fill ph-check-circle"></i>
-            <div>
-              <strong>Personalized journeys</strong>
-              <span>Itineraries tailored to your interests and travel style.</span>
+    <div class="container-xl">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-6">
+                <span class="section-eyebrow">Powered by Advanced AI</span>
+                <h2 class="section-title section-title--primary">
+                    Meet Lara AI
+                </h2>
+                <p class="section-lead">
+                    Your intelligent Laguna tourism companion—personalized
+                    recommendations, hidden gems, and step-by-step guidance for
+                    every journey.
+                </p>
+                <ul class="showcase-list">
+                    <li>
+                        <i class="ph-fill ph-check-circle"></i>
+                        <div>
+                            <strong>Personalized journeys</strong>
+                            <span
+                                >Itineraries tailored to your interests and
+                                travel style.</span
+                            >
+                        </div>
+                    </li>
+                    <li>
+                        <i class="ph-fill ph-check-circle"></i>
+                        <div>
+                            <strong>Real-time conversations</strong>
+                            <span
+                                >Ask about destinations and get instant
+                                recommendations.</span
+                            >
+                        </div>
+                    </li>
+                    <li>
+                        <i class="ph-fill ph-check-circle"></i>
+                        <div>
+                            <strong>Local insights</strong>
+                            <span
+                                >Discover authentic experiences beyond the usual
+                                tourist trail.</span
+                            >
+                        </div>
+                    </li>
+                </ul>
+                <div class="d-flex gap-3 flex-wrap">
+                    <a href="#" class="btn ltcato-btn-pill"
+                        ><i class="ph ph-chat-circle-text"></i> Start
+                        Chatting</a
+                    >
+                    <a href="#" class="btn ltcato-btn-outline-lg"
+                        ><i class="ph ph-play-circle"></i> Watch Demo</a
+                    >
+                </div>
             </div>
-          </li>
-          <li>
-            <i class="ph-fill ph-check-circle"></i>
-            <div>
-              <strong>Real-time conversations</strong>
-              <span>Ask about destinations and get instant recommendations.</span>
+            <div class="col-lg-6">
+                <div class="lara-preview" aria-hidden="true">
+                    <div class="lara-preview__header">
+                        <span class="lara-preview__logo"
+                            ><i class="ph ph-sparkle"></i> Lara AI</span
+                        >
+                        <span class="lara-preview__status">Online</span>
+                    </div>
+                    <div class="lara-preview__chat">
+                        <div class="lara-msg lara-msg--ai">
+                            <p>
+                                Hello! I'm Lara, your AI travel guide for
+                                Laguna. What kind of adventure are you looking
+                                for?
+                            </p>
+                            <div class="lara-quick-actions">
+                                <span>Nature &amp; Waterfalls</span>
+                                <span>Historical Sites</span>
+                                <span>Food &amp; Dining</span>
+                            </div>
+                        </div>
+                        <div class="lara-msg lara-msg--user">
+                            <p>
+                                I'd love to see beautiful waterfalls and nature
+                                spots!
+                            </p>
+                        </div>
+                        <div class="lara-msg lara-msg--ai">
+                            <p>
+                                Try Pagsanjan Falls for adventure or Hidden
+                                Valley Springs for relaxation—both are visitor
+                                favorites!
+                            </p>
+                        </div>
+                    </div>
+                    <div class="lara-preview__input">
+                        <span>Ask Lara anything about Laguna...</span>
+                        <i class="ph ph-paper-plane-right"></i>
+                    </div>
+                </div>
             </div>
-          </li>
-          <li>
-            <i class="ph-fill ph-check-circle"></i>
-            <div>
-              <strong>Local insights</strong>
-              <span>Discover authentic experiences beyond the usual tourist trail.</span>
-            </div>
-          </li>
-        </ul>
-        <div class="d-flex gap-3 flex-wrap">
-          <a href="#" class="btn ltcato-btn-pill"><i class="ph ph-chat-circle-text"></i> Start Chatting</a>
-          <a href="#" class="btn ltcato-btn-outline-lg"><i class="ph ph-play-circle"></i> Watch Demo</a>
         </div>
-      </div>
-      <div class="col-lg-6">
-        <div class="lara-preview" aria-hidden="true">
-          <div class="lara-preview__header">
-            <span class="lara-preview__logo"><i class="ph ph-sparkle"></i> Lara AI</span>
-            <span class="lara-preview__status">Online</span>
-          </div>
-          <div class="lara-preview__chat">
-            <div class="lara-msg lara-msg--ai">
-              <p>Hello! I'm Lara, your AI travel guide for Laguna. What kind of adventure are you looking for?</p>
-              <div class="lara-quick-actions">
-                <span>Nature &amp; Waterfalls</span>
-                <span>Historical Sites</span>
-                <span>Food &amp; Dining</span>
-              </div>
-            </div>
-            <div class="lara-msg lara-msg--user">
-              <p>I'd love to see beautiful waterfalls and nature spots!</p>
-            </div>
-            <div class="lara-msg lara-msg--ai">
-              <p>Try Pagsanjan Falls for adventure or Hidden Valley Springs for relaxation—both are visitor favorites!</p>
-            </div>
-          </div>
-          <div class="lara-preview__input">
-            <span>Ask Lara anything about Laguna...</span>
-            <i class="ph ph-paper-plane-right"></i>
-          </div>
-        </div>
-      </div>
     </div>
-  </div>
 </section>
 
 <section class="home-section featured-section">
-  <div class="container-xl">
-    <div class="d-flex justify-content-between align-items-end mb-5 flex-wrap gap-3">
-      <div>
-        <span class="section-eyebrow">Tourist Spots</span>
-        <h2 class="section-title mb-2">Trending right now</h2>
-        <p class="section-lead mb-0">Highly rated destinations according to recent visitors.</p>
-      </div>
-      <a href="{{ url_for('spots.spots_list') }}" class="btn ltcato-btn-outline-lg d-none d-md-inline-flex">View All Spots</a>
-    </div>
+    <div class="container-xl">
+        <div
+            class="d-flex justify-content-between align-items-end mb-5 flex-wrap gap-3"
+        >
+            <div>
+                <span class="section-eyebrow">Tourist Spots</span>
+                <h2 class="section-title mb-2">Trending right now</h2>
+                <p class="section-lead mb-0">
+                    Highly rated destinations according to recent visitors.
+                </p>
+            </div>
+            <a
+                href="{{ url_for('spots.spots_list') }}"
+                class="btn ltcato-btn-outline-lg d-none d-md-inline-flex"
+                >View All Spots</a
+            >
+        </div>
 
-    <div class="row g-4">
-      <div class="col-lg-4 col-md-6">
-        <a href="#" class="featured-card">
-          <div class="card-img-container">
-            <span class="spot-badge spot-badge--nature"><i class="ph ph-tree"></i> Nature</span>
-            <img src="https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Pagsanjan Falls" class="featured-image" loading="lazy" />
-          </div>
-          <div class="card-content">
-            <h4 class="fw-bold text-dark mb-2">Pagsanjan Falls</h4>
-            <p class="text-muted small mb-2"><i class="ph ph-map-pin"></i> Pagsanjan, Laguna</p>
-            <p class="text-muted small card-excerpt mb-0">Shoot the rapids to one of Laguna's most iconic waterfalls—a thrilling natural wonder.</p>
-          </div>
-        </a>
-      </div>
-      <div class="col-lg-4 col-md-6">
-        <a href="#" class="featured-card">
-          <div class="card-img-container">
-            <span class="spot-badge spot-badge--resort"><i class="ph ph-swimming-pool"></i> Resort</span>
-            <img src="https://images.unsplash.com/photo-1540541338287-41700207dee6?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Wonderland Hot Spring" class="featured-image" loading="lazy" />
-          </div>
-          <div class="card-content">
-            <h4 class="fw-bold text-dark mb-2">Wonderland Hot Spring</h4>
-            <p class="text-muted small mb-2"><i class="ph ph-map-pin"></i> Calamba City, Laguna</p>
-            <p class="text-muted small card-excerpt mb-0">Relax in natural therapeutic hot springs beloved by visitors for decades.</p>
-          </div>
-        </a>
-      </div>
-      <div class="col-lg-4 col-md-6">
-        <a href="#" class="featured-card">
-          <div class="card-img-container">
-            <span class="spot-badge spot-badge--heritage"><i class="ph ph-bank"></i> Heritage</span>
-            <img src="https://images.unsplash.com/photo-1505305976870-c0be1cd39939?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Rizal Shrine" class="featured-image" loading="lazy" />
-          </div>
-          <div class="card-content">
-            <h4 class="fw-bold text-dark mb-2">Rizal Shrine</h4>
-            <p class="text-muted small mb-2"><i class="ph ph-map-pin"></i> Calamba City, Laguna</p>
-            <p class="text-muted small card-excerpt mb-0">Visit the reproduction of the home where national hero Dr. Jose Rizal was born.</p>
-          </div>
-        </a>
-      </div>
-    </div>
+        <div class="row g-4">
+            {% if trending_spots %} {% for spot in trending_spots %} {% set lgu
+            = spot.lgus or {} %} {% set cat_obj = spot.attraction_categories or
+            {} %} {% set cat_name = (cat_obj.name or '')|lower %} {% set
+            cat_icon = 'tree' if 'nature' in cat_name or 'eco' in cat_name else
+            'swimming-pool' if 'resort' in cat_name or 'swim' in cat_name else
+            'bank' if 'heritage' in cat_name or 'histor' in cat_name else
+            'church' if 'religious' in cat_name or 'church' in cat_name else
+            'fork-knife' if 'food' in cat_name or 'culinary' in cat_name else
+            'waves' if 'beach' in cat_name or 'water' in cat_name else 'map-pin'
+            %} {% set cat_slug = 'nature' if 'nature' in cat_name else 'resort'
+            if 'resort' in cat_name else 'heritage' if 'heritage' in cat_name or
+            'histor' in cat_name else 'cultural' %}
+            <div class="col-lg-4 col-md-6">
+                <a
+                    href="{{ url_for('spots.spot_detail', spot_id=spot.id) }}"
+                    class="featured-card"
+                >
+                    <div class="card-img-container">
+                        <span class="spot-badge spot-badge--{{ cat_slug }}">
+                            <i class="ph ph-{{ cat_icon }}"></i> {{ cat_obj.name
+                            or 'Attraction' }}
+                        </span>
+                        {% if spot.main_image_url %}
+                        <img
+                            src="{{ spot.main_image_url }}"
+                            alt="{{ spot.name }}"
+                            class="featured-image"
+                            loading="lazy"
+                        />
+                        {% else %}
+                        <div
+                            class="featured-image"
+                            style="
+                                background: linear-gradient(
+                                    135deg,
+                                    #7f1d1d,
+                                    #9b2c2c
+                                );
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            "
+                        >
+                            <i
+                                class="ph ph-image-broken"
+                                style="
+                                    font-size: 2.5rem;
+                                    color: rgba(255, 255, 255, 0.3);
+                                "
+                            ></i>
+                        </div>
+                        {% endif %} {% if spot.rating and spot.rating > 0 %}
+                        <span
+                            class="spot-rating-badge"
+                            style="
+                                position: absolute;
+                                bottom: 0.6rem;
+                                right: 0.6rem;
+                                background: rgba(0, 0, 0, 0.6);
+                                color: #f59e0b;
+                                font-size: 0.75rem;
+                                padding: 0.2rem 0.5rem;
+                                border-radius: 999px;
+                            "
+                        >
+                            <i class="ph ph-star-fill"></i> {{
+                            '%.1f'|format(spot.rating|float) }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="card-content">
+                        <h4 class="fw-bold text-dark mb-2">{{ spot.name }}</h4>
+                        <p class="text-muted small mb-2">
+                            <i class="ph ph-map-pin"></i> {{ lgu.name or
+                            'Laguna' }}
+                        </p>
+                        <p class="text-muted small card-excerpt mb-0">
+                            {{ (spot.hook_text or spot.description or
+                            '')|truncate(90) }}
+                        </p>
+                    </div>
+                </a>
+            </div>
+            {% endfor %} {% else %} {# Fallback: no spots from DB yet #}
+            <div class="col-12 text-center py-4">
+                <p class="text-muted">
+                    No trending spots available yet. Check back soon!
+                </p>
+            </div>
+            {% endif %}
+        </div>
 
-    <div class="text-center mt-4 d-md-none">
-      <a href="{{ url_for('spots.spots_list') }}" class="btn ltcato-btn-outline-lg">View All Spots</a>
+        <div class="text-center mt-4 d-md-none">
+            <a
+                href="{{ url_for('spots.spots_list') }}"
+                class="btn ltcato-btn-outline-lg"
+                >View All Spots</a
+            >
+        </div>
     </div>
-  </div>
 </section>
 
 <section class="home-section stats-section">
-  <div class="container-xl">
-    <div class="row text-center g-4">
-      <div class="col-md-3 col-6">
-        <div class="stat-item">
-          <div class="stat-number">24</div>
-          <div class="stat-label">Municipalities</div>
+    <div class="container-xl">
+        <div class="row text-center g-4">
+            <div class="col-md-3 col-6">
+                <div class="stat-item">
+                    <div class="stat-number">24</div>
+                    <div class="stat-label">Municipalities</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="stat-item">
+                    <div class="stat-number">150+</div>
+                    <div class="stat-label">Verified Spots</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="stat-item">
+                    <div class="stat-number">12k+</div>
+                    <div class="stat-label">Guest Reviews</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="stat-item">
+                    <div class="stat-number">24/7</div>
+                    <div class="stat-label">AI Assistance</div>
+                </div>
+            </div>
         </div>
-      </div>
-      <div class="col-md-3 col-6">
-        <div class="stat-item">
-          <div class="stat-number">150+</div>
-          <div class="stat-label">Verified Spots</div>
-        </div>
-      </div>
-      <div class="col-md-3 col-6">
-        <div class="stat-item">
-          <div class="stat-number">12k+</div>
-          <div class="stat-label">Guest Reviews</div>
-        </div>
-      </div>
-      <div class="col-md-3 col-6">
-        <div class="stat-item">
-          <div class="stat-number">24/7</div>
-          <div class="stat-label">AI Assistance</div>
-        </div>
-      </div>
     </div>
-  </div>
 </section>
 
 <section class="home-section cta-section">
-  <div class="container-xl">
-    <div class="cta-card">
-      <div class="cta-card__icon"><i class="ph ph-map-trifold"></i></div>
-      <h2 class="section-title mb-3">Ready to start exploring?</h2>
-      <p class="section-lead mx-auto mb-4">
-        Open the interactive map to browse destinations across Laguna, filter by category,
-        and read authentic guest feedback before you visit.
-      </p>
-      <div class="d-flex flex-wrap gap-3 justify-content-center">
-        <a href="#" class="btn ltcato-btn-pill"><i class="ph ph-map-trifold"></i> Open Interactive Map</a>
-        <a href="{{ url_for('itinerary.planner') }}" class="btn ltcato-btn-outline-lg"><i class="ph ph-calendar-check"></i> Plan My Itinerary</a>
-      </div>
+    <div class="container-xl">
+        <div class="cta-card">
+            <div class="cta-card__icon"><i class="ph ph-map-trifold"></i></div>
+            <h2 class="section-title mb-3">Ready to start exploring?</h2>
+            <p class="section-lead mx-auto mb-4">
+                Open the interactive map to browse destinations across Laguna,
+                filter by category, and read authentic guest feedback before you
+                visit.
+            </p>
+            <div class="d-flex flex-wrap gap-3 justify-content-center">
+                <a href="#" class="btn ltcato-btn-pill"
+                    ><i class="ph ph-map-trifold"></i> Open Interactive Map</a
+                >
+                <a
+                    href="{{ url_for('itinerary.planner') }}"
+                    class="btn ltcato-btn-outline-lg"
+                    ><i class="ph ph-calendar-check"></i> Plan My Itinerary</a
+                >
+            </div>
+        </div>
     </div>
-  </div>
 </section>
 {% endblock %}
