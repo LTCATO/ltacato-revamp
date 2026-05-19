@@ -71,6 +71,23 @@ content %}
                     <i class="ph ph-gear"></i> Settings
                 </button>
             </li>
+            <li class="nav-item">
+                <button
+                    class="nav-link"
+                    data-bs-toggle="pill"
+                    data-bs-target="#tab-insights"
+                    type="button"
+                >
+                    <i class="ph ph-brain"></i> Travel insights
+                    {% if dss and dss.recommendations %}
+                    {% set urgent = dss.recommendations | selectattr('priority', 'equalto', 'urgent') | list %}
+                    {% set high = dss.recommendations | selectattr('priority', 'equalto', 'high') | list %}
+                    {% if urgent or high %}
+                    <span class="profile-tab-count profile-tab-count--alert">{{ (urgent + high) | length }}</span>
+                    {% endif %}
+                    {% endif %}
+                </button>
+            </li>
         </ul>
 
         <div class="tab-content">
@@ -381,6 +398,109 @@ content %}
                     </div>
                 </div>
             </div>
+
+            <!-- TAB 4: Travel Insights (Decision Support) -->
+            <div class="tab-pane fade" id="tab-insights" role="tabpanel">
+                <div class="row g-4">
+                    <!-- Recommendations column -->
+                    <div class="col-lg-8">
+                        <h3 class="h6 planner-form__title mb-3">
+                            <i class="ph ph-lightbulb"></i> Personalised recommendations
+                        </h3>
+                        {% if dss and dss.recommendations %}
+                        <div class="d-flex flex-column gap-3">
+                            {% for rec in dss.recommendations %}
+                            <div class="alert alert-{{ rec.color }} d-flex align-items-start gap-3 mb-0 py-3">
+                                <i class="{{ rec.icon }} fs-4 flex-shrink-0 mt-1"></i>
+                                <div class="flex-grow-1">
+                                    <strong>{{ rec.title }}</strong>
+                                    <p class="mb-1 small">{{ rec.text }}</p>
+                                    {% if rec.action and rec.action_url %}
+                                    <a href="{{ rec.action_url }}" class="btn btn-sm btn-outline-{{ rec.color }}">
+                                        {{ rec.action }}
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="text-muted small">No recommendations available yet.</p>
+                        {% endif %}
+
+                        <!-- Upcoming events near saved spots -->
+                        {% if dss and dss.upcoming_events %}
+                        <h3 class="h6 planner-form__title mt-4 mb-3">
+                            <i class="ph ph-calendar-star"></i> Upcoming events near your spots
+                        </h3>
+                        <div class="row g-3">
+                            {% for ev in dss.upcoming_events %}
+                            <div class="col-sm-6">
+                                <a href="{{ url_for('events.event_detail', event_id=ev.id) }}" class="profile-saved-card">
+                                    <div class="profile-saved-card__img">
+                                        {% if ev.cover_image %}
+                                        <img src="{{ ev.cover_image | normalize_image_url }}" alt="{{ ev.title }}" loading="lazy" />
+                                        {% else %}
+                                        <div class="profile-saved-card__img-empty"><i class="ph ph-calendar-blank"></i></div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="profile-saved-card__body">
+                                        <strong>{{ ev.title | truncate_text(35) }}</strong>
+                                        <span>{{ ev.start_date or 'TBA' }}{% if ev.lgus %} · {{ ev.lgus.name }}{% endif %}</span>
+                                    </div>
+                                </a>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Sidebar: weather + top spots -->
+                    <div class="col-lg-4">
+                        <!-- Weather for saved areas -->
+                        {% if dss and dss.weather_by_lgu %}
+                        <div class="planner-form mb-4">
+                            <h3 class="h6 planner-form__title">
+                                <i class="ph ph-cloud-sun"></i> Weather in your areas
+                            </h3>
+                            <ul class="list-unstyled mb-0">
+                                {% for w in dss.weather_by_lgu %}
+                                <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                                    <span class="small fw-semibold">{{ (w.lgus or {}).get('name', 'Unknown') }}</span>
+                                    <span class="small text-muted">
+                                        {{ w.weather_main or '—' }}
+                                        {% if w.temperature_celsius %}· {{ w.temperature_celsius }}°C{% endif %}
+                                    </span>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+
+                        <!-- Top spots in saved areas -->
+                        {% if dss and dss.top_spots %}
+                        <div class="planner-form">
+                            <h3 class="h6 planner-form__title">
+                                <i class="ph ph-star"></i> Top-rated spots nearby
+                            </h3>
+                            <ul class="planner-smart-list mb-0">
+                                {% for spot in dss.top_spots %}
+                                <li>
+                                    <a href="{{ url_for('spots.spot_detail', spot_id=spot.id) }}" class="text-decoration-none">
+                                        <i class="ph ph-map-pin"></i>
+                                        <span>{{ spot.name }}
+                                            {% if spot.rating %}<span class="text-muted small">· ★ {{ spot.rating }}</span>{% endif %}
+                                        </span>
+                                    </a>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 </section>

@@ -82,15 +82,31 @@ def analytics():
 
 @dashboard_bp.route("/decision-support")
 @dashboard_login_required
-@role_required("super_admin", "ltcato_staff")
 def decision_support():
     from services.decision_support_service import (
         get_decision_support_data,
+        get_lgu_decision_support_data,
+        get_owner_decision_support_data,
         get_scraper_last_run,
     )
 
     user = get_current_dashboard_user()
-    data = get_decision_support_data()
+    role = user["role"]
+    lgu_id = _user_lgu_id(user)
+
+    if role in ("super_admin", "ltcato_staff"):
+        data = get_decision_support_data(lgu_id=None)
+    elif role == "lgu_admin":
+        if not lgu_id:
+            from flask import flash, redirect, url_for
+            flash("Your account is not linked to an LGU yet. Contact your administrator.", "warning")
+            return redirect(url_for("dashboard.index"))
+        data = get_lgu_decision_support_data(lgu_id)
+    elif role == "establishment_owner":
+        data = get_owner_decision_support_data(str(user.get("id") or ""))
+    else:
+        data = get_decision_support_data(lgu_id=None)
+
     last_run = get_scraper_last_run()
     return render_dashboard(
         "views/dashboard/pages/decision_support.html",
@@ -98,7 +114,7 @@ def decision_support():
         ds=data,
         last_run=last_run,
         page_title="Decision Support",
-        page_description="Scraped web signals, sentiment analysis, and data-driven tourism recommendations.",
+        page_description="Data-driven insights and recommendations scoped to your role.",
         page_icon="bx-brain",
     )
 

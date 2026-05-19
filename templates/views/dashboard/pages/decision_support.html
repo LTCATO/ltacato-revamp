@@ -310,9 +310,27 @@ page_header %}
     </div>
 </div>
 {% include
-"include/dashboard/module_header.html" %} {# ── Weather alert
-──────────────────────────────────────────────────────── #} {% if
-ds.weather_alert %}
+"include/dashboard/module_header.html" %}
+
+{# ── Scope banner ─────────────────────────────────────────────────────── #}
+{% if ds.scope == 'lgu' %}
+<div class="alert alert-info d-flex align-items-center gap-2 mb-4" role="alert">
+    <i class="bx bx-buildings fs-5"></i>
+    <div>
+        <strong>Scoped to {{ ds.lgu_name }}</strong> — Showing insights, feedback, and sentiment for your municipality only.
+    </div>
+</div>
+{% elif ds.scope == 'owner' %}
+<div class="alert alert-info d-flex align-items-center gap-2 mb-4" role="alert">
+    <i class="bx bx-store fs-5"></i>
+    <div>
+        <strong>Scoped to your establishment</strong> — Showing feedback insights and ratings for your registered spot(s) only.
+    </div>
+</div>
+{% endif %}
+
+{# ── Weather alert ────────────────────────────────────────────────────── #}
+{% if ds.weather_alert %}
 <div
     class="alert alert-warning d-flex align-items-center gap-2 mb-4"
     role="alert"
@@ -323,8 +341,7 @@ ds.weather_alert %}
         issuing travel advisories to tourists.
     </div>
 </div>
-{% endif %} {# ── Stat cards
-─────────────────────────────────────────────────────────── #}
+{% endif %} {# ── Stat cards ─────────────────────────────────────────────────────────── #}
 <div class="row g-3 mb-4">
     <div class="col-6 col-lg-3">
         <div class="dashboard-stat-card">
@@ -347,6 +364,7 @@ ds.weather_alert %}
             <span>Online reviews</span>
         </div>
     </div>
+    {% if ds.scope not in ('lgu', 'owner') %}
     <div class="col-6 col-lg-3">
         <div class="dashboard-stat-card">
             <i class="bx bx-news dashboard-stat-card__icon"></i>
@@ -354,6 +372,15 @@ ds.weather_alert %}
             <span>News articles</span>
         </div>
     </div>
+    {% else %}
+    <div class="col-6 col-lg-3">
+        <div class="dashboard-stat-card">
+            <i class="bx bx-target-lock dashboard-stat-card__icon"></i>
+            <strong>{{ ds.spot_insights|length }}</strong>
+            <span>Spot insights</span>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 {# ── Spot Insights & Action Items ────────────────────────────────────── #}
@@ -362,13 +389,19 @@ ds.weather_alert %}
     <i class="bx bx-target-lock fs-5" style="color:var(--primary)"></i>
     <div>
       <h3 class="dashboard-card__title mb-0">Spot Insights &amp; Action Items</h3>
-      <p class="text-muted small mb-0">AI-generated from internal + online feedback per spot. Cached in the database — use Generate Insights only for new data.</p>
+      <p class="text-muted small mb-0">
+        {% if ds.scope == 'lgu' %}AI-generated insights from feedback for spots in <strong>{{ ds.lgu_name }}</strong>.
+        {% elif ds.scope == 'owner' %}AI-generated insights from feedback for your establishment.
+        {% else %}AI-generated from internal + online feedback per spot. Cached in the database — use Generate Insights only for new data.{% endif %}
+      </p>
     </div>
+    {% if ds.scope not in ('lgu', 'owner') %}
     <form method="post" action="{{ url_for('dashboard.generate_insights') }}" class="ds-async-form ms-auto" data-ds-loading="Generating AI insights from feedback…">
       <button type="submit" class="btn btn-sm dashboard-btn-primary">
         <i class="bx bx-bulb"></i> Generate Insights
       </button>
     </form>
+    {% endif %}
   </div>
   {% if ds.spot_insights %}
   <div class="row g-3">
@@ -692,23 +725,26 @@ ds.weather_alert %}
 </div>
 
 {# ── Weather per LGU ────────────────────────────────────────────────────── #}
+{% if ds.scope != 'owner' %}
 <div class="dashboard-card mb-4" id="weather">
     <div
         class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2"
     >
         <div>
             <h3 class="dashboard-card__title mb-0">
-                Weather Conditions per LGU
+                {% if ds.scope == 'lgu' %}Weather — {{ ds.lgu_name }}{% else %}Weather Conditions per LGU{% endif %}
             </h3>
             <p class="text-muted small mb-0">
                 Live conditions from OpenWeatherMap (WEATHER_API_KEY).
             </p>
         </div>
+        {% if ds.scope not in ('lgu', 'owner') %}
         <form method="post" action="{{ url_for('dashboard.scrape_weather') }}">
             <button type="submit" class="btn btn-sm dashboard-btn-outline">
                 <i class="bx bx-refresh"></i> Refresh
             </button>
         </form>
+        {% endif %}
     </div>
     {% if ds.weather %}
     <div class="row g-2">
@@ -742,6 +778,7 @@ ds.weather_alert %}
     <div class="text-center text-muted py-4">
         <i class="bx bx-cloud fs-1 d-block mb-2"></i>
         <strong>No weather data yet.</strong><br />
+        {% if ds.scope not in ('lgu', 'owner') %}
         <span class="small"
             >Click <strong>Refresh</strong> above. Requires
             <code>WEATHER_API_KEY</code> in <code>.env</code> (free at
@@ -749,11 +786,16 @@ ds.weather_alert %}
                 >openweathermap.org</a
             >).</span
         >
+        {% else %}
+        <span class="small">Weather data for your area has not been scraped yet. Contact your LTCATO administrator.</span>
+        {% endif %}
     </div>
     {% endif %}
 </div>
+{% endif %}{# end weather non-owner block #}
 
-{# ── News + Trends ──────────────────────────────────────────────────────── #}
+{# ── News + Trends (province-wide roles only) ──────────────────────────── #}
+{% if ds.scope not in ('lgu', 'owner') %}
 <div class="row g-3 mb-4">
     <div class="col-lg-7" id="news">
         <div class="dashboard-card h-100">
@@ -915,6 +957,7 @@ ds.weather_alert %}
         </div>
     </div>
 </div>
+{% endif %}{# end news+trends province-only block #}
 
 {# ── Event Feedbacks + Spot Feedbacks tabs ──────────────────────────────── #}
 <div class="dashboard-card mb-4" id="feedbacks">
@@ -924,10 +967,17 @@ ds.weather_alert %}
         <div>
             <h3 class="dashboard-card__title mb-0">Feedbacks &amp; Reviews</h3>
             <p class="text-muted small mb-0">
+                {% if ds.scope == 'lgu' %}
+                Feedback and reviews for spots and events in <strong>{{ ds.lgu_name }}</strong>.
+                {% elif ds.scope == 'owner' %}
+                Feedback and online reviews for your establishment.
+                {% else %}
                 Event Feedbacks — tourist ratings on events &nbsp;·&nbsp;
                 Spot Feedbacks — internal + online reviews per spot (with source type label).
+                {% endif %}
             </p>
         </div>
+        {% if ds.scope not in ('lgu', 'owner') %}
         <div class="d-flex gap-2 flex-wrap">
             <form method="post" action="{{ url_for('dashboard.scrape_reviews') }}">
                 <button type="submit" class="btn btn-sm dashboard-btn-primary">
@@ -940,17 +990,20 @@ ds.weather_alert %}
                 </button>
             </form>
         </div>
+        {% endif %}
     </div>
 
     <ul class="nav nav-tabs mb-3" role="tablist">
+        {% if ds.scope != 'owner' %}
         <li class="nav-item" role="presentation">
-            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-events" type="button" role="tab" id="event-feedback">
+            <button class="nav-link {% if ds.scope != 'owner' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#tab-events" type="button" role="tab" id="event-feedback">
                 <i class="bx bx-calendar-event me-1"></i> Event Feedbacks
                 <span class="badge bg-secondary ms-1">{{ ds.event_feedbacks|length }}</span>
             </button>
         </li>
+        {% endif %}
         <li class="nav-item" role="presentation">
-            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-spots" type="button" role="tab" id="spot-feedback">
+            <button class="nav-link {% if ds.scope == 'owner' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#tab-spots" type="button" role="tab" id="spot-feedback">
                 <i class="bx bx-map-pin me-1"></i> Spot Feedbacks
                 <span class="badge bg-secondary ms-1">{{ (ds.spot_feedbacks|length) + (ds.online_reviews|length) }}</span>
             </button>
@@ -958,7 +1011,8 @@ ds.weather_alert %}
     </ul>
 
     <div class="tab-content">
-        {# ── Tab 1: Event Feedbacks ── #}
+        {# ── Tab 1: Event Feedbacks (hidden for establishment_owner) ── #}
+        {% if ds.scope != 'owner' %}
         <div class="tab-pane fade show active" id="tab-events" role="tabpanel">
             {% if ds.event_feedbacks %} {% set ev_s = ds.event_sentiment %}
             <div class="row g-2 mb-3">
@@ -1062,9 +1116,10 @@ ds.weather_alert %}
             </div>
             {% endif %}
         </div>
+        {% endif %}{# end event feedbacks non-owner block #}
 
         {# ── Tab 2: Spot Feedbacks (internal + online mixed) ── #}
-        <div class="tab-pane fade" id="tab-spots" role="tabpanel">
+        <div class="tab-pane fade {% if ds.scope == 'owner' %}show active{% endif %}" id="tab-spots" role="tabpanel">
             {# Sentiment mini-summary for spot tab #} {% set sc =
             ds.spot_combined_sentiment %} {% if sc.total > 0 %}
             <div class="row g-2 mb-3">
@@ -1212,7 +1267,8 @@ ds.weather_alert %}
     </div>
 </div>
 
-{# ── Data Refresh Controls + Social Media API Guide ─────────────────────── #}
+{# ── Data Refresh Controls + Social Media API Guide (province-wide only) ── #}
+{% if ds.scope not in ('lgu', 'owner') %}
 <div class="row g-3 mb-4">
     <div class="col-lg-6">
         <div class="dashboard-card h-100">
@@ -1690,6 +1746,7 @@ ds.weather_alert %}
         </div>
     </div>
 </div>
+{% endif %}{# end data refresh province-only block #}
 
 {# ── How it works ───────────────────────────────────────────────────────── #}
 <div class="dashboard-card mb-4">

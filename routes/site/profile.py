@@ -11,6 +11,7 @@ from services.profiles import (
 )
 from services.spot_engagement import get_user_saved_spots
 from services.tourist_auth import get_current_tourist
+from services.tourist_decision_support import get_tourist_decision_support
 from services.tourist_passport import (
     get_or_create_passport,
     list_passport_stamps,
@@ -50,6 +51,8 @@ def tourist_profile():
         saved_events = get_user_saved_events(tourist["id"])
     except Exception:
         pass
+
+    dss = get_tourist_decision_support(tourist["id"])
 
     form_data = {
         "first_name": profile.get("first_name") or "",
@@ -113,4 +116,5 @@ def tourist_profile():
         trips=trips,
         saved_spots=saved_spots,
         saved_events=saved_events,
+        dss=dss,
     )
