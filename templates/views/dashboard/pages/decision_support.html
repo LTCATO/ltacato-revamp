@@ -1,68 +1,1685 @@
-{% extends "dashboard-base.html" %}
-{% from "include/dashboard/macros.html" import status_badge %}
+{% extends "dashboard-base.html" %} {% from "include/dashboard/macros.html"
+import status_badge %} {% block title %}{{ page_title }}{% endblock %} {% block
+page_header %}
+<h1>{{ page_title }}</h1>
+<p>{{ page_description }}</p>
+{% endblock %} {% block style %}
+<style>
+    .ds-rec {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-left: 4px solid;
+        border-radius: var(--radius);
+        padding: 0.9rem 1rem;
+        display: flex;
+        gap: 0.7rem;
+        align-items: flex-start;
+    }
+    .ds-rec--urgent {
+        border-left-color: #dc3545;
+    }
+    .ds-rec--high {
+        border-left-color: #fd7e14;
+    }
+    .ds-rec--normal {
+        border-left-color: #0dcaf0;
+    }
+    .ds-rec--low {
+        border-left-color: #198754;
+    }
+    .ds-rec__icon {
+        font-size: 1.35rem;
+        flex-shrink: 0;
+        margin-top: 0.1rem;
+    }
+    .ds-rec--urgent .ds-rec__icon {
+        color: #dc3545;
+    }
+    .ds-rec--high .ds-rec__icon {
+        color: #fd7e14;
+    }
+    .ds-rec--normal .ds-rec__icon {
+        color: #0dcaf0;
+    }
+    .ds-rec--low .ds-rec__icon {
+        color: #198754;
+    }
+    .ds-rec__title {
+        font-weight: 600;
+        font-size: 0.86rem;
+        margin-bottom: 0.12rem;
+    }
+    .ds-rec__text {
+        font-size: 0.77rem;
+        color: var(--muted-foreground);
+        margin: 0;
+    }
+    .ds-pri {
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        padding: 0.15rem 0.4rem;
+        border-radius: 999px;
+        text-transform: uppercase;
+    }
+    .ds-pri--urgent {
+        background: #f8d7da;
+        color: #842029;
+    }
+    .ds-pri--high {
+        background: #ffe5d0;
+        color: #7f3000;
+    }
+    .ds-pri--normal {
+        background: #cff4fc;
+        color: #055160;
+    }
+    .ds-pri--low {
+        background: #d1e7dd;
+        color: #0a3622;
+    }
 
-{% block title %}{{ page_title }}{% endblock %}
-{% block page_header %}<h1>{{ page_title }}</h1><p>{{ page_description }}</p>{% endblock %}
+    .ds-weather {
+        border-radius: var(--radius);
+        padding: 0.85rem 0.9rem;
+        text-align: center;
+        color: #fff;
+        background: linear-gradient(135deg, #7f1d1d, #9b2c2c);
+    }
+    .ds-weather--rain {
+        background: linear-gradient(135deg, #374151, #4b5563);
+    }
+    .ds-weather--clear {
+        background: linear-gradient(135deg, #0369a1, #0284c7);
+    }
+    .ds-weather--cloud {
+        background: linear-gradient(135deg, #475569, #64748b);
+    }
+    .ds-weather__loc {
+        font-size: 0.65rem;
+        opacity: 0.85;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .ds-weather__temp {
+        font-size: 1.6rem;
+        font-weight: 700;
+        line-height: 1.1;
+    }
+    .ds-weather__desc {
+        font-size: 0.73rem;
+        opacity: 0.9;
+        text-transform: capitalize;
+    }
+    .ds-weather__meta {
+        font-size: 0.66rem;
+        opacity: 0.8;
+        margin-top: 0.25rem;
+    }
 
-{% block content %}
-{% include "include/dashboard/module_header.html" %}
+    .ds-trend-bar {
+        height: 8px;
+        border-radius: 4px;
+        background: #f0ebe8;
+    }
+    .ds-trend-bar__fill {
+        height: 100%;
+        border-radius: 4px;
+        background: var(--primary);
+    }
 
+    .ds-news {
+        padding: 0.6rem 0;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        gap: 0.6rem;
+        align-items: flex-start;
+    }
+    .ds-news:last-child {
+        border-bottom: none;
+    }
+    .ds-news__badge {
+        font-size: 0.6rem;
+        font-weight: 700;
+        padding: 0.15rem 0.4rem;
+        border-radius: 999px;
+        text-transform: uppercase;
+        white-space: nowrap;
+        flex-shrink: 0;
+        margin-top: 0.12rem;
+    }
+    .ds-news__title {
+        font-size: 0.8rem;
+        font-weight: 600;
+        line-height: 1.3;
+    }
+    .ds-news__title a {
+        color: inherit;
+        text-decoration: none;
+    }
+    .ds-news__title a:hover {
+        color: var(--primary);
+    }
+    .ds-news__meta {
+        font-size: 0.68rem;
+        color: var(--muted-foreground);
+        margin-top: 0.12rem;
+    }
+
+    .ds-row {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--border);
+    }
+    .ds-row:last-child {
+        border-bottom: none;
+    }
+    .ds-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+    .ds-dot--on {
+        background: #198754;
+    }
+    .ds-dot--off {
+        background: #adb5bd;
+    }
+    .ds-label {
+        font-size: 0.79rem;
+        flex: 1 1 140px;
+    }
+    .ds-ts {
+        font-size: 0.69rem;
+        color: var(--muted-foreground);
+        flex: 1 1 120px;
+    }
+
+    .ds-accordion .accordion-button {
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: var(--muted);
+        border-radius: var(--radius) !important;
+    }
+    .ds-accordion .accordion-button:not(.collapsed) {
+        background: var(--accent);
+        color: var(--primary);
+        box-shadow: none;
+    }
+    .ds-accordion .accordion-item {
+        background: var(--muted);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        margin-bottom: 0.35rem;
+    }
+    .ds-step {
+        display: flex;
+        gap: 0.55rem;
+        align-items: flex-start;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 0.6rem 0.8rem;
+        margin-bottom: 0.35rem;
+        font-size: 0.77rem;
+    }
+    .ds-step__n {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--primary);
+        color: #fff;
+        font-size: 0.65rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .fb-type-badge {
+        font-size: 0.6rem;
+        font-weight: 700;
+        padding: 0.1rem 0.35rem;
+        border-radius: 999px;
+        text-transform: uppercase;
+    }
+    .fb-type--internal {
+        background: #e0e7ff;
+        color: #3730a3;
+    }
+    .fb-type--online {
+        background: #dcfce7;
+        color: #166534;
+    }
+</style>
+{% endblock %} {% block content %} {% include
+"include/dashboard/module_header.html" %} {# ── Weather alert
+──────────────────────────────────────────────────────── #} {% if
+ds.weather_alert %}
+<div
+    class="alert alert-warning d-flex align-items-center gap-2 mb-4"
+    role="alert"
+>
+    <i class="bx bx-cloud-rain fs-5"></i>
+    <div>
+        <strong>Weather Advisory:</strong> {{ ds.weather_alert }} — Consider
+        issuing travel advisories to tourists.
+    </div>
+</div>
+{% endif %} {# ── Stat cards
+─────────────────────────────────────────────────────────── #}
 <div class="row g-3 mb-4">
-  <div class="col-md-4">
-    <div class="dashboard-stat-card">
-      <i class="bx bx-globe dashboard-stat-card__icon"></i>
-      <strong>{{ reviews|length }}</strong>
-      <span>Scraped reviews</span>
+    <div class="col-6 col-lg-3">
+        <div class="dashboard-stat-card">
+            <i class="bx bx-message-dots dashboard-stat-card__icon"></i>
+            <strong>{{ ds.feedback_sentiment.total }}</strong>
+            <span>Spot feedbacks</span>
+        </div>
     </div>
-  </div>
-  <div class="col-md-4">
-    <div class="dashboard-stat-card">
-      <i class="bx bx-happy dashboard-stat-card__icon"></i>
-      <strong>{{ reviews|selectattr('sentiment', 'equalto', 'positive')|list|length }}</strong>
-      <span>Positive sentiment</span>
+    <div class="col-6 col-lg-3">
+        <div class="dashboard-stat-card">
+            <i class="bx bx-calendar-event dashboard-stat-card__icon"></i>
+            <strong>{{ ds.event_sentiment.total }}</strong>
+            <span>Event feedbacks</span>
+        </div>
     </div>
-  </div>
-  <div class="col-md-4">
-    <div class="dashboard-stat-card">
-      <i class="bx bx-sad dashboard-stat-card__icon"></i>
-      <strong>{{ reviews|selectattr('sentiment', 'equalto', 'negative')|list|length }}</strong>
-      <span>Negative sentiment</span>
+    <div class="col-6 col-lg-3">
+        <div class="dashboard-stat-card">
+            <i class="bx bx-globe dashboard-stat-card__icon"></i>
+            <strong>{{ ds.ext_sentiment.total }}</strong>
+            <span>Online reviews</span>
+        </div>
     </div>
-  </div>
+    <div class="col-6 col-lg-3">
+        <div class="dashboard-stat-card">
+            <i class="bx bx-news dashboard-stat-card__icon"></i>
+            <strong>{{ ds.news|length }}</strong>
+            <span>News articles</span>
+        </div>
+    </div>
 </div>
 
-<div class="dashboard-card">
-  <h3 class="dashboard-card__title">External reviews feed</h3>
-  <p class="text-muted small">Reviews aggregated from web and social sources for tourism decision support.</p>
-  <div class="table-responsive">
-    <table class="table dashboard-table mb-0">
-      <thead>
-        <tr>
-          <th>Spot</th>
-          <th>Source</th>
-          <th>Reviewer</th>
-          <th>Sentiment</th>
-          <th>Review</th>
-          <th>Scraped</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in reviews %}
-        {% set spot = r.tourist_spots or {} %}
-        <tr>
-          <td><strong>{{ spot.name if spot else '—' }}</strong></td>
-          <td>{{ r.source or '—' }}</td>
-          <td>{{ r.reviewer_name or 'Anonymous' }}</td>
-          <td>{{ status_badge(r.sentiment or 'neutral') }}</td>
-          <td class="small">{{ r.review_text|truncate_text(120) }}</td>
-          <td class="small text-muted">{{ (r.scraped_at or '')[:10] }}</td>
-        </tr>
-        {% else %}
-        <tr><td colspan="6" class="text-center text-muted py-4">No scraped reviews in the database yet.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+{# ── Spot Insights & Action Items ────────────────────────────────────── #}
+<div class="dashboard-card mb-4" id="spot-insights">
+  <div class="d-flex align-items-center gap-2 mb-3">
+    <i class="bx bx-target-lock fs-5" style="color:var(--primary)"></i>
+    <div>
+      <h3 class="dashboard-card__title mb-0">Spot Insights &amp; Action Items</h3>
+      <p class="text-muted small mb-0">Auto-generated from combined internal feedback + online reviews per tourist spot. Each detected issue includes a specific corrective action.</p>
+    </div>
   </div>
+  {% if ds.spot_insights %}
+  <div class="row g-3">
+    {% for ins in ds.spot_insights %}
+    <div class="col-12 col-lg-6">
+      <div class="p-3 rounded border" style="border-color:var(--border)!important;background:#fff;">
+        <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-1">
+          <div>
+            <strong style="font-size:.88rem;">{{ ins.spot_name }}</strong>
+            <span class="text-muted small ms-1">— {{ ins.lgu_name }}</span>
+          </div>
+          <div class="d-flex gap-1 flex-wrap">
+            <span class="badge" style="background:var(--muted);color:var(--foreground);font-size:.65rem;">{{ ins.total_feedback }} feedback{{ 's' if ins.total_feedback != 1 else '' }}</span>
+            {% if ins.negative_pct > 50 %}<span class="badge bg-danger" style="font-size:.65rem;">{{ ins.negative_pct }}% negative</span>
+            {% elif ins.negative_pct > 25 %}<span class="badge bg-warning text-dark" style="font-size:.65rem;">{{ ins.negative_pct }}% negative</span>
+            {% else %}<span class="badge bg-secondary" style="font-size:.65rem;">{{ ins.negative_pct }}% negative</span>{% endif %}
+            {% if ins.avg_rating %}<span class="badge" style="background:#fef3c7;color:#92400e;font-size:.65rem;">{{ ins.avg_rating }}★</span>{% endif %}
+          </div>
+        </div>
+        {% for issue in ins.issues %}
+        <div class="d-flex gap-2 align-items-start mt-2 p-2 rounded" style="background:{{ '#fff5f5' if issue.color=='danger' else '#fffbeb' if issue.color=='warning' else '#eff6ff' }};border-left:3px solid {{ '#dc3545' if issue.color=='danger' else '#fd7e14' if issue.color=='warning' else '#0dcaf0' }};">
+          <i class="bx {{ issue.icon }} mt-1 flex-shrink-0" style="color:{{ '#dc3545' if issue.color=='danger' else '#fd7e14' if issue.color=='warning' else '#0dcaf0' }};font-size:1.1rem;"></i>
+          <div style="flex:1 1 0;">
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <span style="font-weight:600;font-size:.79rem;">{{ issue.label }}</span>
+              <span class="badge" style="font-size:.58rem;text-transform:uppercase;background:{{ '#f8d7da' if issue.priority=='high' else '#ffe5d0' if issue.priority=='normal' else '#d1e7dd' }};color:{{ '#842029' if issue.priority=='high' else '#7f3000' if issue.priority=='normal' else '#0a3622' }};">{{ issue.priority }}</span>
+            </div>
+            <p class="mb-0" style="font-size:.75rem;color:#57534e;"><i class="bx bx-right-arrow-alt me-1"></i>{{ issue.suggestion }}</p>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-center text-muted py-3">
+    <i class="bx bx-check-shield fs-1 d-block mb-2"></i>
+    <strong>No critical issues detected yet.</strong><br>
+    <span class="small">Insights appear when tourists leave negative feedback on spots. Run <strong>Analyze Sentiment</strong> first to label any unlabeled feedbacks.</span>
+  </div>
+  {% endif %}
+</div>
+
+{# ── Event Insights & Action Items ───────────────────────────────────── #}
+<div class="dashboard-card mb-4" id="event-insights">
+  <div class="d-flex align-items-center gap-2 mb-3">
+    <i class="bx bx-calendar-event fs-5" style="color:var(--primary)"></i>
+    <div>
+      <h3 class="dashboard-card__title mb-0">Event Insights &amp; Action Items</h3>
+      <p class="text-muted small mb-0">AI-generated from event feedback + Facebook posts about your events. Click <strong>Scrape Reviews</strong> in Data Refresh to pull new social media data.</p>
+    </div>
+  </div>
+  {% if ds.event_insights %}
+  <div class="row g-3">
+    {% for ins in ds.event_insights %}
+    <div class="col-12 col-lg-6">
+      <div class="p-3 rounded border" style="border-color:var(--border)!important;background:#fff;">
+        <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-1">
+          <div>
+            <strong style="font-size:.88rem;">{{ ins.event_title }}</strong>
+            <span class="text-muted small ms-1">— {{ ins.lgu_name }}</span>
+          </div>
+          <div class="d-flex gap-1 flex-wrap">
+            <span class="badge" style="background:var(--muted);color:var(--foreground);font-size:.65rem;">{{ ins.total_feedback }} feedback{{ 's' if ins.total_feedback != 1 else '' }}</span>
+            {% if ins.event_status %}<span class="badge" style="font-size:.65rem;background:{{ '#d1e7dd' if ins.event_status=='finished' else '#cff4fc' if ins.event_status=='upcoming' else '#fff3cd' }};color:{{ '#0a3622' if ins.event_status=='finished' else '#055160' if ins.event_status=='upcoming' else '#664d03' }};">{{ ins.event_status }}</span>{% endif %}
+            {% if ins.negative_pct > 50 %}<span class="badge bg-danger" style="font-size:.65rem;">{{ ins.negative_pct }}% negative</span>
+            {% elif ins.negative_pct > 25 %}<span class="badge bg-warning text-dark" style="font-size:.65rem;">{{ ins.negative_pct }}% negative</span>
+            {% else %}<span class="badge bg-secondary" style="font-size:.65rem;">{{ ins.negative_pct }}% negative</span>{% endif %}
+          </div>
+        </div>
+        {% for issue in ins.issues %}
+        <div class="d-flex gap-2 align-items-start mt-2 p-2 rounded" style="background:{{ '#fff5f5' if issue.color=='danger' else '#fffbeb' if issue.color=='warning' else '#eff6ff' }};border-left:3px solid {{ '#dc3545' if issue.color=='danger' else '#fd7e14' if issue.color=='warning' else '#0dcaf0' }};">
+          <i class="bx {{ issue.icon }} mt-1 flex-shrink-0" style="color:{{ '#dc3545' if issue.color=='danger' else '#fd7e14' if issue.color=='warning' else '#0dcaf0' }};font-size:1.1rem;"></i>
+          <div style="flex:1 1 0;">
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <span style="font-weight:600;font-size:.79rem;">{{ issue.label }}</span>
+              <span class="badge" style="font-size:.58rem;text-transform:uppercase;background:{{ '#f8d7da' if issue.priority=='high' else '#ffe5d0' if issue.priority=='normal' else '#d1e7dd' }};color:{{ '#842029' if issue.priority=='high' else '#7f3000' if issue.priority=='normal' else '#0a3622' }};">{{ issue.priority }}</span>
+            </div>
+            <p class="mb-0" style="font-size:.75rem;color:#57534e;"><i class="bx bx-right-arrow-alt me-1"></i>{{ issue.suggestion }}</p>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-center text-muted py-3">
+    <i class="bx bx-calendar-check fs-1 d-block mb-2"></i>
+    <strong>No event issues detected yet.</strong><br>
+    <span class="small">Click <strong>Scrape Event News</strong> above to find online coverage of your events, then run <strong>Analyze Sentiment</strong> to detect issues.</span>
+  </div>
+  {% endif %}
+</div>
+
+{# ── Recommendations ──────────────────────────────────────────────── #}
+<div class="dashboard-card mb-4">
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <i class="bx bx-bulb fs-5" style="color: var(--primary)"></i>
+        <div>
+            <h3 class="dashboard-card__title mb-0">Decision Recommendations</h3>
+            <p class="text-muted small mb-0">
+                Auto-generated from weather, sentiment, news, and search trends.
+            </p>
+        </div>
+    </div>
+    <div class="row g-2">
+        {% for rec in ds.recommendations %}
+        <div class="col-12 col-lg-6">
+            <div class="ds-rec ds-rec--{{ rec.priority }}">
+                <i class="bx {{ rec.icon }} ds-rec__icon"></i>
+                <div style="flex: 1 1 0">
+                    <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                        <span class="ds-rec__title">{{ rec.title }}</span>
+                        <span class="ds-pri ds-pri--{{ rec.priority }}"
+                            >{{ rec.priority }}</span
+                        >
+                    </div>
+                    <p class="ds-rec__text">{{ rec.text }}</p>
+                    {% if rec.action and rec.action_url %}
+                    <a
+                        href="{{ rec.action_url }}"
+                        class="btn btn-sm btn-outline-secondary mt-1 py-0 px-2"
+                        style="font-size: 0.71rem"
+                    >
+                        {{ rec.action }} <i class="bx bx-chevron-right"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12 text-center text-muted small py-3">
+            Run a data refresh below to generate recommendations.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{# ── Sentiment breakdown (3 cols) ───────────────────────────────────────── #}
+<div class="row g-3 mb-4">
+    {# Spot feedback sentiment #}
+    <div class="col-lg-4">
+        <div class="dashboard-card h-100">
+            <h3 class="dashboard-card__title">Spot Feedback Sentiment</h3>
+            <p class="text-muted small mb-3">
+                Internal feedback from tourists on public spot pages.
+            </p>
+            {% set fs = ds.feedback_sentiment %}
+            <div class="d-flex justify-content-between small mb-1">
+                <span>Positive</span
+                ><strong class="text-success"
+                    >{{ fs.positive }} ({{ fs.positive_pct }}%)</strong
+                >
+            </div>
+            <div class="progress mb-2" style="height: 8px">
+                <div
+                    class="progress-bar bg-success"
+                    style="width:{{ fs.positive_pct }}%"
+                ></div>
+            </div>
+            <div class="d-flex justify-content-between small mb-1">
+                <span>Neutral</span
+                ><strong class="text-secondary"
+                    >{{ fs.neutral }} ({{ fs.neutral_pct }}%)</strong
+                >
+            </div>
+            <div class="progress mb-2" style="height: 8px">
+                <div
+                    class="progress-bar bg-secondary"
+                    style="width:{{ fs.neutral_pct }}%"
+                ></div>
+            </div>
+            <div class="d-flex justify-content-between small mb-1">
+                <span>Negative</span
+                ><strong class="text-danger"
+                    >{{ fs.negative }} ({{ fs.negative_pct }}%)</strong
+                >
+            </div>
+            <div class="progress mb-2" style="height: 8px">
+                <div
+                    class="progress-bar bg-danger"
+                    style="width:{{ fs.negative_pct }}%"
+                ></div>
+            </div>
+            {% if fs.avg_rating %}
+            <div class="p-2 rounded mt-2" style="background: var(--muted)">
+                <span class="small"
+                    >Avg rating: <strong>{{ fs.avg_rating }}/5</strong></span
+                >
+                {% for i in range(1,6) %}<i
+                    class="bx {{ 'bxs-star' if i <= fs.avg_rating|int else 'bx-star' }}"
+                    style="color: #f59e0b; font-size: 0.78rem"
+                ></i
+                >{% endfor %}
+            </div>
+            {% endif %} {% if fs.total == 0 %}
+            <p class="text-muted small mt-2 mb-0">
+                <i class="bx bx-info-circle"></i> No labeled feedback yet. Click
+                "Analyze Sentiment".
+            </p>
+            {% endif %}
+        </div>
+    </div>
+    {# Event feedback sentiment #}
+    <div class="col-lg-4">
+        <div class="dashboard-card h-100">
+            <h3 class="dashboard-card__title">Event Feedback Sentiment</h3>
+            <p class="text-muted small mb-3">
+                Ratings and comments submitted on public event pages.
+            </p>
+            {% set ev = ds.event_sentiment %}
+            <div class="d-flex justify-content-between small mb-1">
+                <span>Positive</span
+                ><strong class="text-success"
+                    >{{ ev.positive }} ({{ ev.positive_pct }}%)</strong
+                >
+            </div>
+            <div class="progress mb-2" style="height: 8px">
+                <div
+                    class="progress-bar bg-success"
+                    style="width:{{ ev.positive_pct }}%"
+                ></div>
+            </div>
+            <div class="d-flex justify-content-between small mb-1">
+                <span>Neutral</span
+                ><strong class="text-secondary"
+                    >{{ ev.neutral }} ({{ ev.neutral_pct }}%)</strong
+                >
+            </div>
+            <div class="progress mb-2" style="height: 8px">
+                <div
+                    class="progress-bar bg-secondary"
+                    style="width:{{ ev.neutral_pct }}%"
+                ></div>
+            </div>
+            <div class="d-flex justify-content-between small mb-1">
+                <span>Negative</span
+                ><strong class="text-danger"
+                    >{{ ev.negative }} ({{ ev.negative_pct }}%)</strong
+                >
+            </div>
+            <div class="progress mb-2" style="height: 8px">
+                <div
+                    class="progress-bar bg-danger"
+                    style="width:{{ ev.negative_pct }}%"
+                ></div>
+            </div>
+            {% if ev.avg_rating %}
+            <div class="p-2 rounded mt-2" style="background: var(--muted)">
+                <span class="small"
+                    >Avg rating: <strong>{{ ev.avg_rating }}/5</strong></span
+                >
+                {% for i in range(1,6) %}<i
+                    class="bx {{ 'bxs-star' if i <= ev.avg_rating|int else 'bx-star' }}"
+                    style="color: #f59e0b; font-size: 0.78rem"
+                ></i
+                >{% endfor %}
+            </div>
+            {% endif %} {% if ev.total == 0 %}
+            <p class="text-muted small mt-2 mb-0">
+                <i class="bx bx-info-circle"></i> No event feedback yet.
+            </p>
+            {% endif %}
+        </div>
+    </div>
+    {# Online review sentiment #}
+    <div class="col-lg-4">
+        <div class="dashboard-card h-100">
+            <h3 class="dashboard-card__title">Online Review Sentiment</h3>
+            <p class="text-muted small mb-3">
+                From scraped web reviews. Click "Scrape Reviews" to fetch new
+                ones.
+            </p>
+            {% set es = ds.ext_sentiment %}
+            <div class="d-flex justify-content-between small mb-1">
+                <span>Positive</span
+                ><strong class="text-success"
+                    >{{ es.positive }} ({{ es.positive_pct }}%)</strong
+                >
+            </div>
+            <div class="progress mb-2" style="height: 8px">
+                <div
+                    class="progress-bar bg-success"
+                    style="width:{{ es.positive_pct }}%"
+                ></div>
+            </div>
+            <div class="d-flex justify-content-between small mb-1">
+                <span>Neutral</span
+                ><strong class="text-secondary"
+                    >{{ es.neutral }} ({{ es.neutral_pct }}%)</strong
+                >
+            </div>
+            <div class="progress mb-2" style="height: 8px">
+                <div
+                    class="progress-bar bg-secondary"
+                    style="width:{{ es.neutral_pct }}%"
+                ></div>
+            </div>
+            <div class="d-flex justify-content-between small mb-1">
+                <span>Negative</span
+                ><strong class="text-danger"
+                    >{{ es.negative }} ({{ es.negative_pct }}%)</strong
+                >
+            </div>
+            <div class="progress mb-2" style="height: 8px">
+                <div
+                    class="progress-bar bg-danger"
+                    style="width:{{ es.negative_pct }}%"
+                ></div>
+            </div>
+            {% if es.total == 0 %}
+            <p class="text-muted small mt-2 mb-0">
+                <i class="bx bx-info-circle"></i> No online reviews yet. Click
+                "Scrape Reviews" to fetch automatically.
+            </p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{# ── Weather per LGU ────────────────────────────────────────────────────── #}
+<div class="dashboard-card mb-4" id="weather">
+    <div
+        class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2"
+    >
+        <div>
+            <h3 class="dashboard-card__title mb-0">
+                Weather Conditions per LGU
+            </h3>
+            <p class="text-muted small mb-0">
+                Live conditions from OpenWeatherMap (WEATHER_API_KEY).
+            </p>
+        </div>
+        <form method="post" action="{{ url_for('dashboard.scrape_weather') }}">
+            <button type="submit" class="btn btn-sm dashboard-btn-outline">
+                <i class="bx bx-refresh"></i> Refresh
+            </button>
+        </form>
+    </div>
+    {% if ds.weather %}
+    <div class="row g-2">
+        {% for w in ds.weather %} {% set dl = (w.weather_description or
+        '')|lower %}
+        <div class="col-6 col-md-4 col-lg-2">
+            <div
+                class="ds-weather {% if 'rain' in dl or 'drizzle' in dl or 'storm' in dl %}ds-weather--rain{% elif 'clear' in dl %}ds-weather--clear{% else %}ds-weather--cloud{% endif %}"
+            >
+                <div class="ds-weather__loc">{{ w.location }}</div>
+                <div class="ds-weather__temp">
+                    {{ w.temperature_celsius|round(1) if w.temperature_celsius
+                    else '—' }}°C
+                </div>
+                <div class="ds-weather__desc">
+                    <i
+                        class="bx {% if 'rain' in dl or 'drizzle' in dl %}bx-cloud-rain{% elif 'storm' in dl %}bx-cloud-lightning{% elif 'clear' in dl %}bx-sun{% else %}bx-cloud{% endif %}"
+                    ></i>
+                    {{ w.weather_description or '—' }}
+                </div>
+                <div class="ds-weather__meta">
+                    <i class="bx bx-water"></i> {{ w.humidity_percent or '—' }}%
+                    &nbsp;<i class="bx bx-wind"></i> {{ w.wind_speed_mps or '—'
+                    }} m/s
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center text-muted py-4">
+        <i class="bx bx-cloud fs-1 d-block mb-2"></i>
+        <strong>No weather data yet.</strong><br />
+        <span class="small"
+            >Click <strong>Refresh</strong> above. Requires
+            <code>WEATHER_API_KEY</code> in <code>.env</code> (free at
+            <a href="https://openweathermap.org/api" target="_blank"
+                >openweathermap.org</a
+            >).</span
+        >
+    </div>
+    {% endif %}
+</div>
+
+{# ── News + Trends ──────────────────────────────────────────────────────── #}
+<div class="row g-3 mb-4">
+    <div class="col-lg-7" id="news">
+        <div class="dashboard-card h-100">
+            <div
+                class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2"
+            >
+                <div>
+                    <h3 class="dashboard-card__title mb-0">
+                        Tourism News Feed
+                    </h3>
+                    <p class="text-muted small mb-0">
+                        Google News RSS — Laguna province + all approved tourist
+                        spots.
+                    </p>
+                </div>
+                <form
+                    method="post"
+                    action="{{ url_for('dashboard.scrape_news') }}"
+                >
+                    <button
+                        type="submit"
+                        class="btn btn-sm dashboard-btn-outline"
+                    >
+                        <i class="bx bx-refresh"></i> Refresh
+                    </button>
+                </form>
+            </div>
+            {% if ds.news %}
+            <div id="news-list">
+              {% for article in ds.news %}
+              <div class="ds-news news-item" style="display:{% if loop.index <= 10 %}flex{% else %}none{% endif %};">
+                <div>
+                  {% set s = (article.sentiment or 'neutral')|lower %}
+                  <span class="ds-news__badge" style="background:{{ '#d1e7dd' if s=='positive' else '#f8d7da' if s=='negative' else '#e2e3e5' }};color:{{ '#0a3622' if s=='positive' else '#842029' if s=='negative' else '#383d41' }};">{{ s }}</span>
+                </div>
+                <div style="flex:1 1 0;min-width:0;">
+                  <div class="ds-news__title">
+                    {% if article.source_url %}<a href="{{ article.source_url }}" target="_blank" rel="noopener">{{ article.title }}</a>
+                    {% else %}{{ article.title }}{% endif %}
+                  </div>
+                  {% if article.summary %}<p class="ds-news__meta mb-1" style="font-size:.72rem;color:#57534e;">{{ article.summary|truncate(100) }}</p>{% endif %}
+                  <div class="ds-news__meta"><i class="bx bx-broadcast-program"></i> {{ article.source or '—' }} &nbsp;·&nbsp; <i class="bx bx-time-five"></i> {{ (article.scraped_at or '')[:10] }}</div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% if ds.news|length > 10 %}
+            <div class="d-flex align-items-center justify-content-between mt-2 pt-2" style="border-top:1px solid var(--border);">
+              <button class="btn btn-sm btn-outline-secondary py-0 px-2" id="news-prev" onclick="newsPage(-1)" disabled><i class="bx bx-chevron-left"></i> Prev</button>
+              <span class="small text-muted" id="news-page-info">1 – 10 of {{ ds.news|length }}</span>
+              <button class="btn btn-sm btn-outline-secondary py-0 px-2" id="news-next" onclick="newsPage(1)">Next <i class="bx bx-chevron-right"></i></button>
+            </div>
+            <script>
+              (function(){
+                var PAGE=1,PER=10;
+                var items=document.querySelectorAll('#news-list .news-item');
+                var total=items.length;
+                function render(){
+                  var start=(PAGE-1)*PER,end=PAGE*PER;
+                  items.forEach(function(el,i){el.style.display=(i>=start&&i<end)?'flex':'none';});
+                  document.getElementById('news-page-info').textContent=(start+1)+' – '+Math.min(end,total)+' of '+total;
+                  document.getElementById('news-prev').disabled=PAGE===1;
+                  document.getElementById('news-next').disabled=end>=total;
+                }
+                window.newsPage=function(d){PAGE+=d;render();};
+              })();
+            </script>
+            {% endif %}
+            {% else %}
+            <div class="text-center text-muted py-4">
+                <i class="bx bx-news fs-1 d-block mb-2"></i>
+                <strong>No news scraped yet.</strong><br />
+                <span class="small"
+                    >Click <strong>Refresh</strong> — fetches Laguna tourism
+                    articles from Google News (free, no key).</span
+                >
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="col-lg-5" id="trends">
+        <div class="dashboard-card h-100">
+            <div
+                class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2"
+            >
+                <div>
+                    <h3 class="dashboard-card__title mb-0">Google Trends</h3>
+                    <p class="text-muted small mb-0">
+                        Search interest 0–100 for Laguna tourism keywords (PH).
+                        Note: Google rate-limits (429) — wait 1–2 hrs if errors.
+                    </p>
+                </div>
+                <form
+                    method="post"
+                    action="{{ url_for('dashboard.scrape_trends') }}"
+                >
+                    <button
+                        type="submit"
+                        class="btn btn-sm dashboard-btn-outline"
+                    >
+                        <i class="bx bx-refresh"></i> Refresh
+                    </button>
+                </form>
+            </div>
+            {% if ds.trends %}
+            <ul class="list-unstyled mb-0">
+                {% for t in ds.trends %}
+                <li class="mb-3">
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span
+                            style="
+                                font-weight: 500;
+                                font-size: 0.77rem;
+                                overflow: hidden;
+                                text-overflow: ellipsis;
+                                white-space: nowrap;
+                                max-width: 76%;
+                            "
+                            >{{ t.keyword }}</span
+                        >
+                        <strong
+                            style="color: var(--primary); font-size: 0.77rem"
+                            >{{ t.interest_value }}/100</strong
+                        >
+                    </div>
+                    <div class="ds-trend-bar">
+                        <div
+                            class="ds-trend-bar__fill"
+                            style="width:{{ t.interest_value or 0 }}%;"
+                        ></div>
+                    </div>
+                    {% if t.related_queries %}
+                    <div
+                        style="
+                            font-size: 0.66rem;
+                            color: var(--muted-foreground);
+                            margin-top: 0.15rem;
+                        "
+                    >
+                        Related: {% for rq in t.related_queries[:2] %}{{
+                        rq.get('q','') }}{% if not loop.last %}, {% endif %}{%
+                        endfor %}
+                    </div>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="text-center text-muted py-4">
+                <i class="bx bx-trending-up fs-1 d-block mb-2"></i>
+                <strong>No trends data yet.</strong><br />
+                <span class="small"
+                    >Click <strong>Refresh</strong>. If you get a 429 error,
+                    Google is rate-limiting — try again in 1–2 hours.</span
+                >
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{# ── Event Feedbacks + Spot Feedbacks tabs ──────────────────────────────── #}
+<div class="dashboard-card mb-4" id="feedbacks">
+    <div
+        class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2"
+    >
+        <div>
+            <h3 class="dashboard-card__title mb-0">Feedbacks &amp; Reviews</h3>
+            <p class="text-muted small mb-0">
+                Event Feedbacks — tourist ratings on events &nbsp;·&nbsp;
+                Spot Feedbacks — internal + online reviews per spot (with source type label).
+            </p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <form method="post" action="{{ url_for('dashboard.scrape_reviews') }}">
+                <button type="submit" class="btn btn-sm dashboard-btn-primary">
+                    <i class="bx bx-refresh"></i> Scrape Online + Social Media
+                </button>
+            </form>
+            <form method="post" action="{{ url_for('dashboard.run_sentiment_analysis') }}">
+                <button type="submit" class="btn btn-sm dashboard-btn-outline">
+                    <i class="bx bx-brain"></i> Analyze Sentiment
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-events" type="button" role="tab" id="event-feedback">
+                <i class="bx bx-calendar-event me-1"></i> Event Feedbacks
+                <span class="badge bg-secondary ms-1">{{ ds.event_feedbacks|length }}</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-spots" type="button" role="tab" id="spot-feedback">
+                <i class="bx bx-map-pin me-1"></i> Spot Feedbacks
+                <span class="badge bg-secondary ms-1">{{ (ds.spot_feedbacks|length) + (ds.online_reviews|length) }}</span>
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        {# ── Tab 1: Event Feedbacks ── #}
+        <div class="tab-pane fade show active" id="tab-events" role="tabpanel">
+            {% if ds.event_feedbacks %} {% set ev_s = ds.event_sentiment %}
+            <div class="row g-2 mb-3">
+                <div class="col-4">
+                    <div
+                        class="rounded text-center p-2"
+                        style="background: #d1e7dd"
+                    >
+                        <div class="fw-bold text-success small">
+                            {{ ev_s.positive }}
+                        </div>
+                        <div class="text-success" style="font-size: 0.68rem">
+                            Positive ({{ ev_s.positive_pct }}%)
+                        </div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div
+                        class="rounded text-center p-2"
+                        style="background: #e2e3e5"
+                    >
+                        <div class="fw-bold text-secondary small">
+                            {{ ev_s.neutral }}
+                        </div>
+                        <div class="text-secondary" style="font-size: 0.68rem">
+                            Neutral ({{ ev_s.neutral_pct }}%)
+                        </div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div
+                        class="rounded text-center p-2"
+                        style="background: #f8d7da"
+                    >
+                        <div class="fw-bold text-danger small">
+                            {{ ev_s.negative }}
+                        </div>
+                        <div class="text-danger" style="font-size: 0.68rem">
+                            Negative ({{ ev_s.negative_pct }}%)
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table dashboard-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Event</th>
+                            <th>LGU</th>
+                            <th>Rating</th>
+                            <th>Sentiment</th>
+                            <th>Comment</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ef in ds.event_feedbacks %} {% set ev = ef.events
+                        or {} %} {% set lgu = (ev.lgus or {}) if ev else {} %}
+                        {% set comment = ef.comment or '' %} {% if comment %} {%
+                        set rating = ef.rating or 0 %} {% set sent = 'positive'
+                        if rating >= 4 else 'negative' if rating <= 2 else
+                        'neutral' %}
+                        <tr>
+                            <td>
+                                <strong>{{ ev.title if ev else '—' }}</strong>
+                            </td>
+                            <td class="small">
+                                {{ lgu.name if lgu else '—' }}
+                            </td>
+                            <td class="small">
+                                {% if rating %}{% for i in range(1,6) %}<i
+                                    class="bx {{ 'bxs-star' if i <= rating else 'bx-star' }}"
+                                    style="color: #f59e0b; font-size: 0.76rem"
+                                ></i
+                                >{% endfor %} {% else %}—{% endif %}
+                            </td>
+                            <td>{{ status_badge(sent) }}</td>
+                            <td class="small">{{ comment|truncate(110) }}</td>
+                            <td class="small text-muted">
+                                {{ (ef.created_at or '')[:10] }}
+                            </td>
+                        </tr>
+                        {% endif %} {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-3">
+                                No event feedback with comments yet.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center text-muted py-4">
+                <i class="bx bx-calendar-event fs-1 d-block mb-2"></i>
+                <strong>No event feedback yet.</strong><br />
+                <span class="small"
+                    >Event feedback is submitted by tourists on the public event
+                    pages.</span
+                >
+            </div>
+            {% endif %}
+        </div>
+
+        {# ── Tab 2: Spot Feedbacks (internal + online mixed) ── #}
+        <div class="tab-pane fade" id="tab-spots" role="tabpanel">
+            {# Sentiment mini-summary for spot tab #} {% set sc =
+            ds.spot_combined_sentiment %} {% if sc.total > 0 %}
+            <div class="row g-2 mb-3">
+                <div class="col-4">
+                    <div
+                        class="rounded text-center p-2"
+                        style="background: #d1e7dd"
+                    >
+                        <div class="fw-bold text-success small">
+                            {{ sc.positive }}
+                        </div>
+                        <div class="text-success" style="font-size: 0.67rem">
+                            Positive ({{ sc.positive_pct }}%)
+                        </div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div
+                        class="rounded text-center p-2"
+                        style="background: #e2e3e5"
+                    >
+                        <div class="fw-bold text-secondary small">
+                            {{ sc.neutral }}
+                        </div>
+                        <div class="text-secondary" style="font-size: 0.67rem">
+                            Neutral ({{ sc.neutral_pct }}%)
+                        </div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div
+                        class="rounded text-center p-2"
+                        style="background: #f8d7da"
+                    >
+                        <div class="fw-bold text-danger small">
+                            {{ sc.negative }}
+                        </div>
+                        <div class="text-danger" style="font-size: 0.67rem">
+                            Negative ({{ sc.negative_pct }}%)
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <p class="text-muted small mb-3">
+                <span class="fb-type-badge fb-type--internal">Internal</span> {{
+                ds.feedback_sentiment.total }} internal spot feedbacks &nbsp;
+                <span class="fb-type-badge fb-type--online ms-1">Online</span>
+                {{ ds.ext_sentiment.total }} scraped online reviews
+            </p>
+            {% endif %} {% set all_spot = [] %} {% for f in ds.spot_feedbacks
+            %}{% set _ = all_spot.append({'type':'internal','date': f.created_at
+            or '','spot': (f.tourist_spots or {}).get('name','—'),'lgu':
+            ((f.tourist_spots or {}).get('lgus') or {}).get('name','—'),'name':
+            f.guest_name or 'Tourist','source': 'Internal','sentiment':
+            f.sentiment or 'neutral','text': (f.comments or f.suggestions or
+            ''),'rating': f.rating or 0}) %}{% endfor %} {% for r in
+            ds.online_reviews %}{% set _ =
+            all_spot.append({'type':'online','date': r.scraped_at or '','spot':
+            (r.tourist_spots or {}).get('name','—'),'lgu': ((r.tourist_spots or
+            {}).get('lgus') or {}).get('name','—'),'name': r.reviewer_name or
+            'Google News','source': (r.source or '').split(' | ')[0],'url':
+            (r.source or '').split(' | ')[1] if ' | ' in (r.source or '') else
+            '','sentiment': r.sentiment or 'neutral','text': r.review_text or
+            '','rating': 0}) %}{% endfor %} {% if all_spot %}
+            <div class="table-responsive">
+                <table class="table dashboard-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Spot</th>
+                            <th>LGU</th>
+                            <th>Source</th>
+                            <th>Rating</th>
+                            <th>Sentiment</th>
+                            <th>Feedback / Headline</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in all_spot|sort(attribute='date',
+                        reverse=True) %} {% if item.text %}
+                        <tr>
+                            <td>
+                                {% if item.type == 'internal' %}
+                                <span class="fb-type-badge fb-type--internal"
+                                    >Internal</span
+                                >
+                                {% else %}
+                                <span class="fb-type-badge fb-type--online"
+                                    >Online</span
+                                >
+                                {% endif %}
+                            </td>
+                            <td><strong>{{ item.spot }}</strong></td>
+                            <td class="small">{{ item.lgu }}</td>
+                            <td class="small">
+                                {% if item.url %}<a
+                                    href="{{ item.url }}"
+                                    target="_blank"
+                                    rel="noopener"
+                                    class="text-decoration-none"
+                                    >{{ item.source }}<i
+                                        class="bx bx-link-external ms-1"
+                                        style="font-size: 0.66rem"
+                                    ></i
+                                ></a>
+                                {% else %}{{ item.source }}{% endif %}
+                            </td>
+                            <td class="small">
+                                {% if item.rating %}{% for i in range(1,6) %}<i
+                                    class="bx {{ 'bxs-star' if i <= item.rating else 'bx-star' }}"
+                                    style="color: #f59e0b; font-size: 0.74rem"
+                                ></i
+                                >{% endfor %} {% else %}—{% endif %}
+                            </td>
+                            <td>{{ status_badge(item.sentiment) }}</td>
+                            <td class="small">{{ item.text|truncate(120) }}</td>
+                            <td class="small text-muted">
+                                {{ (item.date or '')[:10] }}
+                            </td>
+                        </tr>
+                        {% endif %} {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-3">
+                                No spot feedbacks yet.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center text-muted py-4">
+                <i class="bx bx-map-pin fs-1 d-block mb-2"></i>
+                <strong>No spot feedback yet.</strong><br />
+                <span class="small"
+                    >Spot feedback comes from tourist reviews. Click
+                    <strong>Scrape Online Reviews</strong> to fetch web reviews,
+                    or wait for tourists to submit feedback on spot pages.</span
+                >
+            </div>
+            {% endif %}
+        </div>
+
+    </div>
+</div>
+
+{# ── Data Refresh Controls + Social Media API Guide ─────────────────────── #}
+<div class="row g-3 mb-4">
+    <div class="col-lg-6">
+        <div class="dashboard-card h-100">
+            <h3 class="dashboard-card__title">
+                <i class="bx bx-cloud-download me-1"></i> Data Refresh Controls
+            </h3>
+            <p class="text-muted small mb-3">
+                Manually trigger each scraper. Schedule every 6–12 hrs via cron
+                in production.
+            </p>
+
+            <div class="ds-row">
+                <span
+                    class="ds-dot {{ 'ds-dot--on' if ds.scraper_status.weather_ok else 'ds-dot--off' }}"
+                ></span>
+                <span class="ds-label fw-medium"
+                    ><i class="bx bx-cloud me-1"></i> Weather
+                    (OpenWeatherMap)</span
+                >
+                <span class="ds-ts">{{ last_run.weather or 'Never run' }}</span>
+                <form
+                    method="post"
+                    action="{{ url_for('dashboard.scrape_weather') }}"
+                    class="ms-auto"
+                >
+                    <button
+                        type="submit"
+                        class="btn btn-sm dashboard-btn-primary py-0 px-2"
+                    >
+                        Run
+                    </button>
+                </form>
+            </div>
+            <div class="ds-row">
+                <span
+                    class="ds-dot {{ 'ds-dot--on' if ds.scraper_status.news_ok else 'ds-dot--off' }}"
+                ></span>
+                <span class="ds-label fw-medium"
+                    ><i class="bx bx-news me-1"></i> Tourism News (Google News
+                    RSS)</span
+                >
+                <span class="ds-ts">{{ last_run.news or 'Never run' }}</span>
+                <form
+                    method="post"
+                    action="{{ url_for('dashboard.scrape_news') }}"
+                    class="ms-auto"
+                >
+                    <button
+                        type="submit"
+                        class="btn btn-sm dashboard-btn-primary py-0 px-2"
+                    >
+                        Run
+                    </button>
+                </form>
+            </div>
+            <div class="ds-row">
+                <span
+                    class="ds-dot {{ 'ds-dot--on' if ds.scraper_status.trends_ok else 'ds-dot--off' }}"
+                ></span>
+                <span class="ds-label fw-medium"
+                    ><i class="bx bx-trending-up me-1"></i> Google Trends
+                    (pytrends)</span
+                >
+                <span class="ds-ts">{{ last_run.trends or 'Never run' }}</span>
+                <form
+                    method="post"
+                    action="{{ url_for('dashboard.scrape_trends') }}"
+                    class="ms-auto"
+                >
+                    <button
+                        type="submit"
+                        class="btn btn-sm dashboard-btn-primary py-0 px-2"
+                    >
+                        Run
+                    </button>
+                </form>
+            </div>
+            <div class="ds-row">
+                <span
+                    class="ds-dot {{ 'ds-dot--on' if ds.scraper_status.reviews_ok else 'ds-dot--off' }}"
+                ></span>
+                <span class="ds-label fw-medium"
+                    ><i class="bx bx-globe me-1"></i> Online Reviews (Google
+                    News RSS)</span
+                >
+                <span class="ds-ts">{{ last_run.reviews or 'Never run' }}</span>
+                <form
+                    method="post"
+                    action="{{ url_for('dashboard.scrape_reviews') }}"
+                    class="ms-auto"
+                >
+                    <button
+                        type="submit"
+                        class="btn btn-sm dashboard-btn-primary py-0 px-2"
+                    >
+                        Run
+                    </button>
+                </form>
+            </div>
+            <div class="ds-row">
+                <span class="ds-dot ds-dot--off"></span>
+                <span class="ds-label fw-medium"><i class="bx bx-brain me-1"></i> Sentiment Analysis (TextBlob)</span>
+                <span class="ds-ts">Re-labels all rows (with Tagalog)</span>
+                <form method="post" action="{{ url_for('dashboard.run_sentiment_analysis') }}" class="ms-auto">
+                    <button type="submit" class="btn btn-sm dashboard-btn-primary py-0 px-2">Run</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="dashboard-card h-100">
+            <h3 class="dashboard-card__title">
+                <i class="bx bx-info-circle me-1"></i> Sentiment Analysis Info
+            </h3>
+            <p class="text-muted small mb-2">
+                The <strong>Analyze Sentiment</strong> button re-labels all
+                feedback and reviews using TextBlob with automatic
+                Tagalog/Filipino translation.
+            </p>
+            <div class="p-3 rounded" style="background: var(--muted)">
+                <p class="small mb-2">
+                    <i class="bx bx-check-circle text-success me-1"></i
+                    ><strong>English</strong> — analyzed directly by TextBlob
+                </p>
+                <p class="small mb-2">
+                    <i class="bx bx-check-circle text-success me-1"></i
+                    ><strong>Filipino / Tagalog</strong> — auto-translated to
+                    English via Google Translate (free), then analyzed
+                </p>
+                <p class="small mb-2">
+                    <i class="bx bx-check-circle text-success me-1"></i
+                    ><strong>Mixed language</strong> — detected and handled
+                    automatically
+                </p>
+                <p class="small mb-0">
+                    <i class="bx bx-info-circle text-primary me-1"></i>Click
+                    <strong>Analyze Sentiment</strong> once after adding new
+                    feedbacks to re-label all rows including Tagalog ones.
+                </p>
+            </div>
+            <div style="display: none">
+                <!-- API guide removed -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button
+                            class="accordion-button collapsed"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#api-meta"
+                        >
+                            <span style="color: #1877f2; margin-right: 0.4rem"
+                                >&#9711;</span
+                            >
+                            Facebook / Instagram / Threads (Meta)
+                        </button>
+                    </h2>
+                    <div
+                        id="api-meta"
+                        class="accordion-collapse collapse"
+                        data-bs-parent="#apiGuide"
+                    >
+                        <div class="accordion-body pt-2 pb-3 px-3 small">
+                            <div class="ds-step">
+                                <span class="ds-step__n">1</span
+                                ><span
+                                    >Go to
+                                    <a
+                                        href="https://developers.facebook.com"
+                                        target="_blank"
+                                        >developers.facebook.com</a
+                                    >
+                                    →
+                                    <strong>My Apps → Create App</strong>.</span
+                                >
+                            </div>
+                            <div class="ds-step">
+                                <span class="ds-step__n">2</span
+                                ><span
+                                    >Choose <strong>"Business"</strong> type.
+                                    Add: <em>Instagram Graph API</em> +
+                                    <em>Facebook Login</em>.</span
+                                >
+                            </div>
+                            <div class="ds-step">
+                                <span class="ds-step__n">3</span
+                                ><span
+                                    ><strong>Graph API Explorer</strong> →
+                                    generate a
+                                    <strong>Page Access Token</strong> for your
+                                    tourism page.</span
+                                >
+                            </div>
+                            <div class="ds-step">
+                                <span class="ds-step__n">4</span
+                                ><span
+                                    >Permissions:
+                                    <code>pages_read_engagement</code>,
+                                    <code>pages_show_list</code>,
+                                    <code>instagram_basic</code>.</span
+                                >
+                            </div>
+                            <div class="ds-step">
+                                <span class="ds-step__n">5</span
+                                ><span
+                                    >Threads:
+                                    <a
+                                        href="https://developers.facebook.com/docs/threads"
+                                        target="_blank"
+                                        >Threads API docs</a
+                                    >
+                                    → request early access from Meta.</span
+                                >
+                            </div>
+                            <div class="ds-step">
+                                <span class="ds-step__n">6</span
+                                ><span
+                                    >Add to <code>.env</code>:
+                                    <code>META_ACCESS_TOKEN=</code> and
+                                    <code>META_PAGE_ID=</code></span
+                                >
+                            </div>
+                            <div
+                                class="alert alert-warning py-1 px-2 mb-0 mt-1 small"
+                            >
+                                <i class="bx bx-info-circle"></i> Only reads
+                                from <em>your own</em> managed pages/accounts.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button
+                            class="accordion-button collapsed"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#api-twitter"
+                        >
+                            <span style="color: #000; margin-right: 0.4rem"
+                                >&#9711;</span
+                            >
+                            X / Twitter API (Free tier)
+                        </button>
+                    </h2>
+                    <div
+                        id="api-twitter"
+                        class="accordion-collapse collapse"
+                        data-bs-parent="#apiGuide"
+                    >
+                        <div class="accordion-body pt-2 pb-3 px-3 small">
+                            <div class="ds-step">
+                                <span class="ds-step__n">1</span
+                                ><span
+                                    >Go to
+                                    <a
+                                        href="https://developer.twitter.com/en/portal/dashboard"
+                                        target="_blank"
+                                        >developer.twitter.com</a
+                                    >
+                                    → <strong>Sign up for Free</strong>.</span
+                                >
+                            </div>
+                            <div class="ds-step">
+                                <span class="ds-step__n">2</span
+                                ><span
+                                    >Create project and app. Select
+                                    <strong>Free tier</strong> (1,500
+                                    write/month, limited read).</span
+                                >
+                            </div>
+                            <div class="ds-step">
+                                <span class="ds-step__n">3</span
+                                ><span
+                                    >Enable <strong>Read permissions</strong>.
+                                    Generate
+                                    <em>API Key, API Secret, Bearer Token</em
+                                    >.</span
+                                >
+                            </div>
+                            <div class="ds-step">
+                                <span class="ds-step__n">4</span
+                                ><span
+                                    >Install: <code>pip install tweepy</code>.
+                                    Add to <code>.env</code>:
+                                    <code>TWITTER_BEARER_TOKEN=</code></span
+                                >
+                            </div>
+                            <div
+                                class="alert alert-warning py-1 px-2 mb-0 mt-1 small"
+                            >
+                                <i class="bx bx-info-circle"></i> Free tier:
+                                last 7 days tweets only. Basic ($100/mo) for
+                                more.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button
+                            class="accordion-button collapsed"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#api-weather"
+                        >
+                            <span style="color: #0369a1; margin-right: 0.4rem"
+                                >&#9711;</span
+                            >
+                            OpenWeatherMap (Free — 1,000 calls/day)
+                        </button>
+                    </h2>
+                    <div
+                        id="api-weather"
+                        class="accordion-collapse collapse"
+                        data-bs-parent="#apiGuide"
+                    >
+                        <div class="accordion-body pt-2 pb-3 px-3 small">
+                            <div class="ds-step">
+                                <span class="ds-step__n">1</span
+                                ><span
+                                    >Go to
+                                    <a
+                                        href="https://openweathermap.org/api"
+                                        target="_blank"
+                                        >openweathermap.org/api</a
+                                    >
+                                    → <strong>Sign Up Free</strong>.</span
+                                >
+                            </div>
+                            <div class="ds-step">
+                                <span class="ds-step__n">2</span
+                                ><span
+                                    >Account dashboard →
+                                    <strong>API Keys</strong> → copy your
+                                    key.</span
+                                >
+                            </div>
+                            <div class="ds-step">
+                                <span class="ds-step__n">3</span
+                                ><span
+                                    >Add to <code>.env</code>:
+                                    <code
+                                        >WEATHER_API_KEY=your_key_here</code
+                                    ></span
+                                >
+                            </div>
+                            <div class="ds-step">
+                                <span class="ds-step__n">4</span
+                                ><span
+                                    >Free: current weather + 5-day forecast,
+                                    1,000 calls/day. No credit card.</span
+                                >
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button
+                            class="accordion-button collapsed"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#api-trends"
+                        >
+                            <span style="color: #ea4335; margin-right: 0.4rem"
+                                >&#9711;</span
+                            >
+                            Google Trends via pytrends (No API key!)
+                        </button>
+                    </h2>
+                    <div
+                        id="api-trends"
+                        class="accordion-collapse collapse"
+                        data-bs-parent="#apiGuide"
+                    >
+                        <div class="accordion-body pt-2 pb-3 px-3 small">
+                            <div class="ds-step">
+                                <span class="ds-step__n">1</span
+                                ><span
+                                    >Install:
+                                    <code>pip install pytrends</code> — no
+                                    sign-up needed.</span
+                                >
+                            </div>
+                            <div class="ds-step">
+                                <span class="ds-step__n">2</span
+                                ><span
+                                    >Google rate-limits heavily. If you get a
+                                    429 error, wait 1–2 hours before
+                                    retrying.</span
+                                >
+                            </div>
+                            <div class="ds-step">
+                                <span class="ds-step__n">3</span
+                                ><span
+                                    >Edit keywords in
+                                    <code
+                                        >services/scrapers/trends_scraper.py</code
+                                    >
+                                    → <code>TOURISM_KEYWORDS</code>.</span
+                                >
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button
+                            class="accordion-button collapsed"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#api-reddit"
+                        >
+                            <span style="color: #ff4500; margin-right: 0.4rem"
+                                >&#9711;</span
+                            >
+                            Reddit API via PRAW (Free)
+                        </button>
+                    </h2>
+                    <div
+                        id="api-reddit"
+                        class="accordion-collapse collapse"
+                        data-bs-parent="#apiGuide"
+                    >
+                        <div class="accordion-body pt-2 pb-3 px-3 small">
+                            <div class="ds-step">
+                                <span class="ds-step__n">1</span
+                                ><span
+                                    >Go to
+                                    <a
+                                        href="https://www.reddit.com/prefs/apps"
+                                        target="_blank"
+                                        >reddit.com/prefs/apps</a
+                                    >
+                                    → <strong>Create app</strong> → type:
+                                    script.</span
+                                >
+                            </div>
+                            <div class="ds-step">
+                                <span class="ds-step__n">2</span
+                                ><span
+                                    >Copy <strong>client_id</strong> +
+                                    <strong>client_secret</strong>. Redirect
+                                    URI: <code>http://localhost</code>.</span
+                                >
+                            </div>
+                            <div class="ds-step">
+                                <span class="ds-step__n">3</span
+                                ><span
+                                    >Install: <code>pip install praw</code>. Add
+                                    to <code>.env</code>:
+                                    <code>REDDIT_CLIENT_ID=</code> and
+                                    <code>REDDIT_CLIENT_SECRET=</code>.</span
+                                >
+                            </div>
+                            <div class="ds-step">
+                                <span class="ds-step__n">4</span
+                                ><span
+                                    >Search <code>r/Philippines</code>,
+                                    <code>r/phtravel</code>,
+                                    <code>r/travel</code> for Laguna
+                                    mentions.</span
+                                >
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>{# end hidden accordion #}
+            </div>{# end display:none #}
+        </div>
+    </div>
+</div>
+
+{# ── How it works ───────────────────────────────────────────────────────── #}
+<div class="dashboard-card mb-4">
+    <h3 class="dashboard-card__title">
+        <i class="bx bx-info-circle me-1"></i> How Decision Support Works
+    </h3>
+    <div class="row g-3 mt-1 text-center">
+        <div class="col-6 col-md-3">
+            <div class="dashboard-pipeline__icon mx-auto mb-2">
+                <i class="bx bx-download"></i>
+            </div>
+            <h6 class="fw-semibold small mb-1">1. Data Collection</h6>
+            <p class="text-muted" style="font-size: 0.74rem">
+                Scrapers pull weather, Laguna tourism news, Google Trends, and
+                spot reviews from free public sources.
+            </p>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="dashboard-pipeline__icon mx-auto mb-2">
+                <i class="bx bx-brain"></i>
+            </div>
+            <h6 class="fw-semibold small mb-1">2. Sentiment Analysis</h6>
+            <p class="text-muted" style="font-size: 0.74rem">
+                TextBlob labels every feedback and review as positive, neutral,
+                or negative.
+            </p>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="dashboard-pipeline__icon mx-auto mb-2">
+                <i class="bx bx-filter-alt"></i>
+            </div>
+            <h6 class="fw-semibold small mb-1">3. Signal Aggregation</h6>
+            <p class="text-muted" style="font-size: 0.74rem">
+                Weather alerts, sentiment scores, trending keywords, and news
+                tone combined into one view.
+            </p>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="dashboard-pipeline__icon mx-auto mb-2">
+                <i class="bx bx-bulb"></i>
+            </div>
+            <h6 class="fw-semibold small mb-1">4. Recommendations</h6>
+            <p class="text-muted" style="font-size: 0.74rem">
+                Rule-based engine generates color-coded priority cards for
+                LTCATO staff to act on.
+            </p>
+        </div>
+    </div>
 </div>
 {% endblock %}
-

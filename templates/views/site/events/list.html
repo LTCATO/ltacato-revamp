@@ -11,7 +11,7 @@
       <span>Events</span>
     </nav>
     <span class="section-eyebrow">Upcoming Events</span>
-    <h1 class="page-hero__title">Discover Laguna's vibrant events</h1>
+    <h1 class="page-hero__title">Discover Laguna’s vibrant events</h1>
     <p class="page-hero__lead">
       Cultural festivals, food fairs, eco-adventures, and trade showcases—curated and published by LTCATO
       for visitors planning their next Laguna experience.
@@ -24,13 +24,7 @@
     <form class="spots-filters" method="get" action="{{ url_for('events.events_list') }}">
       <div class="spots-filters__search">
         <i class="ph ph-magnifying-glass"></i>
-        <input
-          type="search"
-          name="q"
-          value="{{ active_q }}"
-          placeholder="Search events, venues, or municipalities..."
-          aria-label="Search events"
-        />
+        <input type="search" name="q" value="{{ active_q }}" placeholder="Search events, venues, or municipalities..." aria-label="Search events" />
       </div>
       <select name="municipality" class="spots-filters__select" aria-label="Filter by LGU">
         <option value="">All LGUs</option>
@@ -38,8 +32,23 @@
         <option value="{{ m.id }}" {% if active_municipality == m.id %}selected{% endif %}>{{ m.name }}</option>
         {% endfor %}
       </select>
+      <select name="status" class="spots-filters__select" aria-label="Filter by status">
+        <option value="">All statuses</option>
+        <option value="upcoming" {% if active_status == "upcoming" %}selected{% endif %}>Upcoming</option>
+        <option value="ongoing" {% if active_status == "ongoing" %}selected{% endif %}>Ongoing</option>
+        <option value="finished" {% if active_status == "finished" %}selected{% endif %}>Finished</option>
+      </select>
+      <select name="category" class="spots-filters__select" aria-label="Filter by category">
+        <option value="">All categories</option>
+        <option value="festival" {% if active_category == "festival" %}selected{% endif %}>Festival</option>
+        <option value="cultural" {% if active_category == "cultural" %}selected{% endif %}>Cultural</option>
+        <option value="food" {% if active_category == "food" %}selected{% endif %}>Food &amp; Drink</option>
+        <option value="adventure" {% if active_category == "adventure" %}selected{% endif %}>Adventure</option>
+        <option value="arts" {% if active_category == "arts" %}selected{% endif %}>Arts &amp; Trade</option>
+        <option value="trade" {% if active_category == "trade" %}selected{% endif %}>Trade Fair</option>
+      </select>
       <button type="submit" class="btn ltcato-btn-pill">Apply</button>
-      {% if active_q or active_category or active_municipality %}
+      {% if active_q or active_municipality or active_status or active_category %}
       <a href="{{ url_for('events.events_list') }}" class="spots-filters__clear">Clear filters</a>
       {% endif %}
     </form>
@@ -60,8 +69,8 @@
               <div class="date-month">{{ event.date_month }}</div>
               <div class="date-day">{{ event.date_day }}</div>
             </div>
-            {% if event.status == 'upcoming' %}
-            <span class="event-status-pill">Upcoming</span>
+            {% if event.status %}
+            <span class="event-status-pill event-status-pill--{{ event.status }}">{{ event.status | replace('_', ' ') | title }}</span>
             {% endif %}
           </div>
           <div class="event-content">
@@ -73,7 +82,7 @@
             <p class="event-description">{{ event.summary | truncate_text(140) }}</p>
             <div class="event-details">
               <div class="event-detail-item"><i class="ph ph-map-pin"></i><span>{{ event.municipality }}</span></div>
-              <div class="event-detail-item"><i class="ph ph-clock"></i><span>{{ event.time }}</span></div>
+              <div class="event-detail-item"><i class="ph ph-buildings"></i><span>{{ event.venue }}</span></div>
             </div>
             <div class="event-footer">
               <span class="event-attendee-hint"><i class="ph ph-users"></i> {{ event.attendee_count }}+ interested</span>

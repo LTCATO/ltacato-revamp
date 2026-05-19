@@ -106,6 +106,126 @@
 </div>
 {% endif %}
 
+{% if analytics.event_promo_analytics and user.role in ('super_admin', 'ltcato_staff') %}
+{% set ep = analytics.event_promo_analytics %}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="dashboard-stat-card">
+      <i class="bx bx-show dashboard-stat-card__icon"></i>
+      <strong>{{ ep.total_views }}</strong>
+      <span>Event views</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="dashboard-stat-card">
+      <i class="bx bx-walk dashboard-stat-card__icon"></i>
+      <strong>{{ ep.total_visitors }}</strong>
+      <span>Visitors (events)</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="dashboard-stat-card">
+      <i class="bx bx-group dashboard-stat-card__icon"></i>
+      <strong>{{ ep.total_attendance }}</strong>
+      <span>Attendance</span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="dashboard-stat-card">
+      <i class="bx bx-purchase-tag dashboard-stat-card__icon"></i>
+      <strong>{{ ep.revenue_estimate }}</strong>
+      <span>Revenue estimate</span>
+    </div>
+  </div>
+</div>
+
+<div class="dashboard-card mb-4">
+  <div class="dashboard-card__header">
+    <h3 class="dashboard-card__title mb-0">Event promotions — reach and engagement</h3>
+    <p class="text-muted small mb-0">From <code>event_analytics</code> (per-event rows). Municipality reach, top searches, and tourist origin use JSON arrays on each row.</p>
+  </div>
+  <div class="p-3 border-top">
+    <p class="small mb-2"><strong>Engagement rate (avg across tracked events):</strong> {{ ep.avg_engagement_rate }}%</p>
+    <div class="row g-4">
+      <div class="col-lg-4">
+        <h4 class="h6">Municipality reach</h4>
+        <div class="table-responsive">
+          <table class="table table-sm dashboard-table mb-0">
+            <thead><tr><th>Municipality</th><th>Count</th></tr></thead>
+            <tbody>
+              {% for row in ep.municipality_reach %}
+              <tr><td>{{ row.name }}</td><td>{{ row.count }}</td></tr>
+              {% else %}
+              <tr><td colspan="2" class="text-muted">No reach data yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <h4 class="h6">Top searches</h4>
+        <div class="table-responsive">
+          <table class="table table-sm dashboard-table mb-0">
+            <thead><tr><th>Query</th><th>Hits</th></tr></thead>
+            <tbody>
+              {% for row in ep.top_searches %}
+              <tr><td>{{ row.query }}</td><td>{{ row.count }}</td></tr>
+              {% else %}
+              <tr><td colspan="2" class="text-muted">No search data yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <h4 class="h6">Tourist origin</h4>
+        <div class="table-responsive">
+          <table class="table table-sm dashboard-table mb-0">
+            <thead><tr><th>Origin</th><th>Count</th></tr></thead>
+            <tbody>
+              {% for row in ep.tourist_origin %}
+              <tr><td>{{ row.origin }}</td><td>{{ row.count }}</td></tr>
+              {% else %}
+              <tr><td colspan="2" class="text-muted">No origin data yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <h4 class="h6 mt-4">Top events by views</h4>
+    <div class="table-responsive">
+      <table class="table dashboard-table mb-0">
+        <thead>
+          <tr>
+            <th>Event</th>
+            <th>Views</th>
+            <th>Visitors</th>
+            <th>Attendance</th>
+            <th>Revenue est.</th>
+            <th>Engagement %</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in ep.top_events %}
+          <tr>
+            <td><strong>{% if row.events and row.events.title %}{{ row.events.title }}{% else %}#{{ row.event_id }}{% endif %}</strong></td>
+            <td>{{ row.views or 0 }}</td>
+            <td>{{ row.visitors or 0 }}</td>
+            <td>{{ row.attendance or 0 }}</td>
+            <td>{{ row.revenue_estimate or 0 }}</td>
+            <td>{{ row.engagement_rate or 0 }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-muted">No event analytics rows yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <div class="row g-4">
   <div class="col-lg-6">
     <div class="dashboard-card h-100">
@@ -125,7 +245,7 @@
     <div class="dashboard-card h-100">
       <h3 class="dashboard-card__title">How this module works</h3>
       <p class="text-muted small">
-        {% if user.role == 'lgu' %}
+        {% if user.role == 'lgu_admin' %}
           Analytics for your LGU combines approved tourist spots, tourist feedback, and arrival reports submitted by establishments you manage.
         {% elif user.role == 'establishment_owner' %}
           Track visitor submissions and ratings for your property. Daily and weekly counts flow to your LGU; they compile monthly totals for LTCATO.

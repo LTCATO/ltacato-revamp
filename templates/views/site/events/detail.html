@@ -1,203 +1,976 @@
-{% extends "base.html" %}
+{% extends "base.html" %} {% block title %}{{ event.title }}{% endblock %} {%
+block content %} {#
+══════════════════════════════════════════════════════════════ SECTION 1 · HERO
+(full-bleed, cinematic)
+══════════════════════════════════════════════════════════════ #}
+<section class="event-hero" id="event-hero">
+    {# Background image #}
+    <div
+        class="event-hero__bg"
+        style="background-image: url('{{ event.image | normalize_image_url }}');"
+    ></div>
 
-{% block title %}{{ event.title }}{% endblock %}
+    {# Gradient overlay #}
+    <div class="event-hero__overlay"></div>
 
-{% block content %}
-<section class="spot-detail-hero">
-  <div class="container-xl">
-    <nav class="page-breadcrumb page-breadcrumb--light" aria-label="Breadcrumb">
-      <a href="{{ url_for('public.home') }}">Home</a>
-      <i class="ph ph-caret-right"></i>
-      <a href="{{ url_for('events.events_list') }}">Events</a>
-      <i class="ph ph-caret-right"></i>
-      <span>{{ event.title | truncate_text(48) }}</span>
-    </nav>
-  </div>
-</section>
-
-<section class="spot-gallery-section">
-  <div class="container-xl">
-    <div class="swiper spot-gallery-swiper event-detail-gallery">
-      <div class="swiper-wrapper">
-        {% for image in gallery %}
-        <div class="swiper-slide">
-          <img src="{{ image }}" alt="{{ event.title }} — photo {{ loop.index }}" loading="lazy" />
+    {# Breadcrumb — pinned to the top #}
+    <div class="event-hero__breadcrumb">
+        <div class="container-xl">
+            <nav
+                class="page-breadcrumb page-breadcrumb--light"
+                aria-label="Breadcrumb"
+            >
+                <a href="{{ url_for('public.home') }}">Home</a>
+                <i class="ph ph-caret-right"></i>
+                <a href="{{ url_for('events.events_list') }}">Events</a>
+                <i class="ph ph-caret-right"></i>
+                <span>{{ event.title | truncate_text(48) }}</span>
+            </nav>
         </div>
-        {% endfor %}
-      </div>
-      <div class="swiper-pagination"></div>
-      <div class="swiper-button-prev"></div>
-      <div class="swiper-button-next"></div>
     </div>
-  </div>
+
+    {# Hero body — sits at the bottom #}
+    <div class="event-hero__body">
+        <div class="container-xl">
+            {# Category badge + Status pill #}
+            <div class="event-hero__badges">
+                <span
+                    class="category-badge {{ event.category }} event-hero__cat-badge"
+                >
+                    <i
+                        class="ph {{ event.category | event_category_icon }}"
+                    ></i>
+                    {{ event.category | event_category_label }}
+                </span>
+                {% if event.status %}
+                <span
+                    class="event-status-pill event-status-pill--{{ event.status }} event-hero__status-pill"
+                >
+                    {{ event.status | title }}
+                </span>
+                {% endif %}
+            </div>
+
+            {# Title #}
+            <h1 class="event-hero__title">{{ event.title }}</h1>
+
+            {# Tagline #} {% if event.tagline %}
+            <p class="event-hero__tagline">{{ event.tagline }}</p>
+            {% endif %} {# Meta row #}
+            <div class="event-hero__meta">
+                <span>
+                    <i class="ph ph-calendar-blank"></i>
+                    {{ event.date_label }}{% if event.date_end_label
+                    %}&nbsp;–&nbsp;{{ event.date_end_label }}{% endif %}
+                </span>
+                {% if event.venue %}
+                <span><i class="ph ph-buildings"></i> {{ event.venue }}</span>
+                {% endif %} {% if event.municipality %}
+                <span
+                    ><i class="ph ph-map-pin"></i> {{ event.municipality
+                    }}</span
+                >
+                {% endif %}
+            </div>
+
+            {# Engagement stats row #}
+            <div class="event-hero__stats">
+                <span
+                    ><i class="ph ph-eye"></i> {{ event.views or 0 }}
+                    views</span
+                >
+                <span
+                    ><i class="ph ph-heart"></i> {{ event.like_count or 0 }}
+                    likes</span
+                >
+                <span
+                    ><i class="ph ph-bookmark-simple"></i> {{
+                    event.bookmark_count or 0 }} saves</span
+                >
+                {% if event.rating_avg %}
+                <span>
+                    <i class="ph-fill ph-star"></i>
+                    {{ "%.1f" | format(event.rating_avg) }}
+                    <span style="opacity: 0.6"
+                        >({{ event.review_count or 0 }} reviews)</span
+                    >
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
 </section>
 
+{# ══════════════════════════════════════════════════════════════ SECTION 2 ·
+MAIN CONTENT (col-lg-8 + col-lg-4)
+══════════════════════════════════════════════════════════════ #}
 <section class="spot-detail-main event-detail-main">
-  <div class="container-xl">
-    <div class="row g-5">
-      <div class="col-lg-8">
-        <header class="event-detail-header">
-          <span class="category-badge {{ event.category }}">
-            <i class="ph {{ event.category | event_category_icon }}"></i>
-            {{ event.category | event_category_label }}
-          </span>
-          <h1 class="spot-detail-title">{{ event.title }}</h1>
-          <p class="event-detail-tagline">{{ event.summary }}</p>
-          <div class="event-detail-meta-row">
-            <span><i class="ph ph-calendar-blank"></i> {{ event.date_label }}{% if event.date_end_label %} – {{ event.date_end_label }}{% endif %}</span>
-            <span><i class="ph ph-clock"></i> {{ event.time }}</span>
-            <span><i class="ph ph-map-pin"></i> {{ event.municipality }}</span>
-          </div>
-        </header>
+    <div class="container-xl">
+        <div class="row g-5">
+            {# ───────────────────────────────────────────── LEFT COLUMN
+            col-lg-8 ───────────────────────────────────────────── #}
+            <div class="col-lg-8">
+                {# ── Photo Mosaic ──────────────────────────── #} {% if gallery
+                %}
+                <div
+                    class="event-mosaic {% if gallery | length >= 3 %}event-mosaic--3up {% elif gallery | length == 2 %}event-mosaic--2up {% endif %}"
+                >
+                    {% if gallery | length >= 3 %} {# Large main image on the
+                    left, two stacked on the right #}
+                    <div class="event-mosaic__main">
+                        <img
+                            src="{{ gallery[0] }}"
+                            alt="{{ event.title }} — photo 1"
+                            class="event-mosaic__img"
+                            loading="lazy"
+                        />
+                    </div>
+                    <div class="event-mosaic__side">
+                        <img
+                            src="{{ gallery[1] }}"
+                            alt="{{ event.title }} — photo 2"
+                            class="event-mosaic__img"
+                            loading="lazy"
+                        />
+                    </div>
+                    <div class="event-mosaic__side">
+                        <img
+                            src="{{ gallery[2] }}"
+                            alt="{{ event.title }} — photo 3"
+                            class="event-mosaic__img"
+                            loading="lazy"
+                        />
+                    </div>
 
-        <div class="spot-detail-block">
-          <h2 class="spot-detail-block__title">About this event</h2>
-          <p class="spot-detail-text spot-detail-text--preserve">{{ event.description }}</p>
-        </div>
+                    {% elif gallery | length == 2 %} {# Side by side #}
+                    <div>
+                        <img
+                            src="{{ gallery[0] }}"
+                            alt="{{ event.title }} — photo 1"
+                            class="event-mosaic__img"
+                            loading="lazy"
+                        />
+                    </div>
+                    <div>
+                        <img
+                            src="{{ gallery[1] }}"
+                            alt="{{ event.title }} — photo 2"
+                            class="event-mosaic__img"
+                            loading="lazy"
+                        />
+                    </div>
 
-        {% if event.highlights %}
-        <div class="spot-detail-block">
-          <h2 class="spot-detail-block__title">Event highlights</h2>
-          <ul class="spot-chip-list">
-            {% for item in event.highlights %}
-            <li><i class="ph ph-star"></i> {{ item }}</li>
-            {% endfor %}
-          </ul>
-        </div>
-        {% endif %}
+                    {% else %} {# Single full-width #}
+                    <div class="event-mosaic__single">
+                        <img
+                            src="{{ gallery[0] }}"
+                            alt="{{ event.title }}"
+                            class="event-mosaic__img event-mosaic__img--wide"
+                            loading="lazy"
+                        />
+                    </div>
+                    {% endif %}
+                </div>
+                {# end mosaic #} {# ── Thumbnail strip carousel
+                ───────────────── #} {% if gallery | length > 1 %}
+                <div class="event-thumbs">
+                    <div
+                        class="d-flex align-items-center justify-content-between mb-2"
+                    >
+                        <span
+                            class="small fw-semibold"
+                            style="color: var(--muted-foreground)"
+                        >
+                            <i class="ph ph-images me-1"></i> More photos
+                        </span>
+                        <div class="d-flex gap-2">
+                            <button
+                                class="event-thumbs-prev btn btn-sm btn-outline-secondary py-0 px-2"
+                                aria-label="Previous"
+                            >
+                                <i class="ph ph-caret-left"></i>
+                            </button>
+                            <button
+                                class="event-thumbs-next btn btn-sm btn-outline-secondary py-0 px-2"
+                                aria-label="Next"
+                            >
+                                <i class="ph ph-caret-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="swiper event-thumbs-swiper">
+                        <div class="swiper-wrapper">
+                            {% for img in gallery %}
+                            <div class="swiper-slide event-thumb-slide">
+                                <img
+                                    src="{{ img }}"
+                                    alt="{{ event.title }} — photo {{ loop.index }}"
+                                    loading="lazy"
+                                />
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %} {% endif %} {# end if gallery #} {# ── About this
+                event ──────────────────────── #}
+                <div class="spot-detail-block">
+                    <h2 class="spot-detail-block__title">About this event</h2>
+                    {% if event.full_description %}
+                    <div class="spot-detail-text event-html-content">
+                        {{ event.full_description | safe }}
+                    </div>
+                    {% else %}
+                    <p class="spot-detail-text spot-detail-text--preserve">
+                        {{ event.summary or event.description }}
+                    </p>
+                    {% endif %}
+                </div>
 
-        {% if event.schedule %}
-        <div class="spot-detail-block">
-          <h2 class="spot-detail-block__title">Program schedule</h2>
-          <div class="event-schedule">
-            {% for item in event.schedule %}
-            <div class="event-schedule__item">
-              <span class="event-schedule__time">{{ item.time }}</span>
-              <span class="event-schedule__title">{{ item.title }}</span>
+                {# ── Overview ──────────────────────────────── #} {% if
+                event.overview %}
+                <div class="spot-detail-block">
+                    <h2 class="spot-detail-block__title">Overview</h2>
+                    <p class="spot-detail-text spot-detail-text--preserve">
+                        {{ event.overview }}
+                    </p>
+                </div>
+                {% endif %} {# ── Historical background ──────────────────── #}
+                {% if event.historical_background %}
+                <div class="spot-detail-block">
+                    <h2 class="spot-detail-block__title">
+                        Historical background
+                    </h2>
+                    <p class="spot-detail-text spot-detail-text--preserve">
+                        {{ event.historical_background }}
+                    </p>
+                </div>
+                {% endif %} {# ── Significance & culture ─────────────────── #}
+                {% if event.significance or event.cultural_importance %}
+                <div class="spot-detail-block">
+                    <h2 class="spot-detail-block__title">
+                        Significance &amp; culture
+                    </h2>
+                    {% if event.significance %}
+                    <p class="spot-detail-text spot-detail-text--preserve">
+                        {{ event.significance }}
+                    </p>
+                    {% endif %} {% if event.cultural_importance %}
+                    <p class="spot-detail-text spot-detail-text--preserve mt-3">
+                        {{ event.cultural_importance }}
+                    </p>
+                    {% endif %}
+                </div>
+                {% endif %} {# ── Tourism & economy ─────────────────────── #}
+                {% if event.tourism_impact or event.economic_contribution %}
+                <div class="spot-detail-block">
+                    <h2 class="spot-detail-block__title">
+                        Tourism &amp; economy
+                    </h2>
+                    {% if event.tourism_impact %}
+                    <p class="spot-detail-text spot-detail-text--preserve">
+                        {{ event.tourism_impact }}
+                    </p>
+                    {% endif %} {% if event.economic_contribution %}
+                    <p class="spot-detail-text spot-detail-text--preserve mt-3">
+                        <strong>Economic contribution:</strong> {{
+                        event.economic_contribution }}
+                    </p>
+                    {% endif %} {% if event.expected_visitors %}
+                    <p
+                        class="small mt-2"
+                        style="color: var(--muted-foreground)"
+                    >
+                        <i class="ph ph-users-three me-1"></i>Expected visitors:
+                        {{ event.expected_visitors }}
+                    </p>
+                    {% endif %}
+                </div>
+                {% endif %} {# ── Downloads ─────────────────────────────── #}
+                {% if event.poster_pdf or event.brochure %}
+                <div class="spot-detail-block">
+                    <h2 class="spot-detail-block__title">Downloads</h2>
+                    <div class="d-flex flex-wrap gap-3">
+                        {% if event.poster_pdf %}
+                        <a
+                            href="{{ event.poster_pdf | normalize_image_url }}"
+                            target="_blank"
+                            rel="noopener"
+                            class="event-download-btn"
+                        >
+                            <i class="ph ph-file-pdf"></i>
+                            <span
+                                >Event poster
+                                <small class="ms-1 opacity-75"
+                                    >(PDF)</small
+                                ></span
+                            >
+                        </a>
+                        {% endif %} {% if event.brochure %}
+                        <a
+                            href="{{ event.brochure | normalize_image_url }}"
+                            target="_blank"
+                            rel="noopener"
+                            class="event-download-btn"
+                        >
+                            <i class="ph ph-book-open"></i>
+                            <span
+                                >Brochure
+                                <small class="ms-1 opacity-75"
+                                    >(PDF)</small
+                                ></span
+                            >
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %} {# ── Exhibitors ────────────────────────────── #}
+                {% if event.exhibitors %}
+                <div class="spot-detail-block">
+                    <h2 class="spot-detail-block__title">
+                        Exhibitors &amp; booths
+                    </h2>
+                    <div class="exhibitor-grid">
+                        {% for ex in event.exhibitors %}
+                        <div class="exhibitor-card">
+                            <div class="exhibitor-card__name">
+                                {{ ex.business_name or '—' }}
+                            </div>
+                            <div class="exhibitor-card__cat">
+                                {% if ex.category %}{{ ex.category }}{% endif %}
+                                {% if ex.booth_number %} &middot; Booth {{
+                                ex.booth_number }}{% endif %}
+                            </div>
+                            {% if ex.owner_name %}
+                            <p class="small mb-1">
+                                <i
+                                    class="ph ph-user me-1"
+                                    style="color: var(--primary)"
+                                ></i
+                                >{{ ex.owner_name }}
+                            </p>
+                            {% endif %} {% if ex.lgus %}
+                            <p class="small mb-1">
+                                <i
+                                    class="ph ph-map-pin me-1"
+                                    style="color: var(--primary)"
+                                ></i
+                                >{{ ex.lgus.name }}
+                            </p>
+                            {% endif %} {% if ex.products %}
+                            <p
+                                class="small mb-2"
+                                style="color: var(--muted-foreground)"
+                            >
+                                {{ ex.products }}
+                            </p>
+                            {% endif %}
+                            <div class="exhibitor-card__links">
+                                {% if ex.fb_page %}
+                                <a
+                                    href="{{ ex.fb_page }}"
+                                    target="_blank"
+                                    rel="noopener"
+                                >
+                                    <i class="ph ph-facebook-logo"></i> Facebook
+                                </a>
+                                {% endif %} {% if ex.website %}
+                                <a
+                                    href="{{ ex.website }}"
+                                    target="_blank"
+                                    rel="noopener"
+                                >
+                                    <i class="ph ph-globe"></i> Website
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %} {# ══════════════════════════════════════════════
+                ENGAGEMENT SECTION
+                ══════════════════════════════════════════════ #} {% if
+                current_tourist %} {# Like + Bookmark buttons #}
+                <div class="event-engage-bar">
+                    <button
+                        class="event-engage-btn {% if user_engagement and user_engagement.has_liked %}is-active{% endif %}"
+                        data-engage-btn
+                        data-event-id="{{ event.id }}"
+                        data-type="like"
+                        type="button"
+                        aria-label="Like this event"
+                    >
+                        <i
+                            class="ph {% if user_engagement and user_engagement.has_liked %}ph-heart-fill{% else %}ph-heart{% endif %}"
+                        ></i>
+                        Like&nbsp;<span data-count
+                            >{{ event.like_count or 0 }}</span
+                        >
+                    </button>
+
+                    <button
+                        class="event-engage-btn {% if user_engagement and user_engagement.has_bookmarked %}is-active{% endif %}"
+                        data-engage-btn
+                        data-event-id="{{ event.id }}"
+                        data-type="bookmark"
+                        type="button"
+                        aria-label="Save this event"
+                    >
+                        <i
+                            class="ph {% if user_engagement and user_engagement.has_bookmarked %}ph-bookmark-simple-fill{% else %}ph-bookmark-simple{% endif %}"
+                        ></i>
+                        Save&nbsp;<span data-count
+                            >{{ event.bookmark_count or 0 }}</span
+                        >
+                    </button>
+
+                    <span class="event-engage-stat ms-auto">
+                        <i class="ph ph-eye"></i> {{ event.views or 0 }} views
+                    </span>
+                </div>
+
+                {# Rating + Feedback form (or existing review) #}
+                <div class="event-feedback-section">
+                    {% if user_feedback %} {# User already reviewed #}
+                    <p
+                        class="small mb-3"
+                        style="color: #166534; font-weight: 500"
+                    >
+                        <i class="ph ph-check-circle me-1"></i>
+                        You've already reviewed this event.
+                    </p>
+
+                    {% else %} {# Show the review form #}
+                    <h3>
+                        <i class="ph ph-star me-2"></i>Rate &amp; review this
+                        event
+                    </h3>
+                    <form
+                        id="eventFeedbackForm"
+                        action="{{ url_for('events.event_feedback', event_id=event.id) }}"
+                        method="POST"
+                    >
+                        <input type="hidden" name="rating" value="" />
+
+                        {# Interactive star picker #}
+                        <div class="event-star-picker mb-3">
+                            {% for i in range(1, 6) %}
+                            <i class="ph ph-star" data-star="{{ i }}"></i>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            <textarea
+                                name="comment"
+                                class="form-control"
+                                rows="3"
+                                placeholder="Share your experience at this event…"
+                            ></textarea>
+                        </div>
+
+                        <p
+                            class="event-fb-error text-danger small d-none mb-2"
+                        ></p>
+                        <button type="submit" class="btn ltcato-btn-pill">
+                            <i class="ph ph-paper-plane-tilt me-1"></i> Submit
+                            review
+                        </button>
+                    </form>
+
+                    {% endif %}
+                </div>
+
+                {% else %} {# ── Not logged in — login prompt ─────────── #}
+                <div class="event-login-prompt">
+                    <i class="ph ph-lock d-block mx-auto mb-2"></i>
+                    <p class="fw-semibold mb-1">
+                        Want to like, save, or review this event?
+                    </p>
+                    <p
+                        class="small mb-3"
+                        style="color: var(--muted-foreground)"
+                    >
+                        Sign in to your tourist account to engage with events.
+                    </p>
+                    <a
+                        href="{{ url_for('auth.login') }}"
+                        class="btn ltcato-btn-pill"
+                    >
+                        <i class="ph ph-sign-in me-1"></i> Sign in
+                    </a>
+                </div>
+                {% endif %} {# ══════════════════════════════════════════════
+                FEEDBACK LIST ══════════════════════════════════════════════ #}
+                <div class="spot-detail-block">
+                    <h2 class="spot-detail-block__title">
+                        Reviews {% if event_feedbacks %}
+                        <span
+                            class="badge ms-2 align-middle"
+                            style="
+                                background: var(--primary);
+                                font-size: 0.7rem;
+                                font-weight: 600;
+                            "
+                        >
+                            {{ event_feedbacks | length }}
+                        </span>
+                        {% endif %}
+                    </h2>
+
+                    {% if event_feedbacks %}
+                    <div class="event-feedback-list">
+                        {% for fb in event_feedbacks %}
+                        <div class="event-feedback-item">
+                            <div class="event-feedback-item__head">
+                                <span class="event-feedback-item__name">
+                                    {% if fb.profiles %} {{
+                                    ((fb.profiles.first_name or '') ~ ' ' ~
+                                    (fb.profiles.last_name or '')) | trim or
+                                    'Guest' }} {% else %}Guest{% endif %}
+                                </span>
+                                <span class="event-feedback-item__stars">
+                                    {% for i in range(fb.rating) %}<i
+                                        class="ph-fill ph-star"
+                                    ></i
+                                    >{% endfor %} {% for i in range(5 -
+                                    fb.rating) %}<i class="ph ph-star"></i>{%
+                                    endfor %}
+                                </span>
+                            </div>
+                            {% if fb.comment %}
+                            <p
+                                class="small mb-0"
+                                style="color: var(--muted-foreground)"
+                            >
+                                {{ fb.comment }}
+                            </p>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    {% else %}
+                    <p class="small" style="color: var(--muted-foreground)">
+                        <i class="ph ph-chat-circle-dots me-2"></i>Be the first
+                        to review this event.
+                    </p>
+                    {% endif %}
+                </div>
             </div>
-            {% endfor %}
-          </div>
-        </div>
-        {% endif %}
+            {# end col-lg-8 #} {# ─────────────────────────────────────────────
+            RIGHT COLUMN (SIDEBAR) col-lg-4
+            ───────────────────────────────────────────── #}
+            <div class="col-lg-4">
+                <aside class="spot-sidebar">
+                    {# ── Date card ─────────────────────────── #}
+                    <div class="event-date-card">
+                        <div class="event-date-card__badge">
+                            <span class="date-month"
+                                >{{ event.date_month }}</span
+                            >
+                            <span class="date-day">{{ event.date_day }}</span>
+                        </div>
+                        <div>
+                            <strong>{{ event.date_label }}</strong>
+                            {% if event.date_end_label %}
+                            <span
+                                class="d-block small"
+                                style="color: rgba(255, 255, 255, 0.75)"
+                            >
+                                Ends {{ event.date_end_label }}
+                            </span>
+                            {% endif %} {% if event.registration_deadline %}
+                            <span
+                                class="d-block small mt-1"
+                                style="color: rgba(255, 255, 255, 0.65)"
+                            >
+                                <i class="ph ph-clock me-1"></i>Register by {{
+                                event.registration_deadline }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
 
-        <div class="event-admin-note">
-          <i class="ph ph-seal-check"></i>
-          <p>This listing is published by <strong>LTCATO super admin</strong> as placeholder content until the events database is connected.</p>
-        </div>
-      </div>
+                    {# ── Inline video player ───────────────── #} {% if
+                    event.featured_cover_video or event.promo_video %} {% set
+                    vid = event.featured_cover_video or event.promo_video %}
+                    <div class="spot-info-card">
+                        <h3 class="spot-info-card__title">
+                            <i
+                                class="ph ph-play-circle me-2"
+                                style="color: var(--primary)"
+                            ></i
+                            >Watch
+                        </h3>
+                        <div class="ratio ratio-16x9 rounded overflow-hidden">
+                            <video
+                                controls
+                                class="w-100 h-100"
+                                poster="{{ event.image | normalize_image_url }}"
+                            >
+                                <source src="{{ vid | normalize_image_url }}" />
+                                Your browser does not support video.
+                            </video>
+                        </div>
+                    </div>
+                    {% endif %} {# ── Event details card ────────────────── #}
+                    <div class="spot-info-card">
+                        <h3 class="spot-info-card__title">
+                            <i
+                                class="ph ph-info me-2"
+                                style="color: var(--primary)"
+                            ></i
+                            >Event details
+                        </h3>
+                        <ul class="spot-info-list">
+                            {% if event.venue %}
+                            <li>
+                                <i class="ph ph-map-pin-line"></i>
+                                <div>
+                                    <strong>Venue</strong>
+                                    <span>{{ event.venue }}</span>
+                                    {% if event.address %}
+                                    <span
+                                        class="d-block small mt-1"
+                                        style="color: var(--muted-foreground)"
+                                        >{{ event.address }}</span
+                                    >
+                                    {% endif %} {% if event.venue_type %}
+                                    <span
+                                        class="d-block small"
+                                        style="color: var(--muted-foreground)"
+                                        >{{ event.venue_type }}</span
+                                    >
+                                    {% endif %}
+                                </div>
+                            </li>
+                            {% endif %} {% if event.organizer %}
+                            <li>
+                                <i class="ph ph-buildings"></i>
+                                <div>
+                                    <strong>Organizer</strong>
+                                    <span>{{ event.organizer }}</span>
+                                </div>
+                            </li>
+                            {% endif %} {% if event.contact %}
+                            <li>
+                                <i class="ph ph-phone"></i>
+                                <div>
+                                    <strong>Contact</strong>
+                                    <span>{{ event.contact }}</span>
+                                </div>
+                            </li>
+                            {% endif %} {% if event.virtual_event_link %}
+                            <li>
+                                <i class="ph ph-video-camera"></i>
+                                <div>
+                                    <strong>Virtual link</strong>
+                                    <a
+                                        href="{{ event.virtual_event_link }}"
+                                        target="_blank"
+                                        rel="noopener"
+                                        style="color: var(--primary)"
+                                        >Join online</a
+                                    >
+                                </div>
+                            </li>
+                            {% endif %} {% if event.map_pin %}
+                            <li>
+                                <i class="ph ph-map-trifold"></i>
+                                <div>
+                                    <strong>Map</strong>
+                                    <a
+                                        href="{{ event.map_pin }}"
+                                        target="_blank"
+                                        rel="noopener"
+                                        style="color: var(--primary)"
+                                        >Open in maps</a
+                                    >
+                                </div>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
 
-      <div class="col-lg-4">
-        <aside class="spot-sidebar">
-          <div class="event-date-card">
-            <div class="event-date-card__badge">
-              <span class="date-month">{{ event.date_month }}</span>
-              <span class="date-day">{{ event.date_day }}</span>
+                    {# ── LGU Pavilion card ─────────────────── #} {% if
+                    event.tourism_office or event.pavilion_booth_no or
+                    event.featured_destination %}
+                    <div class="spot-info-card">
+                        <h3 class="spot-info-card__title">
+                            <i
+                                class="ph ph-flag me-2"
+                                style="color: var(--primary)"
+                            ></i
+                            >LGU pavilion
+                        </h3>
+                        <ul class="spot-info-list">
+                            {% if event.tourism_office %}
+                            <li>
+                                <i class="ph ph-buildings"></i>
+                                <div>
+                                    <strong>Office</strong
+                                    ><span>{{ event.tourism_office }}</span>
+                                </div>
+                            </li>
+                            {% endif %} {% if event.pavilion_booth_no %}
+                            <li>
+                                <i class="ph ph-grid-four"></i>
+                                <div>
+                                    <strong>Booth</strong
+                                    ><span>{{ event.pavilion_booth_no }}</span>
+                                </div>
+                            </li>
+                            {% endif %} {% if event.featured_destination %}
+                            <li>
+                                <i class="ph ph-mountains"></i>
+                                <div>
+                                    <strong>Featured</strong
+                                    ><span
+                                        >{{ event.featured_destination }}</span
+                                    >
+                                </div>
+                            </li>
+                            {% endif %} {% if event.representative %}
+                            <li>
+                                <i class="ph ph-user"></i>
+                                <div>
+                                    <strong>Representative</strong
+                                    ><span>{{ event.representative }}</span>
+                                </div>
+                            </li>
+                            {% endif %} {% if event.pavilion_products %}
+                            <li>
+                                <i class="ph ph-shopping-bag"></i>
+                                <div>
+                                    <strong>Products</strong
+                                    ><span>{{ event.pavilion_products }}</span>
+                                </div>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    {% endif %} {# ── Plan your visit CTA ───────────────── #}
+                    <div class="spot-info-card spot-info-card--cta">
+                        <h3 class="spot-info-card__title">
+                            <i
+                                class="ph ph-compass me-2"
+                                style="color: var(--primary)"
+                            ></i
+                            >Plan your visit
+                        </h3>
+                        <p
+                            class="small mb-3"
+                            style="color: var(--muted-foreground)"
+                        >
+                            Add this event to your itinerary and explore more of
+                            Laguna.
+                        </p>
+                        <a href="#" class="btn ltcato-btn-pill w-100 mb-2">
+                            <i class="ph ph-calendar-plus me-1"></i> Add to
+                            itinerary
+                        </a>
+                        <a
+                            href="{{ url_for('spots.spots_list') }}"
+                            class="btn ltcato-btn-outline-lg w-100 mb-2"
+                        >
+                            <i class="ph ph-map-trifold me-1"></i> Explore
+                            nearby spots
+                        </a>
+                        <a
+                            href="{{ url_for('events.events_list') }}"
+                            class="btn ltcato-btn-outline-lg w-100"
+                        >
+                            <i class="ph ph-arrow-left me-1"></i> All events
+                        </a>
+                    </div>
+                </aside>
             </div>
-            <div>
-              <strong>{{ event.date_label }}</strong>
-              {% if event.date_end_label %}<span class="d-block small text-muted">Ends {{ event.date_end_label }}</span>{% endif %}
-            </div>
-          </div>
-
-          <div class="spot-info-card">
-            <h3 class="spot-info-card__title">Event details</h3>
-            <ul class="spot-info-list">
-              <li>
-                <i class="ph ph-map-pin-line"></i>
-                <div>
-                  <strong>Venue</strong>
-                  <span>{{ event.venue }}</span>
-                  <span class="d-block small text-muted mt-1">{{ event.address }}</span>
-                </div>
-              </li>
-              <li>
-                <i class="ph ph-buildings"></i>
-                <div>
-                  <strong>Organizer</strong>
-                  <span>{{ event.organizer }}</span>
-                </div>
-              </li>
-              <li>
-                <i class="ph ph-ticket"></i>
-                <div>
-                  <strong>Admission</strong>
-                  <span>{{ event.admission }}</span>
-                </div>
-              </li>
-              <li>
-                <i class="ph ph-phone"></i>
-                <div>
-                  <strong>Contact</strong>
-                  <span>{{ event.contact }}</span>
-                </div>
-              </li>
-              <li>
-                <i class="ph ph-users"></i>
-                <div>
-                  <strong>Interest</strong>
-                  <span>{{ event.attendee_count }}+ visitors marked interested</span>
-                </div>
-              </li>
-            </ul>
-          </div>
-
-          <div class="spot-info-card spot-info-card--cta">
-            <h3 class="spot-info-card__title">Plan your visit</h3>
-            <p class="small text-muted">Add this event to your itinerary planner when it launches.</p>
-            <a href="#" class="btn ltcato-btn-pill w-100 mb-2"><i class="ph ph-calendar-plus"></i> Add to itinerary</a>
-            <a href="{{ url_for('spots.spots_list') }}" class="btn ltcato-btn-outline-lg w-100 mb-2"><i class="ph ph-map-trifold"></i> Explore nearby spots</a>
-            <a href="{{ url_for('events.events_list') }}" class="btn ltcato-btn-outline-lg w-100"><i class="ph ph-arrow-left"></i> All events</a>
-          </div>
-        </aside>
-      </div>
+            {# end col-lg-4 #}
+        </div>
     </div>
-  </div>
 </section>
 
+{# ══════════════════════════════════════════════════════════════ SECTION 3 ·
+RELATED EVENTS ══════════════════════════════════════════════════════════════ #}
 {% if related %}
-<section class="home-section event-overview-section event-related-section">
-  <div class="container-xl">
-    <span class="section-eyebrow">More to explore</span>
-    <h2 class="section-title mb-4">Related events</h2>
-    <div class="row g-4">
-      {% for rel in related %}
-      <div class="col-md-4">
-        <a href="{{ url_for('events.event_detail', event_id=rel.id) }}" class="event-card event-card--link">
-          <div class="event-image-container">
-            <img src="{{ rel.image }}" alt="{{ rel.title }}" class="event-image" loading="lazy" />
-            <div class="event-date-badge">
-              <div class="date-month">{{ rel.date_month }}</div>
-              <div class="date-day">{{ rel.date_day }}</div>
+<section
+    class="home-section event-overview-section event-related-section event-related-bg"
+>
+    <div class="container-xl">
+        <span class="section-eyebrow">More to explore</span>
+        <h2 class="section-title mb-4">Related events</h2>
+        <div class="row g-4">
+            {% for rel in related %}
+            <div class="col-md-4">
+                <a
+                    href="{{ url_for('events.event_detail', event_id=rel.id) }}"
+                    class="event-card event-card--link"
+                >
+                    <div class="event-image-container">
+                        <img
+                            src="{{ rel.image | normalize_image_url }}"
+                            alt="{{ rel.title }}"
+                            class="event-image"
+                            loading="lazy"
+                        />
+                        <div class="event-date-badge">
+                            <div class="date-month">{{ rel.date_month }}</div>
+                            <div class="date-day">{{ rel.date_day }}</div>
+                        </div>
+                    </div>
+                    <div class="event-content">
+                        <span class="category-badge {{ rel.category }}">
+                            {{ rel.category | event_category_label }}
+                        </span>
+                        <h4 class="event-title">{{ rel.title }}</h4>
+                        <p class="event-description mb-0">
+                            {{ rel.summary | truncate_text(90) }}
+                        </p>
+                    </div>
+                </a>
             </div>
-          </div>
-          <div class="event-content">
-            <span class="category-badge {{ rel.category }}">{{ rel.category | event_category_label }}</span>
-            <h4 class="event-title">{{ rel.title }}</h4>
-            <p class="event-description mb-0">{{ rel.summary | truncate_text(90) }}</p>
-          </div>
-        </a>
-      </div>
-      {% endfor %}
+            {% endfor %}
+        </div>
     </div>
-  </div>
 </section>
-{% endif %}
-{% endblock %}
-
-{% block script %}
+{% endif %} {% endblock %} {% block script %}
 <script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const el = document.querySelector(".event-detail-gallery");
-    if (el && typeof Swiper !== "undefined") {
-      new Swiper(el, {
-        loop: el.querySelectorAll(".swiper-slide").length > 1,
-        pagination: { el: ".swiper-pagination", clickable: true },
-        navigation: {
-          nextEl: ".swiper-button-next",
-          prevEl: ".swiper-button-prev",
-        },
-      });
-    }
-  });
+    document.addEventListener("DOMContentLoaded", () => {
+        /* ── Thumbnail strip carousel ──────────────────────────────── */
+        const thumbEl = document.querySelector(".event-thumbs-swiper");
+        if (thumbEl && typeof Swiper !== "undefined") {
+            new Swiper(thumbEl, {
+                slidesPerView: "auto",
+                spaceBetween: 8,
+                navigation: {
+                    nextEl: ".event-thumbs-next",
+                    prevEl: ".event-thumbs-prev",
+                },
+            });
+        }
+
+        /* ── Engagement buttons (like / bookmark) ──────────────────── */
+        document.querySelectorAll("[data-engage-btn]").forEach((btn) => {
+            btn.addEventListener("click", async () => {
+                const eventId = btn.dataset.eventId;
+                const type = btn.dataset.type;
+                try {
+                    const resp = await fetch(`/events/${eventId}/engage`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ type }),
+                    });
+                    if (resp.status === 401) {
+                        window.location.href = "{{ url_for('auth.login') }}";
+                        return;
+                    }
+                    const data = await resp.json();
+
+                    /* Toggle active state */
+                    btn.classList.toggle("is-active", data.active);
+
+                    /* Swap icon */
+                    const icon = btn.querySelector("i");
+                    if (icon) {
+                        if (type === "like") {
+                            icon.className = data.active
+                                ? "ph ph-heart-fill"
+                                : "ph ph-heart";
+                        } else if (type === "bookmark") {
+                            icon.className = data.active
+                                ? "ph ph-bookmark-simple-fill"
+                                : "ph ph-bookmark-simple";
+                        }
+                    }
+
+                    /* Update counter */
+                    const counter = btn.querySelector("[data-count]");
+                    if (counter) {
+                        let n = parseInt(counter.textContent) || 0;
+                        counter.textContent = data.active
+                            ? n + 1
+                            : Math.max(0, n - 1);
+                    }
+                } catch (err) {
+                    console.error("Engage error:", err);
+                }
+            });
+        });
+
+        /* ── Feedback form ─────────────────────────────────────────── */
+        const fbForm = document.getElementById("eventFeedbackForm");
+        if (fbForm) {
+            const stars = fbForm.querySelectorAll("[data-star]");
+            let selectedRating = 0;
+
+            const refreshStars = (active) => {
+                stars.forEach((st) => {
+                    const v = parseInt(st.dataset.star);
+                    if (v <= active) {
+                        st.className = "ph-fill ph-star is-active";
+                    } else {
+                        st.className = "ph ph-star";
+                    }
+                });
+            };
+
+            stars.forEach((s) => {
+                /* Hover highlight */
+                s.addEventListener("mouseenter", () =>
+                    refreshStars(parseInt(s.dataset.star)),
+                );
+                s.addEventListener("mouseleave", () =>
+                    refreshStars(selectedRating),
+                );
+
+                /* Click to select */
+                s.addEventListener("click", () => {
+                    selectedRating = parseInt(s.dataset.star);
+                    refreshStars(selectedRating);
+                    fbForm.querySelector("[name=rating]").value =
+                        selectedRating;
+                });
+            });
+
+            fbForm.addEventListener("submit", async (e) => {
+                e.preventDefault();
+                if (!selectedRating) {
+                    const errMsg = fbForm.querySelector(".event-fb-error");
+                    if (errMsg) {
+                        errMsg.textContent =
+                            "Please select a star rating first.";
+                        errMsg.classList.remove("d-none");
+                    }
+                    return;
+                }
+                const formData = new FormData(fbForm);
+                try {
+                    const resp = await fetch(fbForm.action, {
+                        method: "POST",
+                        body: formData,
+                    });
+                    if (resp.status === 401) {
+                        window.location.href = "{{ url_for('auth.login') }}";
+                        return;
+                    }
+                    const data = await resp.json();
+                    const section = fbForm.closest(".event-feedback-section");
+                    if (data.ok) {
+                        section.innerHTML =
+                            '<div class="alert alert-success d-flex align-items-center gap-2 mt-2">' +
+                            '<i class="ph ph-check-circle fs-5"></i>' +
+                            "<span>Thank you for your review!</span></div>";
+                    } else if (data.error === "already_submitted") {
+                        section.innerHTML =
+                            '<p class="small mt-2" style="color:var(--muted-foreground);">' +
+                            '<i class="ph ph-info me-1"></i>You have already reviewed this event.</p>';
+                    }
+                } catch (err) {
+                    console.error("Feedback error:", err);
+                }
+            });
+        }
+    });
 </script>
 {% endblock %}

@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
+
+logger = logging.getLogger(__name__)
+
 from datetime import date, timedelta
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
@@ -215,7 +219,9 @@ def planner():
         if action == "save":
             if not tourist:
                 flash("Sign in to save your itinerary.", "warning")
-                return redirect(url_for("auth.login", next=url_for("itinerary.planner")))
+                return redirect(
+                    url_for("auth.login", next=url_for("itinerary.planner"))
+                )
 
             plan_raw = request.form.get("plan_json")
             try:
@@ -231,7 +237,9 @@ def planner():
             ok, saved_id, err = save_itinerary_from_plan(tourist["id"], plan)
             if ok and saved_id:
                 flash("Your itinerary has been saved.", "success")
-                return redirect(url_for("itinerary.itinerary_detail", itinerary_id=saved_id))
+                return redirect(
+                    url_for("itinerary.itinerary_detail", itinerary_id=saved_id)
+                )
             flash(err or "Save failed.", "danger")
 
         plan = _build_plan_from_request()
@@ -295,7 +303,9 @@ def itinerary_detail(itinerary_id: int):
     )
 
 
-@itinerary_bp.route("/my-trips/<int:itinerary_id>/stamp/<int:spot_id>", methods=["POST"])
+@itinerary_bp.route(
+    "/my-trips/<int:itinerary_id>/stamp/<int:spot_id>", methods=["POST"]
+)
 @tourist_login_required
 def itinerary_stamp(itinerary_id: int, spot_id: int):
     tourist = get_current_tourist()

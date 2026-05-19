@@ -41,7 +41,7 @@ def list_planner_spots(
         get_supabase()
         .table("tourist_spots")
         .select(PLANNER_SPOT_FIELDS)
-        .eq("approval_status", "approved")
+        .neq("approval_status", "rejected")
     )
     if category_id:
         query = query.eq("category_id", category_id)
@@ -166,10 +166,12 @@ def save_itinerary_from_plan(
 
     try:
         if itinerary_id:
-            get_supabase().table("itineraries").update(payload).eq("id", itinerary_id).eq(
-                "tourist_id", tourist_id
+            get_supabase().table("itineraries").update(payload).eq(
+                "id", itinerary_id
+            ).eq("tourist_id", tourist_id).execute()
+            get_supabase().table("itinerary_items").delete().eq(
+                "itinerary_id", itinerary_id
             ).execute()
-            get_supabase().table("itinerary_items").delete().eq("itinerary_id", itinerary_id).execute()
             saved_id = itinerary_id
         else:
             ins = get_supabase().table("itineraries").insert(payload).execute()
@@ -209,7 +211,9 @@ def save_itinerary_from_plan(
 
 def delete_itinerary(itinerary_id: int, tourist_id: str) -> bool:
     try:
-        get_supabase().table("itinerary_items").delete().eq("itinerary_id", itinerary_id).execute()
+        get_supabase().table("itinerary_items").delete().eq(
+            "itinerary_id", itinerary_id
+        ).execute()
         get_supabase().table("itineraries").delete().eq("id", itinerary_id).eq(
             "tourist_id", tourist_id
         ).execute()

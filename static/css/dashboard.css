@@ -1054,3 +1054,38 @@ body.dashboard-login-body {
     flex: 1 1 100%;
   }
 }
+
+/* Event promotion (dashboard modal) */
+.event-promotion-tabs .nav-link {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-muted, #6c757d);
+}
+.event-promotion-tabs .nav-link.active {
+  color: var(--primary, #7f1d1d);
+}
+.event-promotion-tab-content {
+  max-height: min(70vh, 640px);
+  overflow-y: auto;
+}
+.event-rich-editor {
+  min-height: 220px;
+  background: #fff;
+}
+.event-rich-editor .ql-editor {
+  min-height: 180px;
+  font-family: "Poppins", system-ui, sans-serif;
+  font-size: 0.95rem;
+}
+.event-gallery-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.event-gallery-preview__item img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
