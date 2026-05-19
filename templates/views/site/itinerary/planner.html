@@ -208,7 +208,7 @@
       </div>
       <div class="row g-2">
         <div class="col-6">
-          <select name="category_id" class="form-select form-select-sm" onchange="this.form.submit()">
+          <select name="category_id" class="form-select form-select-sm">
             <option value="">All categories</option>
             {% for cat in categories %}
             <option value="{{ cat.id }}" {% if active_category==cat.id %}selected{% endif %}>{{ cat.name }}</option>
@@ -216,7 +216,7 @@
           </select>
         </div>
         <div class="col-6">
-          <select name="lgu_id" class="form-select form-select-sm" onchange="this.form.submit()">
+          <select name="lgu_id" class="form-select form-select-sm">
             <option value="">All towns</option>
             {% for lgu in lgus %}
             <option value="{{ lgu.id }}" {% if active_lgu==lgu.id %}selected{% endif %}>{{ lgu.name }}</option>
@@ -266,14 +266,16 @@
       <p class="small text-muted mb-3" id="trip-duration-hint">Duration is calculated from your dates.</p>
 
       <div class="mb-3">
-        <label class="form-label small" for="starting_point">Starting point</label>
+        <label class="form-label small" for="starting_point">Starting point <span class="text-danger">*</span></label>
         <div class="input-group input-group-sm">
           <input type="text" class="form-control" id="starting_point" name="starting_point"
-            value="{{ form_values.starting_point }}" placeholder="e.g. Calamba, SLEX exit" />
+            value="{{ form_values.starting_point }}" placeholder="e.g. Calamba, SLEX exit"
+            autocomplete="off" />
           <button class="btn btn-outline-secondary" type="button" id="btn-use-gps" title="Use Current Location">
             <i class="ph ph-crosshair"></i> GPS
           </button>
         </div>
+        <div class="form-text text-muted" style="font-size:0.78rem"><i class="ph ph-info"></i> Type a location or use GPS — required for route generation.</div>
         <input type="hidden" id="starting_lat" name="starting_lat" value="{{ form_values.starting_lat }}" />
         <input type="hidden" id="starting_lng" name="starting_lng" value="{{ form_values.starting_lng }}" />
       </div>
@@ -311,7 +313,7 @@
       </div>
 
       <hr class="my-4" />
-      <h3 class="h6 planner-form__title"><i class="ph ph-map-pin"></i> Choose spots ({{ spots|length }} shown)</h3>
+      <h3 class="h6 planner-form__title" data-spot-count><i class="ph ph-map-pin"></i> Choose spots ({{ spots|length }} shown)</h3>
       <p class="small text-muted">Select destinations and set priority for each.</p>
 
       <div class="planner-spot-picker mb-3">

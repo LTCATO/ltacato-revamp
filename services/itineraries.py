@@ -184,17 +184,33 @@ def save_itinerary_from_plan(
         for day in plan.get("days") or []:
             for stop in day.get("stops") or []:
                 sort_order += 1
+                # Encode non-spot stop metadata into notes as JSON prefix
+                import json as _json
+                stop_type = stop.get("type", "spot")
+                base_notes = stop.get("notes") or ""
+                if stop_type != "spot":
+                    meta = {
+                        "type": stop_type,
+                        "name": stop.get("name"),
+                        "description": stop.get("description"),
+                        "icon_hint": stop.get("icon_hint"),
+                        "duration_mins": stop.get("duration_mins"),
+                        "nearby_places": stop.get("nearby_places") or [],
+                    }
+                    encoded_notes = "__meta__" + _json.dumps(meta, ensure_ascii=False)
+                else:
+                    encoded_notes = base_notes
                 items.append(
                     {
                         "itinerary_id": saved_id,
-                        "tourist_spot_id": stop["tourist_spot_id"],
-                        "day_number": stop.get("day_number"),
+                        "tourist_spot_id": stop.get("tourist_spot_id"),
+                        "day_number": stop.get("day_number") or day.get("day_number"),
                         "activity_date": stop.get("activity_date"),
                         "activity_time": stop.get("activity_time"),
-                        "notes": stop.get("notes"),
+                        "notes": encoded_notes,
                         "estimated_cost": stop.get("estimated_cost"),
                         "transportation": stop.get("transportation"),
-                        "priority": stop.get("priority", "must_visit"),
+                        "priority": stop.get("priority") or None,
                         "time_slot": stop.get("time_slot"),
                         "sort_order": sort_order,
                         "travel_minutes": stop.get("travel_minutes") or 0,
@@ -224,6 +240,8 @@ def delete_itinerary(itinerary_id: int, tourist_id: str) -> bool:
 
 def plan_from_itinerary_row(row: dict[str, Any]) -> dict[str, Any]:
     """Reconstruct a display plan from a saved itinerary."""
+    import json as _json
+
     items = row.get("items") or []
     by_day: dict[int, list[dict[str, Any]]] = {}
     for item in items:
@@ -238,11 +256,37 @@ def plan_from_itinerary_row(row: dict[str, Any]) -> dict[str, Any]:
         raw_stops = by_day[day_num]
         stops = []
         for item in raw_stops:
-            spot = item.get("tourist_spots") or {}
-            lgu = spot.get("lgus") or {}
-            stops.append(
-                {
+            notes_raw = item.get("notes") or ""
+            # Decode non-spot metadata stored in notes
+            if notes_raw.startswith("__meta__"):
+                try:
+                    meta = _json.loads(notes_raw[len("__meta__"):])
+                except Exception:
+                    meta = {}
+                stop_type = meta.get("type", "spot")
+                stops.append({
+                    "tourist_spot_id": None,
+                    "type": stop_type,
+                    "name": meta.get("name") or stop_type.title(),
+                    "description": meta.get("description") or "",
+                    "icon_hint": meta.get("icon_hint") or "",
+                    "duration_mins": meta.get("duration_mins"),
+                    "nearby_places": meta.get("nearby_places") or [],
+                    "latitude": None,
+                    "longitude": None,
+                    "lgu_name": "",
+                    "day_number": day_num,
+                    "activity_date": item.get("activity_date"),
+                    "activity_time": str(item.get("activity_time") or ""),
+                    "estimated_cost": item.get("estimated_cost"),
+                    "notes": "",
+                })
+            else:
+                spot = item.get("tourist_spots") or {}
+                lgu = spot.get("lgus") or {}
+                stops.append({
                     "tourist_spot_id": item.get("tourist_spot_id"),
+                    "type": "spot",
                     "name": spot.get("name"),
                     "main_image_url": spot.get("main_image_url"),
                     "address": spot.get("address"),
@@ -254,15 +298,14 @@ def plan_from_itinerary_row(row: dict[str, Any]) -> dict[str, Any]:
                     "lgu_name": lgu.get("name") if isinstance(lgu, dict) else "Laguna",
                     "day_number": day_num,
                     "activity_date": item.get("activity_date"),
-                    "activity_time": str(item.get("activity_time") or "")[:5],
+                    "activity_time": str(item.get("activity_time") or ""),
                     "time_slot": item.get("time_slot"),
-                    "priority": item.get("priority"),
                     "estimated_cost": item.get("estimated_cost"),
                     "travel_minutes": item.get("travel_minutes"),
                     "transportation": item.get("transportation"),
-                    "notes": item.get("notes"),
-                }
-            )
+                    "notes": notes_raw,
+                    "nearby_places": [],
+                })
         act_date = (raw_stops[0].get("activity_date") if raw_stops else None) or ""
         day_key = str(act_date)[:10] if act_date else ""
         forecast = (weather.get("daily") or {}).get(day_key)
@@ -271,15 +314,14 @@ def plan_from_itinerary_row(row: dict[str, Any]) -> dict[str, Any]:
             label = date.fromisoformat(day_key).strftime("%A, %b %d")
         except ValueError:
             pass
-        days_out.append(
-            {
-                "day_number": day_num,
-                "activity_date": day_key,
-                "label": label,
-                "weather": forecast,
-                "stops": stops,
-            }
-        )
+        days_out.append({
+            "day_number": day_num,
+            "activity_date": day_key,
+            "label": label,
+            "weather": forecast,
+            "clothing_tip": None,
+            "stops": stops,
+        })
 
     return {
         "ok": True,
@@ -292,6 +334,7 @@ def plan_from_itinerary_row(row: dict[str, Any]) -> dict[str, Any]:
         "trip_purpose": row.get("trip_purpose"),
         "total_budget": row.get("total_budget"),
         "estimated_expense": row.get("estimated_expense"),
+        "budget_remaining": None,
         "notes": row.get("notes"),
         "days": days_out,
         "weather": weather,

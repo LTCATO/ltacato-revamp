@@ -166,12 +166,18 @@ def _planner_context(
     map_points = []
     for stop_day in (plan or {}).get("days") or []:
         for stop in stop_day.get("stops") or []:
-            if stop.get("latitude") and stop.get("longitude"):
+            if stop.get("latitude") and stop.get("longitude") and stop.get("type") == "spot":
                 map_points.append(
                     {
                         "lat": float(stop["latitude"]),
                         "lng": float(stop["longitude"]),
                         "name": stop.get("name"),
+                        "category_name": stop.get("category_name") or "",
+                        "rating": stop.get("rating"),
+                        "description": (stop.get("description") or "")[:120],
+                        "tourist_spot_id": stop.get("tourist_spot_id"),
+                        "lgu_name": stop.get("lgu_name") or "",
+                        "main_image_url": stop.get("main_image_url") or "",
                     }
                 )
 
@@ -187,10 +193,16 @@ def _planner_context(
                 "name": s["name"],
                 "lat": lat,
                 "lng": lng,
-                "category_name": cat_name
+                "category_name": cat_name,
+                "rating": s.get("rating"),
+                "main_image_url": s.get("main_image_url") or "",
+                "description": (s.get("hook_text") or s.get("description") or "")[:100],
+                "lgu_name": (s.get("lgus") or {}).get("name") or "",
             })
         except (TypeError, ValueError, AttributeError):
             continue
+
+    mapbox_token = (os.getenv("MAP_API_KEY") or "").strip()
 
     return {
         **options,
@@ -204,7 +216,8 @@ def _planner_context(
         "active_lgu": lgu_id,
         "map_points": map_points,
         "all_spots_json": all_spots_json,
-        "map_api_key": (os.getenv("MAP_API_KEY") or "").strip(),
+        "map_api_key": mapbox_token,
+        "current_tourist": get_current_tourist(),
     }
 
 

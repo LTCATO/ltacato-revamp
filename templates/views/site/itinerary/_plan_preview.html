@@ -5,6 +5,27 @@
   {%- else -%}{{ slot|title }}{%- endif -%}
 {%- endmacro %}
 
+{# Icon map for activity types #}
+{% macro stop_icon(stop) %}
+  {%- if stop.type == 'travel' -%}ph-car
+  {%- elif stop.type == 'dining' -%}
+    {%- if 'breakfast' in stop.name|lower -%}ph-coffee
+    {%- elif 'snack' in stop.name|lower or 'merienda' in stop.name|lower -%}ph-cookie
+    {%- else -%}ph-fork-knife{%- endif -%}
+  {%- elif stop.type == 'accommodation' -%}ph-bed
+  {%- elif stop.type == 'leisure' -%}ph-sun-horizon
+  {%- else -%}ph-map-pin{%- endif -%}
+{% endmacro %}
+
+{# Color class for activity type badge #}
+{% macro stop_badge_class(stop) %}
+  {%- if stop.type == 'travel' -%}bg-secondary
+  {%- elif stop.type == 'dining' -%}bg-warning text-dark
+  {%- elif stop.type == 'accommodation' -%}bg-info text-dark
+  {%- elif stop.type == 'leisure' -%}bg-success
+  {%- else -%}bg-primary{%- endif -%}
+{% endmacro %}
+
 {% if plan and plan.ok %}
 <div class="planner-result" id="itinerary-preview">
   <div class="planner-result__header">
@@ -20,7 +41,13 @@
         {% if plan.starting_point %}<span><i class="ph ph-map-pin-line"></i> {{ plan.starting_point }}</span>{% endif %}
         <span><i class="ph ph-currency-circle-dollar"></i> Est. ₱{{ '%.0f'|format(plan.estimated_expense or 0) }}</span>
         {% if plan.total_budget %}<span><i class="ph ph-wallet"></i> Budget ₱{{ '%.0f'|format(plan.total_budget) }}</span>{% endif %}
-        <span><i class="ph ph-clock"></i> {{ plan.timezone or 'Asia/Manila' }}</span>
+        {% if plan.budget_remaining is not none %}
+          {% if plan.budget_remaining >= 0 %}
+          <span class="text-success"><i class="ph ph-check-circle"></i> ₱{{ '%.0f'|format(plan.budget_remaining) }} remaining</span>
+          {% else %}
+          <span class="text-danger"><i class="ph ph-warning"></i> ₱{{ '%.0f'|format(plan.budget_remaining|abs) }} over budget</span>
+          {% endif %}
+        {% endif %}
       </div>
     </div>
     <div class="d-flex flex-wrap gap-2 align-items-start">
@@ -76,99 +103,200 @@
     {% if day.clothing_tip %}
     <p class="small text-muted mb-3"><i class="ph ph-t-shirt"></i> {{ day.clothing_tip }}</p>
     {% endif %}
-    
+
     <ol class="planner-stops">
       {% set prev_coords = namespace(lat=none, lng=none) %}
-      
+
       {% for stop in day.stops %}
-      
-      {% if not loop.first and prev_coords.lat and stop.latitude %}
+
+      {# Directions connector between consecutive spots with coords #}
+      {% if not loop.first and prev_coords.lat and stop.latitude and stop.type == 'spot' %}
       <div class="planner-directions-wrapper position-relative ms-4 ps-3 border-start border-2 border-primary mb-3">
-         <button type="button" class="btn btn-sm btn-outline-primary rounded-pill get-directions-btn" data-start-lat="{{ prev_coords.lat }}" data-start-lng="{{ prev_coords.lng }}" data-end-lat="{{ stop.latitude }}" data-end-lng="{{ stop.longitude }}">
-           <i class="ph ph-car"></i> Get Directions {% if stop.travel_minutes %}(~{{ stop.travel_minutes }} min){% endif %}
-         </button>
-         <div class="directions-container mt-2 d-none small p-3 bg-light rounded text-muted"></div>
+        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill get-directions-btn"
+          data-start-lat="{{ prev_coords.lat }}" data-start-lng="{{ prev_coords.lng }}"
+          data-end-lat="{{ stop.latitude }}" data-end-lng="{{ stop.longitude }}">
+          <i class="ph ph-car"></i> Get Directions {% if stop.travel_minutes %}(~{{ stop.travel_minutes }} min){% endif %}
+        </button>
+        <div class="directions-container mt-2 d-none small p-3 bg-light rounded text-muted"></div>
       </div>
       {% endif %}
-      
-      <li class="planner-stop {% if stop.type in ['dining', 'accommodation'] %}planner-stop--suggestion{% endif %}"
-          {% if stop.type in ['dining', 'accommodation'] and prev_coords.lat %}
-          data-suggestion-type="{{ stop.type }}" data-search-lat="{{ prev_coords.lat }}" data-search-lng="{{ prev_coords.lng }}"
+
+      {# Coords for nearby search: use stop's own coords if available #}
+      {% set search_lat = stop.latitude if stop.latitude else prev_coords.lat %}
+      {% set search_lng = stop.longitude if stop.longitude else prev_coords.lng %}
+
+      <li class="planner-stop planner-stop--{{ stop.type }}"
+          {% if stop.type in ['dining', 'accommodation'] and search_lat %}
+          data-suggestion-type="{{ stop.type }}"
+          data-search-lat="{{ search_lat }}"
+          data-search-lng="{{ search_lng }}"
           {% endif %}>
+
+        {# Time column #}
         <div class="planner-stop__time">
-          <span>{{ stop.activity_time[:5] if stop.activity_time else '' }}</span>
+          {% if stop.activity_time %}
+          <span>{{ stop.activity_time }}</span>
+          {% endif %}
+          {% if stop.type == 'spot' %}
           <small class="d-block text-muted">{{ slot_label(stop.time_slot) if stop.time_slot else '' }}</small>
+          {% endif %}
         </div>
+
+        {# Body #}
         <div class="planner-stop__body">
+
+          {# Media / icon #}
           <div class="planner-stop__media">
-            {% if stop.type == 'dining' %}
-            <div class="planner-stop__placeholder bg-warning text-dark"><i class="ph ph-bowl-food"></i></div>
+            {% if stop.type == 'spot' %}
+              {% set img = stop.main_image_url | normalize_image_url %}
+              {% if img %}
+              <img src="{{ img }}" alt="" loading="lazy" />
+              {% else %}
+              <div class="planner-stop__placeholder"><i class="ph ph-image"></i></div>
+              {% endif %}
+            {% elif stop.type == 'travel' %}
+              <div class="planner-stop__placeholder bg-light text-secondary"><i class="ph {{ stop_icon(stop)|trim }}"></i></div>
+            {% elif stop.type == 'dining' %}
+              <div class="planner-stop__placeholder bg-warning text-dark"><i class="ph {{ stop_icon(stop)|trim }}"></i></div>
             {% elif stop.type == 'accommodation' %}
-            <div class="planner-stop__placeholder bg-info text-dark"><i class="ph ph-bed"></i></div>
+              <div class="planner-stop__placeholder bg-info text-dark"><i class="ph ph-bed"></i></div>
+            {% elif stop.type == 'leisure' %}
+              <div class="planner-stop__placeholder bg-success text-white"><i class="ph ph-sun-horizon"></i></div>
             {% else %}
-            {% set img = stop.main_image_url | normalize_image_url %}
-            {% if img %}
-            <img src="{{ img }}" alt="" loading="lazy" />
-            {% else %}
-            <div class="planner-stop__placeholder"><i class="ph ph-image"></i></div>
-            {% endif %}
+              <div class="planner-stop__placeholder"><i class="ph ph-map-pin"></i></div>
             {% endif %}
           </div>
+
+          {# Content #}
           <div class="flex-grow-1">
-            <h4>
-              {% if stop.tourist_spot_id %}
-              <a href="{{ url_for('spots.spot_detail', spot_id=stop.tourist_spot_id) }}">{{ stop.name }}</a>
-              {% else %}{{ stop.name }}{% endif %}
-            </h4>
-            
-            {% if stop.type in ['dining', 'accommodation'] %}
-              <p class="small text-muted mb-2"><i class="ph ph-lightbulb"></i> AI Suggestion {% if stop.lgu_name %}· {{ stop.lgu_name }}{% endif %}</p>
-              
-              <div class="suggestion-results-container">
-                  <p class="small mb-2 fst-italic placeholder-text">{{ stop.description }}</p>
-                  {% if prev_coords.lat %}
-                  <button type="button" class="btn btn-sm btn-light border rounded-pill load-suggestion-btn">
-                     <i class="ph ph-magnifying-glass"></i> Find real {{ 'restaurants' if stop.type == 'dining' else 'hotels' }} nearby
-                  </button>
-                  <div class="real-suggestions-list mt-2 d-flex flex-column gap-2 d-none"></div>
-                  {% endif %}
+            <div class="d-flex align-items-start gap-2 mb-1">
+              <h4 class="mb-0 flex-grow-1">
+                {% if stop.type == 'spot' and stop.tourist_spot_id %}
+                <a href="{{ url_for('spots.spot_detail', spot_id=stop.tourist_spot_id) }}">{{ stop.name }}</a>
+                {% else %}
+                {{ stop.name }}
+                {% endif %}
+              </h4>
+              {# Type badge — no "must visit" badge #}
+              {% if stop.type == 'travel' %}
+              <span class="badge bg-secondary" style="font-size:0.7rem;white-space:nowrap">
+                <i class="ph ph-car"></i>
+                {% if stop.duration_mins %}{{ stop.duration_mins }} min{% else %}Travel{% endif %}
+              </span>
+              {% elif stop.type == 'dining' %}
+              <span class="badge bg-warning text-dark" style="font-size:0.7rem;white-space:nowrap">
+                <i class="ph {{ stop_icon(stop)|trim }}"></i> Meal
+              </span>
+              {% elif stop.type == 'accommodation' %}
+              <span class="badge bg-info text-dark" style="font-size:0.7rem;white-space:nowrap">
+                <i class="ph ph-bed"></i> Stay
+              </span>
+              {% elif stop.type == 'leisure' %}
+              <span class="badge bg-success" style="font-size:0.7rem;white-space:nowrap">
+                <i class="ph ph-sun-horizon"></i> Free time
+              </span>
+              {% endif %}
+            </div>
+
+            {# ── TRAVEL block ── #}
+            {% if stop.type == 'travel' %}
+            <p class="small text-muted mb-0">{{ stop.description }}</p>
+
+            {# ── DINING block ── #}
+            {% elif stop.type == 'dining' %}
+            <p class="small text-muted mb-2">{{ stop.description }}</p>
+            {% if stop.estimated_cost %}<span class="badge bg-light text-dark border me-1">~₱{{ '%.0f'|format(stop.estimated_cost) }}</span>{% endif %}
+            {% if stop.lgu_name %}<span class="badge bg-light text-dark border">{{ stop.lgu_name }}</span>{% endif %}
+
+            {# Nearby places (pre-fetched at generation time) #}
+            {% if stop.nearby_places %}
+            <div class="mt-2">
+              <p class="small fw-semibold mb-1"><i class="ph ph-magnifying-glass"></i> Nearby {{ 'restaurants' if 'breakfast' in stop.name|lower or 'lunch' in stop.name|lower or 'dinner' in stop.name|lower or 'snack' in stop.name|lower else 'places' }}:</p>
+              <div class="d-flex flex-column gap-1">
+                {% for place in stop.nearby_places %}
+                <div class="p-2 border rounded bg-white shadow-sm">
+                  <strong class="text-dark small">{{ loop.index }}. {{ place.name }}</strong>
+                  <span class="text-muted small"> ({{ place.distance_km }}km away)</span><br>
+                  <small class="text-muted"><i class="ph ph-map-pin"></i> {{ place.address }}</small>
+                </div>
+                {% endfor %}
               </div>
-              
-              {% if stop.notes %}
-              <p class="small mb-2 text-primary"><i class="ph ph-info"></i> {{ stop.notes }}</p>
-              {% endif %}
-              {% if stop.estimated_cost %}<span class="badge bg-light text-dark border">~₱{{ '%.0f'|format(stop.estimated_cost) }}</span>{% endif %}
+            </div>
             {% else %}
-              <p class="small text-muted mb-1">
-                <i class="ph ph-map-pin"></i> {{ stop.lgu_name or 'Laguna' }}
-                {% if stop.category_name %} · {{ stop.category_name }}{% endif %}
-                {% if stop.rating %} · <i class="ph ph-star"></i> {{ stop.rating }}{% endif %}
-              </p>
-              {% if stop.travel_minutes and loop.index > 1 and not (prev_coords.lat and stop.latitude) %}
-              <p class="planner-stop__travel small"><i class="ph ph-car"></i> ~{{ stop.travel_minutes }} min from previous stop</p>
-              {% endif %}
-              {% if stop.opening_hours %}
-              <p class="small mb-1"><i class="ph ph-clock"></i> {{ stop.opening_hours }}</p>
-              {% endif %}
-              {% if stop.entrance_fees %}
-              <p class="small mb-1"><i class="ph ph-ticket"></i> {{ stop.entrance_fees }}</p>
-              {% endif %}
-              {% if stop.food_options %}
-              <p class="small mb-1"><i class="ph ph-bowl-food"></i> {{ stop.food_options|truncate_text(120) }}</p>
-              {% endif %}
-              <p class="small mb-2">{{ stop.description|truncate_text(160) }}</p>
-              <span class="badge bg-light text-dark border me-1">{{ stop.priority|replace('_', ' ')|title }}</span>
-              {% if stop.estimated_cost %}<span class="badge bg-light text-dark border">~₱{{ '%.0f'|format(stop.estimated_cost) }}</span>{% endif %}
+            {# Fallback: live search button if no pre-fetched results #}
+            {% if search_lat %}
+            <div class="mt-2">
+              <button type="button" class="btn btn-sm btn-light border rounded-pill load-suggestion-btn">
+                <i class="ph ph-magnifying-glass"></i> Find {{ 'restaurants' if stop.type == 'dining' else 'hotels' }} nearby
+              </button>
+              <div class="real-suggestions-list mt-2 d-flex flex-column gap-2 d-none"></div>
+            </div>
             {% endif %}
-          </div>
-        </div>
+            {% endif %}
+
+            {# ── ACCOMMODATION block ── #}
+            {% elif stop.type == 'accommodation' %}
+            <p class="small text-muted mb-2">{{ stop.description }}</p>
+            {% if stop.estimated_cost %}<span class="badge bg-light text-dark border me-1">~₱{{ '%.0f'|format(stop.estimated_cost) }}/night</span>{% endif %}
+            {% if stop.lgu_name %}<span class="badge bg-light text-dark border">{{ stop.lgu_name }}</span>{% endif %}
+
+            {% if stop.nearby_places %}
+            <div class="mt-2">
+              <p class="small fw-semibold mb-1"><i class="ph ph-bed"></i> Nearby hotels / inns:</p>
+              <div class="d-flex flex-column gap-1">
+                {% for place in stop.nearby_places %}
+                <div class="p-2 border rounded bg-white shadow-sm">
+                  <strong class="text-dark small">{{ loop.index }}. {{ place.name }}</strong>
+                  <span class="text-muted small"> ({{ place.distance_km }}km away)</span><br>
+                  <small class="text-muted"><i class="ph ph-map-pin"></i> {{ place.address }}</small>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            {% else %}
+            {% if search_lat %}
+            <div class="mt-2">
+              <button type="button" class="btn btn-sm btn-light border rounded-pill load-suggestion-btn">
+                <i class="ph ph-magnifying-glass"></i> Find hotels nearby
+              </button>
+              <div class="real-suggestions-list mt-2 d-flex flex-column gap-2 d-none"></div>
+            </div>
+            {% endif %}
+            {% endif %}
+
+            {# ── LEISURE block ── #}
+            {% elif stop.type == 'leisure' %}
+            <p class="small text-muted mb-0">{{ stop.description }}</p>
+
+            {# ── SPOT block ── #}
+            {% else %}
+            <p class="small text-muted mb-1">
+              <i class="ph ph-map-pin"></i> {{ stop.lgu_name or 'Laguna' }}
+              {% if stop.category_name %} · {{ stop.category_name }}{% endif %}
+              {% if stop.rating %} · <i class="ph ph-star"></i> {{ stop.rating }}{% endif %}
+            </p>
+            {% if stop.opening_hours %}
+            <p class="small mb-1"><i class="ph ph-clock"></i> {{ stop.opening_hours }}</p>
+            {% endif %}
+            {% if stop.entrance_fees %}
+            <p class="small mb-1"><i class="ph ph-ticket"></i> {{ stop.entrance_fees }}</p>
+            {% endif %}
+            {% if stop.duration_mins %}
+            <p class="small mb-1"><i class="ph ph-hourglass"></i> ~{{ stop.duration_mins }} min visit</p>
+            {% endif %}
+            <p class="small mb-2">{{ stop.description|truncate_text(160) }}</p>
+            {% if stop.estimated_cost %}<span class="badge bg-light text-dark border">~₱{{ '%.0f'|format(stop.estimated_cost) }}</span>{% endif %}
+            {% endif %}
+
+          </div>{# end flex-grow-1 #}
+        </div>{# end planner-stop__body #}
       </li>
-      
+
       {% if stop.latitude and stop.longitude %}
         {% set prev_coords.lat = stop.latitude %}
         {% set prev_coords.lng = stop.longitude %}
       {% endif %}
-      
+
       {% endfor %}
     </ol>
   </article>
