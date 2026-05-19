@@ -30,6 +30,7 @@ page_header %}
                     <th>Dates</th>
                     <th>Venue</th>
                     <th>Event status</th>
+                    <th>Approval</th>
                 </tr>
             </thead>
             <tbody>
@@ -54,10 +55,11 @@ page_header %}
                             >{{ e.event_status or 'draft' }}</span
                         >
                     </td>
+                    <td>{{ status_badge(e.approval_status) }}</td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6" class="text-center text-muted py-4">
+                    <td colspan="7" class="text-center text-muted py-4">
                         No events yet.
                     </td>
                 </tr>

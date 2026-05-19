@@ -63,19 +63,28 @@ def index():
 @dashboard_login_required
 def analytics():
     user = get_current_dashboard_user()
+    role = user["role"]
     lgu_id = _user_lgu_id(user)
-    if user["role"] == "establishment_owner":
+
+    if role == "establishment_owner":
         data = get_establishment_analytics(owner_id=user.get("id"))
-    else:
-        data = get_analytics_overview(
-            lgu_id=lgu_id if user["role"] == "lgu_admin" else None
-        )
+        desc = "Visitor counts, feedback, and engagement metrics for your establishment."
+    elif role == "lgu_admin":
+        data = get_analytics_overview(lgu_id=lgu_id)
+        desc = "Arrival data, spot performance, and feedback analytics for your LGU."
+    elif role == "ltcato_staff":
+        data = get_analytics_overview(lgu_id=None)
+        desc = "Provincial tourism metrics across all LGUs, spots, and events."
+    else:  # super_admin
+        data = get_analytics_overview(lgu_id=None)
+        desc = "System-wide KPIs: arrivals, spots, events, engagement, and tourist activity."
+
     return render_dashboard(
         "views/dashboard/pages/analytics.html",
         user,
         analytics=data,
         page_title="Analytics",
-        page_description="Tourism metrics and trends for your scope.",
+        page_description=desc,
         page_icon="bx-bar-chart-alt-2",
     )
 

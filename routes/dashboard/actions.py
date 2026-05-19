@@ -11,28 +11,6 @@ from services.dashboard_auth import (
 from services.supabase_client import get_supabase
 
 
-@dashboard_bp.route("/actions/event/<int:event_id>/approve", methods=["POST"])
-@dashboard_login_required
-@role_required("super_admin")
-def approve_event(event_id: int):
-    get_supabase().table("events").update({"approval_status": "approved"}).eq(
-        "id", event_id
-    ).execute()
-    flash("Event approved and can appear on the public site.", "success")
-    return redirect(url_for("dashboard.promotions"))
-
-
-@dashboard_bp.route("/actions/event/<int:event_id>/reject", methods=["POST"])
-@dashboard_login_required
-@role_required("super_admin")
-def reject_event(event_id: int):
-    get_supabase().table("events").update({"approval_status": "rejected"}).eq(
-        "id", event_id
-    ).execute()
-    flash("Event rejected.", "info")
-    return redirect(url_for("dashboard.promotions"))
-
-
 @dashboard_bp.route("/actions/chatbot/<int:entry_id>/approve", methods=["POST"])
 @dashboard_login_required
 @role_required("super_admin")
