@@ -641,16 +641,67 @@ def scrape_reviews():
         from services.scrapers.reviews_scraper import scrape_online_reviews
         from services.scrapers.social_scraper import scrape_social_all
 
+        from services.scrapers.sentiment_analyzer import (
+            analyze_all_external_reviews,
+            analyze_all_feedbacks,
+        )
+
         r1 = scrape_online_reviews()
         r2 = scrape_social_all()
         total = r1.get("inserted", 0) + r2.get("inserted", 0)
         errors = r1.get("errors", []) + r2.get("errors", [])
-        msg = f"Reviews updated: {total} new reviews scraped (Google News + Facebook)."
+        s1 = analyze_all_feedbacks(force=False)
+        s2 = analyze_all_external_reviews(force=False)
+        labeled = s1.get("updated", 0) + s2.get("updated", 0)
+        msg = (
+            f"Reviews updated: {total} new review(s) scraped. "
+            f"{labeled} new row(s) sentiment-labeled (existing labels kept)."
+        )
         if errors:
-            msg += f" ({len(errors)} errors)"
+            msg += f" ({len(errors)} scrape errors)"
         flash(msg, "success")
     except Exception as exc:
         flash(f"Reviews scrape error: {exc}", "danger")
+    from services.decision_support_service import invalidate_cache
+
+    invalidate_cache()
+    return redirect(url_for("dashboard.decision_support"))
+
+
+@dashboard_bp.route("/actions/generate/insights", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def generate_insights():
+    """AI-generate spot/event insights for entities not yet cached."""
+    try:
+        from services.scrapers.insights_generator import run_insights_generation
+
+        result = run_insights_generation(force=False)
+        generated = result.get("generated", 0)
+        skipped = result.get("skipped", 0)
+        errors = result.get("errors") or []
+        if generated > 0:
+            msg = (
+                f"AI insights generated for {generated} spot/event(s). "
+                f"{skipped} already cached (skipped)."
+            )
+            flash(msg, "success")
+        elif skipped > 0:
+            flash(
+                "All insights are already saved in the database. "
+                "No regeneration needed.",
+                "info",
+            )
+        else:
+            flash(
+                "No new insights to generate. Label sentiment first, "
+                "then ensure spots/events have negative feedback.",
+                "warning",
+            )
+        if errors:
+            flash(f"{len(errors)} save error(s): {errors[0][:100]}", "warning")
+    except Exception as exc:
+        flash(f"Insights generation error: {exc}", "danger")
     from services.decision_support_service import invalidate_cache
 
     invalidate_cache()
@@ -667,13 +718,13 @@ def run_sentiment_analysis():
             analyze_all_feedbacks,
         )
 
-        # force=True re-labels ALL rows including previously-neutral Tagalog text
-        r1 = analyze_all_feedbacks(force=True)
-        r2 = analyze_all_external_reviews(force=True)
+        r1 = analyze_all_feedbacks(force=False)
+        r2 = analyze_all_external_reviews(force=False)
         flash(
-            f"Sentiment analysis complete (with Tagalog support): "
-            f"{r1.get('updated', 0)} feedbacks and "
-            f"{r2.get('updated', 0)} external reviews re-labeled.",
+            f"Sentiment analysis complete: "
+            f"{r1.get('updated', 0)} new spot feedbacks and "
+            f"{r2.get('updated', 0)} new online reviews labeled "
+            f"(existing labels were kept).",
             "success",
         )
     except Exception as exc:

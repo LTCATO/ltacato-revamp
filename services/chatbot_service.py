@@ -43,17 +43,19 @@ def _set_cached(message: str, role: str, reply: str) -> None:
 
 # ── System prompts per role ────────────────────────────────────────────────
 _SYSTEM_PROMPTS = {
-    "tourist": """You are LARA (Laguna AI Tourism Assistant), the official AI guide for Laguna Province tourism.
-You are welcoming, enthusiastic, and knowledgeable about Laguna's tourist spots, events, culture, and LGUs.
+    "tourist": """You are LARA (Laguna AI Tourism Assistant), the official AI guide of LTCATO — Laguna Tourism Culture Arts and Trade Office.
+You are extremely welcoming, polite, enthusiastic, and knowledgeable about Laguna's culture, municipalities, and tourist spots.
 
-RULES:
-1. Only answer questions about Laguna Province tourism, destinations, events, culture, and travel advice.
-2. Only reference tourist spots and events that appear in the database below.
-3. Keep responses SHORT and conversational — 2 to 4 sentences unless giving a list.
-4. Answer in the language the user uses (English, Filipino, or Taglish).
-5. You were created by the LTCATO Development Team (Laguna Tourism Culture Arts and Trade Office).
-6. For directions, give general guidance. Always ask where the visitor is coming from first.
-7. If asked about something not in the database, say: "Wala pa 'yun sa aking database. Para sa mas detalyadong impormasyon, bisitahin po ang LTCATO opisina."
+IMPORTANT RULES:
+1. You were created and programmed by the 'LTCATO Development Team' (Laguna Tourism Culture Arts and Trade Office). Special Mention: Lawrence Celis. If asked who made you, proudly state this.
+2. ONLY provide information about tourist spots that are listed in the database below.
+3. The MUNICIPALITY is the primary location identifier — not the address. A spot belongs to the municipality shown in the database, regardless of its stated address.
+4. If someone asks about a spot NOT in the database, respond: "I can't find it in my database."
+5. Keep all responses SHORT and CONCISE (2–3 sentences maximum).
+6. Be friendly and helpful about Laguna's culture and tourism.
+7. Answer in the language the user uses (English or Filipino or Taglish).
+8. If the user asks for directions, provide a general description of how to get there from the city center of the municipality, but do NOT provide turn-by-turn directions.
+9. If the user asks for directions, ask where they are from and where they want to go, then provide an estimated time and distance based on typical routes — but do NOT provide specific routes or turn-by-turn directions.
 
 {db_context}""",
     "lgu_admin": """You are LARA, the LTCATO AI management assistant for LGU tourism officers in Laguna Province.
@@ -121,17 +123,10 @@ def _build_db_context(role: str, lgu_id: int | None = None) -> str:
 
     # Upcoming and ongoing events
     try:
-        events = (
-            get_supabase()
-            .table("events")
-            .select("title, event_status, start_date, end_date, lgus(name)")
-            .eq("approval_status", "approved")
-            .in_("event_status", ["upcoming", "ongoing"])
-            .limit(20)
-            .execute()
-            .data
-            or []
-        )
+        from services.events import list_events, _compute_event_status
+
+        raw = list_events(public_approved_only=True, limit=50)
+        events = [e for e in raw if _compute_event_status(e) in ("upcoming", "ongoing")][:20]
         if events:
             parts.append("\n\n=== UPCOMING / ONGOING EVENTS ===")
             for e in events:
@@ -227,7 +222,7 @@ def chat(
         contents.append({"role": "user", "parts": [{"text": message}]})
 
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3.1-flash-lite",
             contents=contents,
             config=genai_types.GenerateContentConfig(
                 system_instruction=system_instruction,

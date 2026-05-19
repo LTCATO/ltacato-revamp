@@ -207,15 +207,18 @@ def get_event_feedback_sentiment() -> dict[str, Any]:
     total = len(rows)
     positive = 0
     negative = 0
+    neutral = 0
     for row in rows:
         text = (row.get("comment") or "").strip()
-        if text:
-            label, _ = analyze_sentiment(text)
-            if label == "positive":
-                positive += 1
-            elif label == "negative":
-                negative += 1
-    neutral = total - positive - negative
+        if not text:
+            continue
+        rating = row.get("rating") or 0
+        if rating >= 4:
+            positive += 1
+        elif rating <= 2:
+            negative += 1
+        else:
+            neutral += 1
     ratings = [r["rating"] for r in rows if r.get("rating")]
     avg_rating = round(sum(ratings) / len(ratings), 2) if ratings else 0.0
     return {
