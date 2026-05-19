@@ -10,8 +10,10 @@ from routes.dashboard.helpers import (
     render_dashboard,
     role_required,
 )
-from services.arrival_export import export_day_tour_workbook, export_overnight_workbook
+from services.arrival_export import export_combined_workbook
 from services.arrival_reports import (
+    consolidate_establishment_reports,
+    create_arrival_report,
     establishment_reports_for_lgu,
     list_arrival_reports,
     monthly_spot_reports_for_export,
@@ -142,12 +144,20 @@ def arrivals():
 
     if role == "establishment_owner":
         spots = list_spots_for_dashboard(owner_id=user.get("id"), limit=20)
-        reports = list_arrival_reports(owner_id=user.get("id"), limit=80)
+        draft_records = list_arrival_reports(owner_id=user.get("id"), status="draft", limit=100)
+        submitted_records = list_arrival_reports(owner_id=user.get("id"), status="submitted", limit=80)
+        reports = draft_records + submitted_records
+        reports.sort(key=lambda r: r.get("report_date") or "", reverse=True)
         report_types = ("daily", "weekly")
-        page_desc = "Submit daily or weekly visitor counts (day tour and overnight) to your LGU."
+        page_desc = (
+            "Save daily or weekly arrival records as drafts, then compile and submit "
+            "them to your LGU Tourism Office when ready."
+        )
         can_submit_day_tour = bool(spots)
         can_submit_overnight = bool(spots)
     elif role == "lgu_admin":
+        draft_records = []
+        submitted_records = []
         spots = list_spots_for_dashboard(lgu_id=lgu_id, limit=200) if lgu_id else []
         establishment_rows = establishment_reports_for_lgu(lgu_id) if lgu_id else []
         monthly_rows = (
@@ -159,14 +169,16 @@ def arrivals():
         )
         reports = establishment_rows + monthly_rows
         reports.sort(key=lambda r: r.get("report_date") or "", reverse=True)
-        report_types = ("monthly",)
+        report_types = ()
         page_desc = (
-            "Review establishment daily/weekly reports, then submit monthly totals "
-            "per tourist spot in your LGU to LTCATO staff."
+            "Review establishment daily/weekly reports below, then use "
+            "'Compile Monthly Report' to submit consolidated monthly totals to LTCATO."
         )
-        can_submit_day_tour = bool(spots)
-        can_submit_overnight = bool(spots)
+        can_submit_day_tour = False
+        can_submit_overnight = False
     elif role == "ltcato_staff":
+        draft_records = []
+        submitted_records = []
         reports = list_arrival_reports(
             report_type="monthly", require_spot=True, limit=200
         )
@@ -176,6 +188,8 @@ def arrivals():
             "(all spots that reported)."
         )
     else:
+        draft_records = []
+        submitted_records = []
         reports = list_arrival_reports(
             report_type="monthly", require_spot=True, limit=250
         )
@@ -188,10 +202,20 @@ def arrivals():
     needs_lgu_selection = role == "lgu_admin" and not lgu_id
     lgu_picker_list = list_lgus_simple() if needs_lgu_selection else []
 
+    # For establishment owners, pass draft/submitted split; others get a flat list
+    if role == "establishment_owner":
+        template_draft_records = draft_records
+        template_submitted_records = submitted_records
+    else:
+        template_draft_records = []
+        template_submitted_records = []
+
     return render_dashboard(
         "views/dashboard/pages/arrivals.html",
         user,
         reports=reports,
+        draft_records=template_draft_records,
+        submitted_records=template_submitted_records,
         report_types=report_types,
         spots=spots,
         lgus=export_lgus,
@@ -206,10 +230,152 @@ def arrivals():
     )
 
 
-@dashboard_bp.route("/arrivals/export/<category>")
+@dashboard_bp.route("/arrivals/consolidate")
+@dashboard_login_required
+@role_required("lgu_admin")
+def arrivals_consolidate():
+    """
+    Preview page: shows aggregated establishment reports for a chosen month
+    so the LGU admin can review and submit the consolidated monthly totals.
+    """
+    user = get_current_dashboard_user()
+    lgu_id = _user_lgu_id(user)
+    if not lgu_id:
+        flash("Your account is not linked to an LGU yet.", "danger")
+        return redirect(url_for("dashboard.arrivals"))
+
+    year_raw = request.args.get("year", "")
+    month_raw = request.args.get("month", "")
+    today = date.today()
+    try:
+        year = int(year_raw) if year_raw else today.year
+        month = int(month_raw) if month_raw else today.month
+        if not (1 <= month <= 12):
+            raise ValueError
+    except ValueError:
+        year, month = today.year, today.month
+
+    day_tour_rows = consolidate_establishment_reports(
+        lgu_id, year=year, month=month, visitor_category="day_tour"
+    )
+    overnight_rows = consolidate_establishment_reports(
+        lgu_id, year=year, month=month, visitor_category="overnight"
+    )
+
+    # Build year/month options for the picker (current year ± 1)
+    month_options = [
+        {"year": y, "month": m, "label": f"{date(y, m, 1).strftime('%B %Y')}"}
+        for y in range(today.year - 1, today.year + 1)
+        for m in range(1, 13)
+        if date(y, m, 1) <= today
+    ]
+
+    return render_dashboard(
+        "views/dashboard/pages/arrivals_consolidate.html",
+        user,
+        year=year,
+        month=month,
+        month_label=date(year, month, 1).strftime("%B %Y"),
+        day_tour_rows=day_tour_rows,
+        overnight_rows=overnight_rows,
+        month_options=month_options,
+        page_title="Compile Monthly Arrivals",
+        page_description=(
+            "Review establishment reports for the selected month, then submit "
+            "the consolidated monthly totals to LTCATO."
+        ),
+        page_icon="bx-calendar-check",
+    )
+
+
+@dashboard_bp.route("/arrivals/consolidate/submit", methods=["POST"])
+@dashboard_login_required
+@role_required("lgu_admin")
+def arrivals_consolidate_submit():
+    """
+    Submit consolidated monthly arrival totals (one row per spot) to LTCATO.
+    Reads pre-aggregated data from hidden form fields — no manual re-entry.
+    """
+    from calendar import monthrange
+
+    user = get_current_dashboard_user()
+    lgu_id = _user_lgu_id(user)
+    if not lgu_id:
+        flash("Your account is not linked to an LGU yet.", "danger")
+        return redirect(url_for("dashboard.arrivals"))
+
+    year_raw = request.form.get("year", "")
+    month_raw = request.form.get("month", "")
+    visitor_category = request.form.get("visitor_category", "")
+    if visitor_category not in ("day_tour", "overnight"):
+        flash("Invalid visitor category.", "danger")
+        return redirect(url_for("dashboard.arrivals_consolidate"))
+
+    try:
+        year = int(year_raw)
+        month = int(month_raw)
+        if not (1 <= month <= 12):
+            raise ValueError
+    except ValueError:
+        flash("Invalid year or month.", "danger")
+        return redirect(url_for("dashboard.arrivals_consolidate"))
+
+    # Re-aggregate from DB to avoid tampering via hidden fields
+    rows = consolidate_establishment_reports(
+        lgu_id, year=year, month=month, visitor_category=visitor_category
+    )
+    if not rows:
+        flash(
+            f"No establishment reports found for {date(year, month, 1).strftime('%B %Y')} "
+            f"({'day tour' if visitor_category == 'day_tour' else 'overnight'}). "
+            "Nothing to submit.",
+            "warning",
+        )
+        return redirect(url_for("dashboard.arrivals_consolidate", year=year, month=month))
+
+    # Use the last day of the month as the report date
+    last_day = date(year, month, monthrange(year, month)[1])
+    submitted = 0
+    errors = 0
+    for row in rows:
+        payload = {
+            "tourist_spot_id": row["tourist_spot_id"],
+            "lgu_id": lgu_id,
+            "submitted_by": user.get("id"),
+            "report_type": "monthly",
+            "report_date": last_day.isoformat(),
+            "visitor_category": visitor_category,
+            "overnight_nights": row.get("overnight_nights", 0),
+            **{k: row.get(k, 0) for k in (
+                "this_city_male", "this_city_female",
+                "other_city_male", "other_city_female",
+                "other_province_male", "other_province_female",
+                "foreign_male", "foreign_female",
+            )},
+        }
+        try:
+            create_arrival_report(payload)
+            submitted += 1
+        except Exception:
+            errors += 1
+
+    category_label = "day tour" if visitor_category == "day_tour" else "overnight"
+    month_label = date(year, month, 1).strftime("%B %Y")
+    if submitted:
+        flash(
+            f"Submitted {submitted} consolidated {category_label} report(s) for {month_label} to LTCATO.",
+            "success",
+        )
+    if errors:
+        flash(f"{errors} spot(s) could not be saved. Please try again.", "danger")
+
+    return redirect(url_for("dashboard.arrivals"))
+
+
+@dashboard_bp.route("/arrivals/export")
 @dashboard_login_required
 @role_required("super_admin", "ltcato_staff")
-def arrivals_export(category: str):
+def arrivals_export():
     lgu_raw = request.args.get("lgu_id")
     date_raw = request.args.get("report_date")
     if not lgu_raw or not str(lgu_raw).isdigit():
@@ -218,22 +384,9 @@ def arrivals_export(category: str):
     lgu_id = int(lgu_raw)
     report_date = date.fromisoformat(date_raw) if date_raw else None
 
-    export_category = "day_tour" if category == "day_tour" else "overnight"
-    if category == "day_tour":
-        data, filename = export_day_tour_workbook(
-            lgu_id=lgu_id, report_date=report_date
-        )
-    elif category == "overnight":
-        data, filename = export_overnight_workbook(
-            lgu_id=lgu_id, report_date=report_date
-        )
-    else:
-        flash("Unknown export type.", "warning")
-        return redirect(url_for("dashboard.arrivals"))
+    data, filename = export_combined_workbook(lgu_id=lgu_id, report_date=report_date)
 
-    if not monthly_spot_reports_for_export(
-        lgu_id=lgu_id, report_date=report_date, visitor_category=export_category
-    ):
+    if not monthly_spot_reports_for_export(lgu_id=lgu_id, report_date=report_date):
         flash(
             "No monthly per-spot reports for this LGU yet. "
             "LGU officers must submit monthly data per tourist spot.",

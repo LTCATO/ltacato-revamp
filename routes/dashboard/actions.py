@@ -67,6 +67,90 @@ def form_save_stub():
     return redirect(request.referrer or url_for("dashboard.index"))
 
 
+@dashboard_bp.route("/actions/arrival-record/<int:record_id>/delete", methods=["POST"])
+@dashboard_login_required
+@role_required("establishment_owner")
+def delete_arrival_record(record_id: int):
+    """Delete a draft arrival record (establishment owner only)."""
+    from services.arrival_reports import delete_arrival_report
+
+    user = get_current_dashboard_user()
+    try:
+        delete_arrival_report(record_id, owner_id=str(user.get("id")))
+        flash("Draft record deleted.", "info")
+    except PermissionError:
+        flash("You can only delete your own records.", "danger")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    except Exception as exc:
+        flash(f"Could not delete record: {exc}", "danger")
+    return redirect(url_for("dashboard.arrivals"))
+
+
+@dashboard_bp.route("/actions/arrival-records/compile", methods=["POST"])
+@dashboard_login_required
+@role_required("establishment_owner")
+def compile_arrival_records():
+    """
+    Compile (submit) all draft records for a given spot + category + date
+    to the LGU Tourism Office. The report_type (daily/weekly) is chosen here
+    and applied to all matching drafts.
+    """
+    from services.arrival_reports import submit_draft_records
+    from services.spots import list_spots_for_dashboard
+
+    user = get_current_dashboard_user()
+    owner_id = str(user.get("id"))
+
+    spot_id_raw = request.form.get("tourist_spot_id", "").strip()
+    visitor_category = request.form.get("visitor_category", "").strip()
+    report_type = request.form.get("report_type", "").strip()
+    compile_date = request.form.get("compile_date", "").strip()
+
+    if not spot_id_raw.isdigit():
+        flash("Invalid tourist spot.", "danger")
+        return redirect(url_for("dashboard.arrivals"))
+    if visitor_category not in ("day_tour", "overnight"):
+        flash("Invalid visitor category.", "danger")
+        return redirect(url_for("dashboard.arrivals"))
+    if report_type not in ("daily", "weekly"):
+        flash("Invalid report type.", "danger")
+        return redirect(url_for("dashboard.arrivals"))
+    if not compile_date:
+        flash("Select a date to compile.", "danger")
+        return redirect(url_for("dashboard.arrivals"))
+
+    spot_id = int(spot_id_raw)
+    owned = list_spots_for_dashboard(owner_id=owner_id, limit=20)
+    owned_ids = {int(s["id"]) for s in owned if s.get("id") is not None}
+    if spot_id not in owned_ids:
+        flash("You can only compile records for your own establishment.", "danger")
+        return redirect(url_for("dashboard.arrivals"))
+
+    try:
+        count = submit_draft_records(
+            owner_id=owner_id,
+            spot_id=spot_id,
+            visitor_category=visitor_category,
+            report_type=report_type,
+            compile_date=compile_date,
+        )
+        if count:
+            category_label = "day tour" if visitor_category == "day_tour" else "overnight"
+            flash(
+                f"{count} {category_label} draft(s) for {compile_date} compiled as "
+                f"'{report_type}' and submitted to your LGU Tourism Office.",
+                "success",
+            )
+        else:
+            flash(
+                f"No draft records found for {compile_date} matching the selected filters.",
+                "warning",
+            )
+    except Exception as exc:
+        flash(f"Could not compile records: {exc}", "danger")
+    return redirect(url_for("dashboard.arrivals"))
+
 @dashboard_bp.route("/actions/event/save", methods=["POST"])
 @dashboard_login_required
 @role_required("ltcato_staff")
@@ -92,76 +176,47 @@ def save_event():
 
 
 def _save_arrival_report():
-    from services.arrival_reports import create_arrival_report, spot_ids_for_lgu
+    from services.arrival_reports import create_arrival_report
     from services.spots import list_spots_for_dashboard
 
     user = get_current_dashboard_user()
     role = user["role"]
+
+    # Only establishment owners save draft records via this form
+    if role != "establishment_owner":
+        flash("Your role cannot save arrival records this way.", "danger")
+        return redirect(url_for("dashboard.arrivals"))
+
     visitor_category = request.form.get("visitor_category", "day_tour")
     if visitor_category not in ("day_tour", "overnight"):
         flash("Invalid visitor category.", "danger")
         return redirect(url_for("dashboard.arrivals"))
 
-    report_type = request.form.get("report_type", "").strip()
-    report_date = request.form.get("report_date", "").strip()
-    if not report_type or not report_date:
-        flash("Report type and date are required.", "danger")
-        return redirect(url_for("dashboard.arrivals"))
+    # Date is always today — this acts as a logbook, no manual date entry
+    from datetime import date as _date
+    report_date = _date.today().isoformat()
 
-    allowed_types: tuple[str, ...]
-    if role == "establishment_owner":
-        allowed_types = ("daily", "weekly")
-    elif role == "lgu_admin":
-        allowed_types = ("monthly",)
-    else:
-        flash("Your role cannot submit arrival reports.", "danger")
-        return redirect(url_for("dashboard.arrivals"))
-
-    if report_type not in allowed_types:
-        flash(f"Invalid report type for your role.", "danger")
-        return redirect(url_for("dashboard.arrivals"))
+    # report_type is not chosen at save time — default to "daily"
+    # The actual type (daily/weekly) is chosen at compile time
+    report_type = "daily"
 
     lgu_id = resolve_dashboard_lgu_id(user)
     spot_id_raw = request.form.get("tourist_spot_id")
     tourist_spot_id = int(spot_id_raw) if spot_id_raw else None
 
-    if role == "establishment_owner":
-        owned = list_spots_for_dashboard(owner_id=user.get("id"), limit=20)
-        owned_ids = {int(s["id"]) for s in owned if s.get("id") is not None}
-        if not tourist_spot_id or tourist_spot_id not in owned_ids:
-            flash("Select a valid establishment for this report.", "danger")
-            return redirect(url_for("dashboard.arrivals"))
-        spot = next((s for s in owned if int(s["id"]) == tourist_spot_id), None)
-        lgu_id = spot.get("lgu_id") if spot else lgu_id
-    elif role == "lgu_admin":
-        if not lgu_id:
-            form_lgu = request.form.get("lgu_id", "").strip()
-            if form_lgu.isdigit():
-                lgu_id = int(form_lgu)
-                assign_profile_lgu_id(str(user.get("id")), lgu_id)
-            else:
-                flash(
-                    "Your account is not linked to an LGU yet. Select your city/municipality "
-                    "in the form, or ask LTCATO staff to set lgu_id on your profile.",
-                    "danger",
-                )
-                return redirect(url_for("dashboard.arrivals"))
-        allowed_spots = spot_ids_for_lgu(int(lgu_id))
-        if not tourist_spot_id or tourist_spot_id not in allowed_spots:
-            flash("Select a tourist spot that belongs to your LGU.", "danger")
-            return redirect(url_for("dashboard.arrivals"))
-    else:
+    owned = list_spots_for_dashboard(owner_id=user.get("id"), limit=20)
+    owned_ids = {int(s["id"]) for s in owned if s.get("id") is not None}
+    if not tourist_spot_id or tourist_spot_id not in owned_ids:
+        flash("Select a valid establishment for this record.", "danger")
         return redirect(url_for("dashboard.arrivals"))
+    spot = next((s for s in owned if int(s["id"]) == tourist_spot_id), None)
+    lgu_id = spot.get("lgu_id") if spot else lgu_id
 
     count_fields = (
-        "this_city_male",
-        "this_city_female",
-        "other_city_male",
-        "other_city_female",
-        "other_province_male",
-        "other_province_female",
-        "foreign_male",
-        "foreign_female",
+        "this_city_male", "this_city_female",
+        "other_city_male", "other_city_female",
+        "other_province_male", "other_province_female",
+        "foreign_male", "foreign_female",
     )
     payload: dict = {
         "tourist_spot_id": tourist_spot_id,
@@ -171,6 +226,7 @@ def _save_arrival_report():
         "report_date": report_date,
         "visitor_category": visitor_category,
         "overnight_nights": int(request.form.get("overnight_nights") or 0),
+        "status": "draft",
     }
     for field in count_fields:
         payload[field] = int(request.form.get(field) or 0)
@@ -180,7 +236,6 @@ def _save_arrival_report():
         return redirect(url_for("dashboard.arrivals"))
     if visitor_category == "day_tour":
         from services.arrival_reports import report_total_visitors
-
         if report_total_visitors(payload) <= 0:
             flash("Enter at least one day-tour visitor count.", "danger")
             return redirect(url_for("dashboard.arrivals"))
@@ -188,9 +243,13 @@ def _save_arrival_report():
     try:
         create_arrival_report(payload)
         label = "Overnight" if visitor_category == "overnight" else "Day tour"
-        flash(f"{label} {report_type} report saved.", "success")
+        flash(
+            f"{label} record saved as draft for {report_date}. "
+            "Review your drafts and use Compile & Submit when ready to send to your LGU.",
+            "success",
+        )
     except Exception as exc:
-        flash(f"Could not save report: {exc}", "danger")
+        flash(f"Could not save record: {exc}", "danger")
     return redirect(url_for("dashboard.arrivals"))
 
 

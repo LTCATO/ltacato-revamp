@@ -109,6 +109,24 @@ def spot_lgu_name(spot: dict) -> str:
     return "Laguna"
 
 
+def format_date(value: Any) -> str:
+    """Format a date string or date object as 'Month DD, YYYY' (e.g. May 20, 2026)."""
+    if not value:
+        return "—"
+    from datetime import date, datetime
+    if isinstance(value, datetime):
+        return value.strftime("%B %-d, %Y") if hasattr(value, "strftime") else str(value)
+    if isinstance(value, date):
+        return value.strftime("%B %-d, %Y")
+    # String — parse ISO format
+    try:
+        d = date.fromisoformat(str(value)[:10])
+        return d.strftime("%B %d, %Y").replace(" 0", " ")
+    except (ValueError, TypeError):
+        return str(value)
+
+
+
 def register_template_filters(app) -> None:
     """Register all Jinja filters on the Flask app."""
     app.jinja_env.filters.update(
@@ -124,5 +142,6 @@ def register_template_filters(app) -> None:
             "stars_display": stars_display,
             "event_category_label": event_category_label,
             "event_category_icon": event_category_icon,
+            "format_date": format_date,
         }
     )
