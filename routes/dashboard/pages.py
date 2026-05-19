@@ -84,14 +84,21 @@ def analytics():
 @dashboard_login_required
 @role_required("super_admin", "ltcato_staff")
 def decision_support():
+    from services.decision_support_service import (
+        get_decision_support_data,
+        get_scraper_last_run,
+    )
+
     user = get_current_dashboard_user()
-    reviews = list_external_reviews(limit=80)
+    data = get_decision_support_data()
+    last_run = get_scraper_last_run()
     return render_dashboard(
         "views/dashboard/pages/decision_support.html",
         user,
-        reviews=reviews,
-        page_title="Decision support",
-        page_description="Web and social media reviews scraped for sentiment analysis.",
+        ds=data,
+        last_run=last_run,
+        page_title="Decision Support",
+        page_description="Scraped web signals, sentiment analysis, and data-driven tourism recommendations.",
         page_icon="bx-brain",
     )
 

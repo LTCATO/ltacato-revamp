@@ -1,0 +1,430 @@
+<!-- LARA AI Chatbot Widget — accessible on all pages, role-aware -->
+<style>
+    #lara-btn {
+        position: fixed;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        z-index: 9999;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #7f1d1d, #9b2c2c);
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 4px 16px rgba(127, 29, 29, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        transition:
+            transform 0.2s,
+            box-shadow 0.2s;
+    }
+    #lara-btn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 20px rgba(127, 29, 29, 0.5);
+    }
+    .lara-badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #22c55e;
+        border: 2px solid #fff;
+    }
+    #lara-panel {
+        position: fixed;
+        bottom: 5.5rem;
+        right: 1.5rem;
+        z-index: 9998;
+        width: 360px;
+        max-width: calc(100vw - 2rem);
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+        flex-direction: column;
+        overflow: hidden;
+        font-family: Poppins, sans-serif;
+        display: none;
+    }
+    #lara-panel.lara-open {
+        display: flex;
+    }
+    .lara-head {
+        background: linear-gradient(135deg, #7f1d1d, #9b2c2c);
+        color: #fff;
+        padding: 0.85rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+    }
+    .lara-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+    }
+    .lara-name {
+        font-weight: 700;
+        font-size: 0.88rem;
+    }
+    .lara-role-lbl {
+        font-size: 0.68rem;
+        opacity: 0.85;
+    }
+    .lara-close-btn {
+        background: none;
+        border: none;
+        color: #fff;
+        cursor: pointer;
+        font-size: 1.2rem;
+        padding: 0;
+        margin-left: auto;
+    }
+    .lara-msgs {
+        overflow-y: auto;
+        padding: 0.85rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        max-height: 340px;
+        min-height: 160px;
+        background: #faf7f5;
+    }
+    .lara-msg {
+        max-width: 82%;
+        padding: 0.55rem 0.8rem;
+        border-radius: 12px;
+        font-size: 0.82rem;
+        line-height: 1.45;
+        word-break: break-word;
+    }
+    .lara-from-lara {
+        background: #fff;
+        border: 1px solid #f0ebe8;
+        border-bottom-left-radius: 4px;
+        align-self: flex-start;
+    }
+    .lara-from-user {
+        background: linear-gradient(135deg, #7f1d1d, #9b2c2c);
+        color: #fff;
+        border-bottom-right-radius: 4px;
+        align-self: flex-end;
+    }
+    .lara-typing {
+        color: #78716c;
+        font-style: italic;
+    }
+    .lara-foot {
+        padding: 0.65rem 0.85rem;
+        border-top: 1px solid #f0ebe8;
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        background: #fff;
+    }
+    #lara-input {
+        flex: 1;
+        border: 1px solid #f0ebe8;
+        border-radius: 999px;
+        padding: 0.45rem 0.9rem;
+        font-size: 0.82rem;
+        outline: none;
+        font-family: inherit;
+        background: #faf7f5;
+        resize: none;
+        max-height: 80px;
+    }
+    #lara-input:focus {
+        border-color: #9b2c2c;
+        background: #fff;
+    }
+    #lara-send {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #7f1d1d, #9b2c2c);
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.95rem;
+        flex-shrink: 0;
+    }
+    #lara-send:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    .lara-chips {
+        padding: 0.5rem 0.85rem 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        background: #fff;
+    }
+    .lara-chip {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.6rem;
+        border-radius: 999px;
+        border: 1px solid #f0ebe8;
+        background: #faf7f5;
+        cursor: pointer;
+        color: #7f1d1d;
+        white-space: nowrap;
+    }
+    .lara-chip:hover {
+        background: #7f1d1d;
+        color: #fff;
+        border-color: #7f1d1d;
+    }
+</style>
+
+<!-- Use data attributes for Jinja2 values — avoids inline JS rendering issues -->
+<button
+    id="lara-btn"
+    aria-label="Open LARA AI Assistant"
+    data-role="{{ current_dashboard_user.role if current_dashboard_user else 'tourist' }}"
+    data-lgu="{{ current_dashboard_user.lgu_id if current_dashboard_user and current_dashboard_user.lgu_id else '' }}"
+>
+    <i class="bx bx-bot"></i>
+    <span class="lara-badge"></span>
+</button>
+
+<div id="lara-panel" aria-label="LARA AI Tourism Assistant">
+    <div class="lara-head">
+        <div class="lara-avatar"><i class="bx bx-bot"></i></div>
+        <div>
+            <div class="lara-name">LARA</div>
+            <div class="lara-role-lbl" id="lara-role-lbl">
+                Laguna AI Tourism Assistant
+            </div>
+        </div>
+        <button class="lara-close-btn" id="lara-close" aria-label="Close">
+            <i class="bx bx-x"></i>
+        </button>
+    </div>
+    <div class="lara-msgs" id="lara-msgs">
+        <div class="lara-msg lara-from-lara">
+            Kumusta! I'm <strong>LARA</strong>, your Laguna tourism guide. 🏞️<br />
+            Ask me about tourist spots, events, travel tips, or anything about
+            Laguna!
+        </div>
+    </div>
+    <div class="lara-chips" id="lara-chips">
+        <span
+            class="lara-chip"
+            data-q="What are the top tourist spots in Laguna?"
+            >Top spots</span
+        >
+        <span
+            class="lara-chip"
+            data-q="Are there any upcoming events in Laguna?"
+            >Events</span
+        >
+        <span class="lara-chip" data-q="How do I get to Pagsanjan Falls?"
+            >Pagsanjan Falls</span
+        >
+        <span class="lara-chip" data-q="What is the best time to visit Laguna?"
+            >Best time</span
+        >
+    </div>
+    <div class="lara-foot">
+        <textarea
+            id="lara-input"
+            placeholder="Ask LARA anything about Laguna..."
+            rows="1"
+        ></textarea>
+        <button id="lara-send" aria-label="Send">
+            <i class="bx bx-send"></i>
+        </button>
+    </div>
+</div>
+
+<script>
+    (function () {
+        try {
+            var btn = document.getElementById("lara-btn");
+            var panel = document.getElementById("lara-panel");
+            var msgs = document.getElementById("lara-msgs");
+            var inp = document.getElementById("lara-input");
+            var send = document.getElementById("lara-send");
+            var chips = document.getElementById("lara-chips");
+            var roleLbl = document.getElementById("lara-role-lbl");
+
+            if (!btn || !panel) return; // safety guard
+
+            // Read role/lgu safely from data attributes (set by Jinja2 in HTML, not JS)
+            var ROLE = btn.getAttribute("data-role") || "tourist";
+            var LGU = btn.getAttribute("data-lgu") || "";
+            var LGU_ID = LGU ? parseInt(LGU, 10) : null;
+
+            var ROLE_LABELS = {
+                tourist: "Laguna AI Tourism Guide",
+                lgu_admin: "LGU Tourism Management Assistant",
+                ltcato_staff: "LTCATO AI Assistant",
+                super_admin: "LTCATO AI System Assistant",
+                establishment_owner: "Establishment AI Assistant",
+            };
+            if (roleLbl)
+                roleLbl.textContent =
+                    ROLE_LABELS[ROLE] || "Laguna AI Tourism Guide";
+
+            // Role-specific suggested chips
+            if (ROLE === "lgu_admin") {
+                chips.innerHTML =
+                    '<span class="lara-chip" data-q="How do I submit a monthly arrival report?">Arrival reports</span>' +
+                    '<span class="lara-chip" data-q="How do I approve a tourist spot?">Spot approval</span>' +
+                    '<span class="lara-chip" data-q="How do I add a new establishment owner?">Add owner</span>';
+            } else if (ROLE === "ltcato_staff" || ROLE === "super_admin") {
+                chips.innerHTML =
+                    '<span class="lara-chip" data-q="How do I interpret the decision support data?">Decision support</span>' +
+                    '<span class="lara-chip" data-q="What does the sentiment analysis show?">Sentiment data</span>' +
+                    '<span class="lara-chip" data-q="How do I approve a spot from LTCATO?">Spot approval</span>';
+            } else if (ROLE === "establishment_owner") {
+                chips.innerHTML =
+                    '<span class="lara-chip" data-q="How do I submit a daily arrival report?">Submit report</span>' +
+                    '<span class="lara-chip" data-q="How do I claim my establishment?">Claim spot</span>' +
+                    '<span class="lara-chip" data-q="How do I update my establishment listing?">Update listing</span>';
+            }
+
+            var history = [];
+            var isOpen = false;
+
+            function openChat() {
+                panel.classList.add("lara-open");
+                isOpen = true;
+                inp.focus();
+            }
+            function closeChat() {
+                panel.classList.remove("lara-open");
+                isOpen = false;
+            }
+
+            btn.addEventListener("click", function () {
+                isOpen ? closeChat() : openChat();
+            });
+            document
+                .getElementById("lara-close")
+                .addEventListener("click", closeChat);
+
+            chips.addEventListener("click", function (e) {
+                var chip = e.target.closest(".lara-chip");
+                if (chip) {
+                    inp.value = chip.getAttribute("data-q") || "";
+                    chips.style.display = "none";
+                    doSend();
+                }
+            });
+
+            function addMsg(text, who) {
+                var d = document.createElement("div");
+                d.className =
+                    "lara-msg " +
+                    (who === "user" ? "lara-from-user" : "lara-from-lara");
+                d.textContent = text;
+                msgs.appendChild(d);
+                msgs.scrollTop = msgs.scrollHeight;
+                return d;
+            }
+            function showTyping() {
+                var d = document.createElement("div");
+                d.className = "lara-msg lara-from-lara lara-typing";
+                d.id = "lara-typing";
+                d.textContent = "LARA is thinking…";
+                msgs.appendChild(d);
+                msgs.scrollTop = msgs.scrollHeight;
+            }
+            function hideTyping() {
+                var t = document.getElementById("lara-typing");
+                if (t) t.remove();
+            }
+            function fmtReply(t) {
+                return t
+                    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+                    .replace(/\n/g, "<br>");
+            }
+
+            function doSend() {
+                var msg = inp.value.trim();
+                if (!msg) return;
+                chips.style.display = "none";
+                addMsg(msg, "user");
+                inp.value = "";
+                inp.style.height = "auto";
+                send.disabled = true;
+                history.push({ role: "user", content: msg });
+                showTyping();
+
+                fetch("/api/lara/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        message: msg,
+                        history: history.slice(-10),
+                        role: ROLE,
+                        lgu_id: LGU_ID,
+                    }),
+                })
+                    .then(function (r) {
+                        return r.json();
+                    })
+                    .then(function (data) {
+                        hideTyping();
+                        if (data.success && data.reply) {
+                            var rd = document.createElement("div");
+                            rd.className = "lara-msg lara-from-lara";
+                            rd.innerHTML = fmtReply(data.reply);
+                            msgs.appendChild(rd);
+                            msgs.scrollTop = msgs.scrollHeight;
+                            history.push({
+                                role: "model",
+                                content: data.reply,
+                            });
+                        } else {
+                            // Show server error message if available, otherwise generic
+                            var errMsg =
+                                data.error && data.error.length < 200
+                                    ? data.error
+                                    : "Sorry, I encountered an error. Please try again.";
+                            addMsg(errMsg, "lara");
+                        }
+                    })
+                    .catch(function () {
+                        hideTyping();
+                        addMsg(
+                            "Connection error. Please check your internet connection.",
+                            "lara",
+                        );
+                    })
+                    .finally(function () {
+                        send.disabled = false;
+                        inp.focus();
+                    });
+            }
+
+            send.addEventListener("click", doSend);
+            inp.addEventListener("keydown", function (e) {
+                if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    doSend();
+                }
+            });
+            inp.addEventListener("input", function () {
+                this.style.height = "auto";
+                this.style.height = Math.min(this.scrollHeight, 80) + "px";
+            });
+        } catch (err) {
+            // Silently fail — chatbot is non-critical
+            console.warn("LARA chatbot init error:", err);
+        }
+    })();
+</script>

@@ -2,5 +2,14 @@ flask
 supabase
 python-dotenv
 google-generativeai
+google-genai
 pandas
 openpyxl
+requests
+beautifulsoup4
+pytrends
+textblob
+nltk
+feedparser
+langdetect
+deep-translator
