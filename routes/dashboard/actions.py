@@ -537,3 +537,148 @@ def _save_site_update():
     except Exception as exc:
         flash(f"Could not save updates: {exc}", "danger")
     return redirect(url_for("dashboard.site_updates"))
+
+
+# ---------------------------------------------------------------------------
+# Decision Support — scraper trigger routes
+# ---------------------------------------------------------------------------
+
+
+@dashboard_bp.route("/actions/scrape/weather", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def scrape_weather():
+    try:
+        from services.scrapers.weather_scraper import scrape_weather_for_lgus
+
+        result = scrape_weather_for_lgus()
+        if result.get("ok"):
+            msg = f"Weather updated: {result['inserted']} LGU records inserted."
+            if result.get("errors"):
+                msg += f" ({len(result['errors'])} errors)"
+            flash(msg, "success")
+        else:
+            flash(f"Weather scrape failed: {result.get('error')}", "danger")
+    except Exception as exc:
+        flash(f"Weather scrape error: {exc}", "danger")
+    from services.decision_support_service import invalidate_cache
+
+    invalidate_cache()
+    return redirect(url_for("dashboard.decision_support"))
+
+
+@dashboard_bp.route("/actions/scrape/news", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def scrape_news():
+    try:
+        from services.scrapers.news_scraper import scrape_news as _scrape
+
+        result = _scrape()
+        if result.get("ok"):
+            msg = f"News updated: {result['inserted']} new articles scraped."
+            if result.get("errors"):
+                msg += f" ({len(result['errors'])} errors ignored)"
+            flash(msg, "success")
+        else:
+            flash(f"News scrape failed: {result.get('error')}", "danger")
+    except Exception as exc:
+        flash(f"News scrape error: {exc}", "danger")
+    from services.decision_support_service import invalidate_cache
+
+    invalidate_cache()
+    return redirect(url_for("dashboard.decision_support"))
+
+
+@dashboard_bp.route("/actions/scrape/trends", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def scrape_trends():
+    try:
+        from services.scrapers.trends_scraper import scrape_trends as _scrape
+
+        result = _scrape()
+        if result.get("ok"):
+            errors = result.get("errors", [])
+            if result["inserted"] > 0:
+                msg = f"Trends updated: {result['inserted']} keyword records inserted."
+                if errors:
+                    msg += f" ({len(errors)} minor errors)"
+                flash(msg, "success")
+            elif errors:
+                # Check if it's a rate-limit error
+                first_err = errors[0] if errors else ""
+                if "429" in first_err or "rate" in first_err.lower():
+                    flash(
+                        "Google Trends rate-limited (429). Wait 1–2 hours then try again. "
+                        "This is a Google restriction, not a system error.",
+                        "warning",
+                    )
+                else:
+                    flash(
+                        f"Trends: 0 inserted. First error: {first_err[:120]}", "warning"
+                    )
+            else:
+                flash(
+                    "Trends: 0 records inserted (no data returned from Google).", "info"
+                )
+        else:
+            flash(f"Trends scrape failed: {result.get('error')}", "danger")
+    except Exception as exc:
+        flash(f"Trends scrape error: {exc}", "danger")
+    from services.decision_support_service import invalidate_cache
+
+    invalidate_cache()
+    return redirect(url_for("dashboard.decision_support"))
+
+
+@dashboard_bp.route("/actions/scrape/reviews", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def scrape_reviews():
+    """Scrape online reviews from Google News + Facebook for spots AND events."""
+    try:
+        from services.scrapers.reviews_scraper import scrape_online_reviews
+        from services.scrapers.social_scraper import scrape_social_all
+
+        r1 = scrape_online_reviews()
+        r2 = scrape_social_all()
+        total = r1.get("inserted", 0) + r2.get("inserted", 0)
+        errors = r1.get("errors", []) + r2.get("errors", [])
+        msg = f"Reviews updated: {total} new reviews scraped (Google News + Facebook)."
+        if errors:
+            msg += f" ({len(errors)} errors)"
+        flash(msg, "success")
+    except Exception as exc:
+        flash(f"Reviews scrape error: {exc}", "danger")
+    from services.decision_support_service import invalidate_cache
+
+    invalidate_cache()
+    return redirect(url_for("dashboard.decision_support"))
+
+
+@dashboard_bp.route("/actions/analyze/sentiment", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def run_sentiment_analysis():
+    try:
+        from services.scrapers.sentiment_analyzer import (
+            analyze_all_external_reviews,
+            analyze_all_feedbacks,
+        )
+
+        # force=True re-labels ALL rows including previously-neutral Tagalog text
+        r1 = analyze_all_feedbacks(force=True)
+        r2 = analyze_all_external_reviews(force=True)
+        flash(
+            f"Sentiment analysis complete (with Tagalog support): "
+            f"{r1.get('updated', 0)} feedbacks and "
+            f"{r2.get('updated', 0)} external reviews re-labeled.",
+            "success",
+        )
+    except Exception as exc:
+        flash(f"Sentiment analysis error: {exc}", "danger")
+    from services.decision_support_service import invalidate_cache
+
+    invalidate_cache()
+    return redirect(url_for("dashboard.decision_support"))
