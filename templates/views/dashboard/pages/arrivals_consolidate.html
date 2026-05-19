@@ -1,0 +1,256 @@
+{% extends "dashboard-base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_header %}<h1>{{ page_title }}</h1><p>{{ page_description }}</p>{% endblock %}
+
+{% block content %}
+{% set header_actions %}
+<a href="{{ url_for('dashboard.arrivals') }}" class="btn btn-outline-secondary">
+  <i class="bx bx-arrow-back"></i> Back to arrivals
+</a>
+{% endset %}
+{% include "include/dashboard/module_header.html" %}
+
+{# Month picker #}
+<div class="dashboard-card mb-4">
+  <div class="dashboard-card__header">
+    <h3 class="dashboard-card__title mb-0">Select month to compile</h3>
+  </div>
+  <div class="dashboard-card__body p-3">
+    <form method="get" action="{{ url_for('dashboard.arrivals_consolidate') }}" class="row g-2 align-items-end">
+      <div class="col-auto">
+        <label class="form-label small mb-1">Month</label>
+        <select name="month" class="form-select form-select-sm" id="monthSelect">
+          {% for opt in month_options %}
+          <option value="{{ opt.month }}" data-year="{{ opt.year }}"
+            {% if opt.year == year and opt.month == month %}selected{% endif %}>
+            {{ opt.label }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <input type="hidden" name="year" id="yearField" value="{{ year }}" />
+      <div class="col-auto">
+        <button type="submit" class="btn dashboard-btn-primary btn-sm">
+          <i class="bx bx-filter-alt"></i> View
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  document.getElementById('monthSelect').addEventListener('change', function () {
+    document.getElementById('yearField').value = this.options[this.selectedIndex].dataset.year;
+  });
+</script>
+
+{# ── Day tour section ─────────────────────────────────────────────────────── #}
+<div class="dashboard-card mb-4">
+  <div class="dashboard-card__header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <h3 class="dashboard-card__title mb-0">
+        <i class="bx bx-sun me-1 text-warning"></i> Day tour — {{ month_label }}
+      </h3>
+      <p class="text-muted small mb-0">
+        Aggregated from establishment submitted records.
+        {% if day_tour_rows %}{{ day_tour_rows | length }} spot(s) pending submission.
+        {% else %}No pending records — all spots for this month have already been submitted to LTCATO, or no establishment records exist yet.{% endif %}
+      </p>
+    </div>
+    {% if day_tour_rows %}
+    <button type="button" class="btn dashboard-btn-primary btn-sm"
+      data-bs-toggle="modal" data-bs-target="#confirmDayModal">
+      <i class="bx bx-send"></i> Submit day tour to LTCATO
+    </button>
+    {% endif %}
+  </div>
+  {% if day_tour_rows %}
+  <div class="table-responsive">
+    <table class="table dashboard-table mb-0 small">
+      <thead>
+        <tr>
+          <th>Tourist spot</th>
+          <th>Records</th>
+          <th>This city M/F</th>
+          <th>Other city M/F</th>
+          <th>Other prov. M/F</th>
+          <th>Foreign M/F</th>
+          <th>Total visitors</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in day_tour_rows %}
+        <tr>
+          <td>{{ row.spot_name }}{% if row.spot_code %} <span class="text-muted">({{ row.spot_code }})</span>{% endif %}</td>
+          <td class="text-muted">{{ row.report_count }}</td>
+          <td>{{ row.this_city_male }}/{{ row.this_city_female }}</td>
+          <td>{{ row.other_city_male }}/{{ row.other_city_female }}</td>
+          <td>{{ row.other_province_male }}/{{ row.other_province_female }}</td>
+          <td>{{ row.foreign_male }}/{{ row.foreign_female }}</td>
+          <td><strong>{{ row.total_visitors }}</strong></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-light fw-semibold">
+        <tr>
+          <td>Total</td>
+          <td>{{ day_tour_rows | sum(attribute='report_count') }}</td>
+          <td>{{ day_tour_rows | sum(attribute='this_city_male') }}/{{ day_tour_rows | sum(attribute='this_city_female') }}</td>
+          <td>{{ day_tour_rows | sum(attribute='other_city_male') }}/{{ day_tour_rows | sum(attribute='other_city_female') }}</td>
+          <td>{{ day_tour_rows | sum(attribute='other_province_male') }}/{{ day_tour_rows | sum(attribute='other_province_female') }}</td>
+          <td>{{ day_tour_rows | sum(attribute='foreign_male') }}/{{ day_tour_rows | sum(attribute='foreign_female') }}</td>
+          <td><strong>{{ day_tour_rows | sum(attribute='total_visitors') }}</strong></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  {% else %}
+  <div class="p-4 text-center text-muted small">
+    <i class="bx bx-info-circle me-1"></i>
+    No day tour records pending for {{ month_label }}. Either establishments haven't submitted records yet, or all spots have already been compiled and submitted to LTCATO.
+  </div>
+  {% endif %}
+</div>
+
+{# ── Overnight section ────────────────────────────────────────────────────── #}
+<div class="dashboard-card mb-4">
+  <div class="dashboard-card__header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <h3 class="dashboard-card__title mb-0">
+        <i class="bx bx-moon me-1 text-primary"></i> Overnight — {{ month_label }}
+      </h3>
+      <p class="text-muted small mb-0">
+        Aggregated from establishment submitted records.
+        {% if overnight_rows %}{{ overnight_rows | length }} spot(s) pending submission.
+        {% else %}No pending records — all spots for this month have already been submitted to LTCATO, or no establishment records exist yet.{% endif %}
+      </p>
+    </div>
+    {% if overnight_rows %}
+    <button type="button" class="btn dashboard-btn-primary btn-sm"
+      data-bs-toggle="modal" data-bs-target="#confirmNightModal">
+      <i class="bx bx-send"></i> Submit overnight to LTCATO
+    </button>
+    {% endif %}
+  </div>
+  {% if overnight_rows %}
+  <div class="table-responsive">
+    <table class="table dashboard-table mb-0 small">
+      <thead>
+        <tr>
+          <th>Tourist spot</th>
+          <th>Records</th>
+          <th>Night stay</th>
+          <th>This city M/F</th>
+          <th>Other city M/F</th>
+          <th>Other prov. M/F</th>
+          <th>Foreign M/F</th>
+          <th>Total visitors</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in overnight_rows %}
+        <tr>
+          <td>{{ row.spot_name }}{% if row.spot_code %} <span class="text-muted">({{ row.spot_code }})</span>{% endif %}</td>
+          <td class="text-muted">{{ row.report_count }}</td>
+          <td><strong>{{ row.overnight_nights }}</strong></td>
+          <td>{{ row.this_city_male }}/{{ row.this_city_female }}</td>
+          <td>{{ row.other_city_male }}/{{ row.other_city_female }}</td>
+          <td>{{ row.other_province_male }}/{{ row.other_province_female }}</td>
+          <td>{{ row.foreign_male }}/{{ row.foreign_female }}</td>
+          <td><strong>{{ row.total_visitors }}</strong></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-light fw-semibold">
+        <tr>
+          <td>Total</td>
+          <td>{{ overnight_rows | sum(attribute='report_count') }}</td>
+          <td>{{ overnight_rows | sum(attribute='overnight_nights') }}</td>
+          <td>{{ overnight_rows | sum(attribute='this_city_male') }}/{{ overnight_rows | sum(attribute='this_city_female') }}</td>
+          <td>{{ overnight_rows | sum(attribute='other_city_male') }}/{{ overnight_rows | sum(attribute='other_city_female') }}</td>
+          <td>{{ overnight_rows | sum(attribute='other_province_male') }}/{{ overnight_rows | sum(attribute='other_province_female') }}</td>
+          <td>{{ overnight_rows | sum(attribute='foreign_male') }}/{{ overnight_rows | sum(attribute='foreign_female') }}</td>
+          <td><strong>{{ overnight_rows | sum(attribute='total_visitors') }}</strong></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  {% else %}
+  <div class="p-4 text-center text-muted small">
+    <i class="bx bx-info-circle me-1"></i>
+    No overnight records pending for {{ month_label }}. Either establishments haven't submitted records yet, or all spots have already been compiled and submitted to LTCATO.
+  </div>
+  {% endif %}
+</div>
+
+{# ── Confirm submit — Day tour modal ──────────────────────────────────────── #}
+{% if day_tour_rows %}
+<div class="modal fade dashboard-modal" id="confirmDayModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('dashboard.arrivals_consolidate_submit') }}">
+        <input type="hidden" name="year" value="{{ year }}" />
+        <input type="hidden" name="month" value="{{ month }}" />
+        <input type="hidden" name="visitor_category" value="day_tour" />
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bx bx-sun me-1 text-warning"></i> Submit day tour to LTCATO</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2">You are about to submit consolidated <strong>day tour</strong> totals for <strong>{{ month_label }}</strong> to LTCATO.</p>
+          <ul class="small text-muted mb-0">
+            <li>{{ day_tour_rows | length }} tourist spot(s)</li>
+            <li>{{ day_tour_rows | sum(attribute='report_count') }} establishment record(s) included</li>
+            <li>{{ day_tour_rows | sum(attribute='total_visitors') }} total visitors</li>
+          </ul>
+          <p class="small text-muted mt-2 mb-0">This action cannot be undone.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn dashboard-btn-primary">
+            <i class="bx bx-send"></i> Confirm &amp; submit
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ── Confirm submit — Overnight modal ─────────────────────────────────────── #}
+{% if overnight_rows %}
+<div class="modal fade dashboard-modal" id="confirmNightModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('dashboard.arrivals_consolidate_submit') }}">
+        <input type="hidden" name="year" value="{{ year }}" />
+        <input type="hidden" name="month" value="{{ month }}" />
+        <input type="hidden" name="visitor_category" value="overnight" />
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bx bx-moon me-1 text-primary"></i> Submit overnight to LTCATO</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2">You are about to submit consolidated <strong>overnight</strong> totals for <strong>{{ month_label }}</strong> to LTCATO.</p>
+          <ul class="small text-muted mb-0">
+            <li>{{ overnight_rows | length }} tourist spot(s)</li>
+            <li>{{ overnight_rows | sum(attribute='report_count') }} establishment record(s) included</li>
+            <li>{{ overnight_rows | sum(attribute='overnight_nights') }} total night stays</li>
+            <li>{{ overnight_rows | sum(attribute='total_visitors') }} total visitors</li>
+          </ul>
+          <p class="small text-muted mt-2 mb-0">This action cannot be undone.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn dashboard-btn-primary">
+            <i class="bx bx-send"></i> Confirm &amp; submit
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

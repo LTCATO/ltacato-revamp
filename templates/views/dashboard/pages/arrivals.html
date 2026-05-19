@@ -8,13 +8,18 @@
 {% set header_actions %}
 {% if can_submit_day_tour %}
 <button type="button" class="btn dashboard-btn-primary" data-bs-toggle="modal" data-bs-target="#dayTourModal">
-  <i class="bx bx-sun"></i> Day tour report
+  <i class="bx bx-sun"></i> Save day tour record
 </button>
 {% endif %}
 {% if can_submit_overnight %}
 <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#overnightModal">
-  <i class="bx bx-moon"></i> Overnight report
+  <i class="bx bx-moon"></i> Save overnight record
 </button>
+{% endif %}
+{% if user.role == 'lgu_admin' %}
+<a href="{{ url_for('dashboard.arrivals_consolidate') }}" class="btn dashboard-btn-primary">
+  <i class="bx bx-calendar-check"></i> Compile monthly report
+</a>
 {% endif %}
 {% if can_download %}
 <div class="dropdown d-inline-block">
@@ -22,14 +27,9 @@
     <i class="bx bx-download"></i> Download Excel
   </button>
   <ul class="dropdown-menu dropdown-menu-end">
-    <li><h6 class="dropdown-header">Day tour (DTA3) — per LGU, all spots</h6></li>
+    <li><h6 class="dropdown-header">DTA3 — combined arrivals per LGU</h6></li>
     {% for l in lgus %}
-    <li><a class="dropdown-item" href="{{ url_for('dashboard.arrivals_export', category='day_tour', lgu_id=l.id) }}">{{ l.name }}</a></li>
-    {% endfor %}
-    <li><hr class="dropdown-divider" /></li>
-    <li><h6 class="dropdown-header">Overnight (DAE3B) — per LGU</h6></li>
-    {% for l in lgus %}
-    <li><a class="dropdown-item" href="{{ url_for('dashboard.arrivals_export', category='overnight', lgu_id=l.id) }}">{{ l.name }}</a></li>
+    <li><a class="dropdown-item" href="{{ url_for('dashboard.arrivals_export', lgu_id=l.id) }}">{{ l.name }}</a></li>
     {% endfor %}
   </ul>
 </div>
@@ -44,19 +44,235 @@
 </div>
 {% endif %}
 
+{# ── ESTABLISHMENT OWNER VIEW ─────────────────────────────────────────────── #}
+{% if user.role == 'establishment_owner' %}
+
+{# ── Day Tour Drafts ── #}
+{% set day_drafts = draft_records | selectattr('visitor_category', 'equalto', 'day_tour') | list %}
+{% set night_drafts = draft_records | selectattr('visitor_category', 'equalto', 'overnight') | list %}
+{% set day_submitted = submitted_records | selectattr('visitor_category', 'equalto', 'day_tour') | list %}
+{% set night_submitted = submitted_records | selectattr('visitor_category', 'equalto', 'overnight') | list %}
+
+<div class="dashboard-card mb-4">
+  <div class="dashboard-card__header d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+      <h3 class="dashboard-card__title mb-0">
+        <i class="bx bx-sun me-1 text-warning"></i> Day tour — draft records
+        {% if day_drafts %}<span class="badge bg-warning text-dark ms-1">{{ day_drafts | length }}</span>{% endif %}
+      </h3>
+      <p class="text-muted small mb-0">Saved locally — not yet visible to your LGU.</p>
+    </div>
+    {% if day_drafts %}
+    <button type="button" class="btn dashboard-btn-primary btn-sm"
+      data-bs-toggle="modal" data-bs-target="#compileDayModal">
+      <i class="bx bx-send"></i> Compile &amp; submit to LGU
+    </button>
+    {% endif %}
+  </div>
+  <div class="table-responsive">
+    <table class="table dashboard-table mb-0">
+      <thead>
+        <tr>
+          <th>Date logged</th>
+          <th>Spot</th>
+          <th>This city M/F</th>
+          <th>Other city M/F</th>
+          <th>Other prov. M/F</th>
+          <th>Foreign M/F</th>
+          <th>Total visitors</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in day_drafts %}
+        {% set spot = r.tourist_spots or {} %}
+        <tr>
+          <td>{{ r.report_date | format_date }}</td>
+          <td>{{ spot.name or '—' }}{% if spot.code %} <span class="text-muted small">({{ spot.code }})</span>{% endif %}</td>
+          <td>{{ r.this_city_male or 0 }}/{{ r.this_city_female or 0 }}</td>
+          <td>{{ r.other_city_male or 0 }}/{{ r.other_city_female or 0 }}</td>
+          <td>{{ r.other_province_male or 0 }}/{{ r.other_province_female or 0 }}</td>
+          <td>{{ r.foreign_male or 0 }}/{{ r.foreign_female or 0 }}</td>
+          <td><strong>{{ r.total_visitors or 0 }}</strong></td>
+          <td>
+            <form method="post" action="{{ url_for('dashboard.delete_arrival_record', record_id=r.id) }}"
+              onsubmit="return confirm('Delete this draft record?')">
+              <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                <i class="bx bx-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-3">No day tour drafts. Use <strong>Save day tour record</strong> above.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Overnight Drafts ── #}
+<div class="dashboard-card mb-4">
+  <div class="dashboard-card__header d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+      <h3 class="dashboard-card__title mb-0">
+        <i class="bx bx-moon me-1 text-primary"></i> Overnight — draft records
+        {% if night_drafts %}<span class="badge bg-warning text-dark ms-1">{{ night_drafts | length }}</span>{% endif %}
+      </h3>
+      <p class="text-muted small mb-0">Saved locally — not yet visible to your LGU.</p>
+    </div>
+    {% if night_drafts %}
+    <button type="button" class="btn dashboard-btn-primary btn-sm"
+      data-bs-toggle="modal" data-bs-target="#compileNightModal">
+      <i class="bx bx-send"></i> Compile &amp; submit to LGU
+    </button>
+    {% endif %}
+  </div>
+  <div class="table-responsive">
+    <table class="table dashboard-table mb-0">
+      <thead>
+        <tr>
+          <th>Date logged</th>
+          <th>Spot</th>
+          <th>Night stay</th>
+          <th>This city M/F</th>
+          <th>Other city M/F</th>
+          <th>Other prov. M/F</th>
+          <th>Foreign M/F</th>
+          <th>Total</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in night_drafts %}
+        {% set spot = r.tourist_spots or {} %}
+        <tr>
+          <td>{{ r.report_date | format_date }}</td>
+          <td>{{ spot.name or '—' }}{% if spot.code %} <span class="text-muted small">({{ spot.code }})</span>{% endif %}</td>
+          <td><strong>{{ r.overnight_nights or 0 }}</strong></td>
+          <td>{{ r.this_city_male or 0 }}/{{ r.this_city_female or 0 }}</td>
+          <td>{{ r.other_city_male or 0 }}/{{ r.other_city_female or 0 }}</td>
+          <td>{{ r.other_province_male or 0 }}/{{ r.other_province_female or 0 }}</td>
+          <td>{{ r.foreign_male or 0 }}/{{ r.foreign_female or 0 }}</td>
+          <td><strong>{{ (r.this_city_male or 0) + (r.this_city_female or 0) + (r.other_city_male or 0) + (r.other_city_female or 0) + (r.other_province_male or 0) + (r.other_province_female or 0) + (r.foreign_male or 0) + (r.foreign_female or 0) }}</strong></td>
+          <td>
+            <form method="post" action="{{ url_for('dashboard.delete_arrival_record', record_id=r.id) }}"
+              onsubmit="return confirm('Delete this draft record?')">
+              <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                <i class="bx bx-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="text-center text-muted py-3">No overnight drafts. Use <strong>Save overnight record</strong> above.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Day Tour Submitted ── #}
+<div class="dashboard-card mb-4">
+  <div class="dashboard-card__header">
+    <h3 class="dashboard-card__title mb-0">
+      <i class="bx bx-sun me-1 text-warning"></i> Day tour — submitted records
+    </h3>
+    <p class="text-muted small mb-0">Already compiled and submitted to your LGU Tourism Office.</p>
+  </div>
+  <div class="table-responsive">
+    <table class="table dashboard-table mb-0">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Type</th>
+          <th>Spot</th>
+          <th>This city M/F</th>
+          <th>Other city M/F</th>
+          <th>Other prov. M/F</th>
+          <th>Foreign M/F</th>
+          <th>Total visitors</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in day_submitted %}
+        {% set spot = r.tourist_spots or {} %}
+        <tr>
+          <td>{{ r.report_date | format_date }}</td>
+          <td><span class="dashboard-badge dashboard-badge--muted">{{ r.report_type|title }}</span></td>
+          <td>{{ spot.name or '—' }}{% if spot.code %} <span class="text-muted small">({{ spot.code }})</span>{% endif %}</td>
+          <td>{{ r.this_city_male or 0 }}/{{ r.this_city_female or 0 }}</td>
+          <td>{{ r.other_city_male or 0 }}/{{ r.other_city_female or 0 }}</td>
+          <td>{{ r.other_province_male or 0 }}/{{ r.other_province_female or 0 }}</td>
+          <td>{{ r.foreign_male or 0 }}/{{ r.foreign_female or 0 }}</td>
+          <td><strong>{{ r.total_visitors or 0 }}</strong></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-3">No submitted day tour records yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Overnight Submitted ── #}
+<div class="dashboard-card mb-4">
+  <div class="dashboard-card__header">
+    <h3 class="dashboard-card__title mb-0">
+      <i class="bx bx-moon me-1 text-primary"></i> Overnight — submitted records
+    </h3>
+    <p class="text-muted small mb-0">Already compiled and submitted to your LGU Tourism Office.</p>
+  </div>
+  <div class="table-responsive">
+    <table class="table dashboard-table mb-0">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Type</th>
+          <th>Spot</th>
+          <th>Night stay</th>
+          <th>This city M/F</th>
+          <th>Other city M/F</th>
+          <th>Other prov. M/F</th>
+          <th>Foreign M/F</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in night_submitted %}
+        {% set spot = r.tourist_spots or {} %}
+        <tr>
+          <td>{{ r.report_date | format_date }}</td>
+          <td><span class="dashboard-badge dashboard-badge--muted">{{ r.report_type|title }}</span></td>
+          <td>{{ spot.name or '—' }}{% if spot.code %} <span class="text-muted small">({{ spot.code }})</span>{% endif %}</td>
+          <td><strong>{{ r.overnight_nights or 0 }}</strong></td>
+          <td>{{ r.this_city_male or 0 }}/{{ r.this_city_female or 0 }}</td>
+          <td>{{ r.other_city_male or 0 }}/{{ r.other_city_female or 0 }}</td>
+          <td>{{ r.other_province_male or 0 }}/{{ r.other_province_female or 0 }}</td>
+          <td>{{ r.foreign_male or 0 }}/{{ r.foreign_female or 0 }}</td>
+          <td><strong>{{ (r.this_city_male or 0) + (r.this_city_female or 0) + (r.other_city_male or 0) + (r.other_city_female or 0) + (r.other_province_male or 0) + (r.other_province_female or 0) + (r.foreign_male or 0) + (r.foreign_female or 0) }}</strong></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="text-center text-muted py-3">No submitted overnight records yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% else %}
+{# ── LGU / LTCATO / SUPER ADMIN: separated tables ────────────────────────── #}
+{% set lgu_day = reports | selectattr('visitor_category', 'equalto', 'day_tour') | list %}
+{% set lgu_night = reports | selectattr('visitor_category', 'equalto', 'overnight') | list %}
+
+{% if user.role in ('ltcato_staff', 'super_admin') %}
+{# ── LTCATO / Super admin: single combined table ──────────────────────────── #}
 <div class="dashboard-card mb-4">
   <div class="dashboard-card__header">
     <h3 class="dashboard-card__title mb-0">Arrival reports</h3>
     <p class="text-muted small mb-0">
-      {% if user.role == 'establishment_owner' %}
-        Submit daily and weekly counts to your LGU — separate forms for day tour (visitors) and overnight (guest-nights).
-      {% elif user.role == 'lgu_admin' %}
-        Review establishment reports, then submit monthly totals per tourist spot in your LGU.
-      {% elif user.role == 'ltcato_staff' %}
-        Monthly per-spot data from LGUs — view only. Download Excel by municipality (all reported spots).
-      {% else %}
-        Provincial oversight of monthly arrivals from LGUs. Download DTA3 / DAE3B reports — no submission from this role.
-      {% endif %}
+      {% if user.role == 'ltcato_staff' %}Monthly per-spot data from LGUs — view only. Download Excel by municipality.
+      {% else %}Provincial oversight of monthly per-spot arrivals. Download Excel by LGU.{% endif %}
     </p>
   </div>
   <div class="table-responsive">
@@ -67,50 +283,133 @@
           <th>Type</th>
           <th>Category</th>
           <th>Spot</th>
-          {% if user.role != 'establishment_owner' %}<th>LGU</th>{% endif %}
-          <th>Total</th>
-          <th>Breakdown</th>
+          <th>LGU</th>
+          <th>Night stay</th>
+          <th>This city M/F</th>
+          <th>Other city M/F</th>
+          <th>Other prov. M/F</th>
+          <th>Foreign M/F</th>
+          <th>Total visitors</th>
         </tr>
       </thead>
       <tbody>
         {% for r in reports %}
-        {% set spot = r.tourist_spots or {} %}
-        {% set lgu = r.lgus or {} %}
+        {% set spot = r.tourist_spots or {} %}{% set lgu = r.lgus or {} %}
         <tr>
-          <td>{{ r.report_date }}</td>
+          <td>{{ r.report_date | format_date }}</td>
           <td><span class="dashboard-badge dashboard-badge--muted">{{ r.report_type|title }}</span></td>
-          <td><span class="dashboard-badge">{{ r.category_label }}</span></td>
           <td>
-            {% if spot.name %}{{ spot.name }}{% if spot.code %} <span class="text-muted">({{ spot.code }})</span>{% endif %}{% else %}—{% endif %}
-          </td>
-          {% if user.role != 'establishment_owner' %}
-          <td>{{ lgu.name if lgu else '—' }}</td>
-          {% endif %}
-          <td><strong>{{ r.total_visitors or 0 }}{% if r.visitor_category == 'overnight' %} nights{% endif %}</strong></td>
-          <td class="small text-muted">
             {% if r.visitor_category == 'overnight' %}
-              Guest-nights: {{ r.overnight_nights or 0 }} ·
-              Local {{ r.this_city_male or 0 }}/{{ r.this_city_female or 0 }} ·
-              Foreign {{ r.foreign_male or 0 }}/{{ r.foreign_female or 0 }}
+            <span class="dashboard-badge"><i class="bx bx-moon me-1"></i>Overnight</span>
             {% else %}
-              Local M/F {{ r.this_city_male or 0 }}/{{ r.this_city_female or 0 }} ·
-              Other prov. {{ r.other_province_male or 0 }}/{{ r.other_province_female or 0 }} ·
-              Foreign {{ r.foreign_male or 0 }}/{{ r.foreign_female or 0 }}
+            <span class="dashboard-badge"><i class="bx bx-sun me-1"></i>Day tour</span>
+            {% endif %}
+          </td>
+          <td>{{ spot.name or '—' }}{% if spot.code %} <span class="text-muted small">({{ spot.code }})</span>{% endif %}</td>
+          <td>{{ lgu.name if lgu else '—' }}</td>
+          <td class="text-muted">{{ r.overnight_nights or '—' if r.visitor_category == 'overnight' else '—' }}</td>
+          <td>{{ r.this_city_male or 0 }}/{{ r.this_city_female or 0 }}</td>
+          <td>{{ r.other_city_male or 0 }}/{{ r.other_city_female or 0 }}</td>
+          <td>{{ r.other_province_male or 0 }}/{{ r.other_province_female or 0 }}</td>
+          <td>{{ r.foreign_male or 0 }}/{{ r.foreign_female or 0 }}</td>
+          <td>
+            {% if r.visitor_category == 'overnight' %}
+            <strong>{{ (r.this_city_male or 0) + (r.this_city_female or 0) + (r.other_city_male or 0) + (r.other_city_female or 0) + (r.other_province_male or 0) + (r.other_province_female or 0) + (r.foreign_male or 0) + (r.foreign_female or 0) }}</strong>
+            {% else %}
+            <strong>{{ r.total_visitors or 0 }}</strong>
             {% endif %}
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="7" class="text-center text-muted py-4">No arrival reports yet.</td></tr>
+        <tr><td colspan="11" class="text-center text-muted py-4">No arrival reports yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
 
+{% else %}
+{# ── LGU admin: separate day tour and overnight tables ────────────────────── #}
+<div class="dashboard-card mb-4">
+  <div class="dashboard-card__header">
+    <h3 class="dashboard-card__title mb-0"><i class="bx bx-sun me-1 text-warning"></i> Day tour arrivals</h3>
+    <p class="text-muted small mb-0">Submitted records from establishments. Use <strong>Compile Monthly Report</strong> to send totals to LTCATO.</p>
+  </div>
+  <div class="table-responsive">
+    <table class="table dashboard-table mb-0">
+      <thead>
+        <tr>
+          <th>Date</th><th>Type</th><th>Spot</th><th>LGU</th>
+          <th>This city M/F</th><th>Other city M/F</th><th>Other prov. M/F</th><th>Foreign M/F</th>
+          <th>Total visitors</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in lgu_day %}
+        {% set spot = r.tourist_spots or {} %}{% set lgu = r.lgus or {} %}
+        <tr>
+          <td>{{ r.report_date | format_date }}</td>
+          <td><span class="dashboard-badge dashboard-badge--muted">{{ r.report_type|title }}</span></td>
+          <td>{{ spot.name or '—' }}{% if spot.code %} <span class="text-muted small">({{ spot.code }})</span>{% endif %}</td>
+          <td>{{ lgu.name if lgu else '—' }}</td>
+          <td>{{ r.this_city_male or 0 }}/{{ r.this_city_female or 0 }}</td>
+          <td>{{ r.other_city_male or 0 }}/{{ r.other_city_female or 0 }}</td>
+          <td>{{ r.other_province_male or 0 }}/{{ r.other_province_female or 0 }}</td>
+          <td>{{ r.foreign_male or 0 }}/{{ r.foreign_female or 0 }}</td>
+          <td><strong>{{ r.total_visitors or 0 }}</strong></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="text-center text-muted py-4">No day tour records yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="dashboard-card mb-4">
+  <div class="dashboard-card__header">
+    <h3 class="dashboard-card__title mb-0"><i class="bx bx-moon me-1 text-primary"></i> Overnight arrivals</h3>
+    <p class="text-muted small mb-0">Submitted records from establishments. Use <strong>Compile Monthly Report</strong> to send totals to LTCATO.</p>
+  </div>
+  <div class="table-responsive">
+    <table class="table dashboard-table mb-0">
+      <thead>
+        <tr>
+          <th>Date</th><th>Type</th><th>Spot</th><th>LGU</th>
+          <th>Night stay</th><th>This city M/F</th><th>Other city M/F</th><th>Other prov. M/F</th><th>Foreign M/F</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in lgu_night %}
+        {% set spot = r.tourist_spots or {} %}{% set lgu = r.lgus or {} %}
+        <tr>
+          <td>{{ r.report_date | format_date }}</td>
+          <td><span class="dashboard-badge dashboard-badge--muted">{{ r.report_type|title }}</span></td>
+          <td>{{ spot.name or '—' }}{% if spot.code %} <span class="text-muted small">({{ spot.code }})</span>{% endif %}</td>
+          <td>{{ lgu.name if lgu else '—' }}</td>
+          <td><strong>{{ r.overnight_nights or 0 }}</strong></td>
+          <td>{{ r.this_city_male or 0 }}/{{ r.this_city_female or 0 }}</td>
+          <td>{{ r.other_city_male or 0 }}/{{ r.other_city_female or 0 }}</td>
+          <td>{{ r.other_province_male or 0 }}/{{ r.other_province_female or 0 }}</td>
+          <td>{{ r.foreign_male or 0 }}/{{ r.foreign_female or 0 }}</td>
+          <td><strong>{{ (r.this_city_male or 0) + (r.this_city_female or 0) + (r.other_city_male or 0) + (r.other_city_female or 0) + (r.other_province_male or 0) + (r.other_province_female or 0) + (r.foreign_male or 0) + (r.foreign_female or 0) }}</strong></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="10" class="text-center text-muted py-4">No overnight records yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+
+{# ── Macros ───────────────────────────────────────────────────────────────── #}
 {% macro spot_picker_field() %}
-{% if user.role in ('establishment_owner', 'lgu_admin') and spots %}
-<div class="col-md-4">
-  <label class="form-label">Tourist spot</label>
+{% if spots %}
+<div class="col-12">
+  <label class="form-label">Tourist spot / establishment</label>
   <select name="tourist_spot_id" class="form-select" required>
     {% for s in spots %}
     <option value="{{ s.id }}">{{ s.name }}{% if s.code %} ({{ s.code }}){% endif %}</option>
@@ -122,7 +421,7 @@
 
 {% macro lgu_picker_field() %}
 {% if needs_lgu_selection and lgu_picker_list %}
-<div class="col-md-4">
+<div class="col-md-6">
   <label class="form-label">Your LGU</label>
   <select name="lgu_id" class="form-select" required>
     <option value="">Select city/municipality</option>
@@ -134,8 +433,8 @@
 {% endif %}
 {% endmacro %}
 
-{% macro arrival_count_fields(prefix='') %}
-<div class="col-12"><hr class="my-1" /><p class="small text-muted mb-0">Visitor counts by origin and sex (optional for overnight)</p></div>
+{% macro arrival_count_fields() %}
+<div class="col-12"><hr class="my-2" /><p class="small text-muted mb-1">Visitor counts by origin and sex</p></div>
 {% for label, field in [
   ('This city — male', 'this_city_male'), ('This city — female', 'this_city_female'),
   ('Other city — male', 'other_city_male'), ('Other city — female', 'other_city_female'),
@@ -149,6 +448,7 @@
 {% endfor %}
 {% endmacro %}
 
+{# ── Save day tour record modal ───────────────────────────────────────────── #}
 {% if can_submit_day_tour %}
 <div class="modal fade dashboard-modal" id="dayTourModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -157,25 +457,16 @@
         <input type="hidden" name="form_type" value="arrival_report" />
         <input type="hidden" name="visitor_category" value="day_tour" />
         <div class="modal-header">
-          <h5 class="modal-title">
-            {% if user.role == 'lgu_admin' %}Submit monthly day tour to LTCATO{% else %}Day tour arrival report{% endif %}
-          </h5>
+          <h5 class="modal-title"><i class="bx bx-sun me-1"></i> Save day tour record</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
+          <p class="text-muted small mb-3">
+            <i class="bx bx-calendar-check me-1"></i>
+            Record will be saved as a <strong>draft</strong> with today's date.
+            Use <strong>Compile &amp; Submit</strong> when ready to send to your LGU.
+          </p>
           <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label">Report type</label>
-              <select name="report_type" class="form-select" required>
-                {% for t in report_types %}
-                <option value="{{ t }}">{{ t|title }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Report date</label>
-              <input type="date" name="report_date" class="form-control" required />
-            </div>
             {{ lgu_picker_field() }}
             {{ spot_picker_field() }}
             {{ arrival_count_fields() }}
@@ -183,7 +474,9 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn dashboard-btn-primary">Submit day tour</button>
+          <button type="submit" class="btn dashboard-btn-primary">
+            <i class="bx bx-save"></i> Save record
+          </button>
         </div>
       </form>
     </div>
@@ -191,6 +484,7 @@
 </div>
 {% endif %}
 
+{# ── Save overnight record modal ──────────────────────────────────────────── #}
 {% if can_submit_overnight %}
 <div class="modal fade dashboard-modal" id="overnightModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -199,29 +493,20 @@
         <input type="hidden" name="form_type" value="arrival_report" />
         <input type="hidden" name="visitor_category" value="overnight" />
         <div class="modal-header">
-          <h5 class="modal-title">
-            {% if user.role == 'lgu_admin' %}Submit monthly overnight to LTCATO{% else %}Overnight arrival report{% endif %}
-          </h5>
+          <h5 class="modal-title"><i class="bx bx-moon me-1"></i> Save overnight record</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
+          <p class="text-muted small mb-3">
+            <i class="bx bx-calendar-check me-1"></i>
+            Record will be saved as a <strong>draft</strong> with today's date.
+            Use <strong>Compile &amp; Submit</strong> when ready to send to your LGU.
+          </p>
           <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label">Report type</label>
-              <select name="report_type" class="form-select" required>
-                {% for t in report_types %}
-                <option value="{{ t }}">{{ t|title }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Report date</label>
-              <input type="date" name="report_date" class="form-control" required />
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Guest-nights</label>
+            <div class="col-md-6">
+              <label class="form-label">Night stay</label>
               <input type="number" name="overnight_nights" class="form-control" min="1" required />
-              <div class="form-text">Counted by the number of nights stayed.</div>
+              <div class="form-text">Total number of nights the visitor(s) stayed.</div>
             </div>
             {{ lgu_picker_field() }}
             {{ spot_picker_field() }}
@@ -230,11 +515,135 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn dashboard-btn-primary">Submit overnight</button>
+          <button type="submit" class="btn dashboard-btn-primary">
+            <i class="bx bx-save"></i> Save record
+          </button>
         </div>
       </form>
     </div>
   </div>
 </div>
 {% endif %}
+
+{# ── Compile & Submit — Day Tour modal ────────────────────────────────────── #}
+{% if user.role == 'establishment_owner' and day_drafts %}
+<div class="modal fade dashboard-modal" id="compileDayModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('dashboard.compile_arrival_records') }}">
+        <input type="hidden" name="visitor_category" value="day_tour" />
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bx bx-sun me-1"></i> Compile &amp; submit day tour to LGU</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted small mb-3">
+            Select the spot, report type, and date. All day tour drafts saved on that date
+            for the selected spot will be compiled and submitted to your LGU Tourism Office.
+          </p>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Tourist spot</label>
+              <select name="tourist_spot_id" class="form-select" required>
+                {% for s in spots %}
+                <option value="{{ s.id }}">{{ s.name }}{% if s.code %} ({{ s.code }}){% endif %}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Report type</label>
+              <select name="report_type" class="form-select" required>
+                <option value="daily">Daily — records from a single day</option>
+                <option value="weekly">Weekly — records spanning a week</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Date to compile</label>
+              <select name="compile_date" class="form-select" required>
+                {% set seen_dates = [] %}
+                {% for r in day_drafts %}
+                  {% if r.report_date not in seen_dates %}
+                    {% set _ = seen_dates.append(r.report_date) %}
+                    <option value="{{ r.report_date }}">{{ r.report_date | format_date }}</option>
+                  {% endif %}
+                {% endfor %}
+              </select>
+              <div class="form-text">Only drafts saved on this date will be compiled.</div>
+            </div>
+          </div>
+          <p class="text-muted small mt-3 mb-0"><i class="bx bx-info-circle me-1"></i>This action cannot be undone. Submitted records will appear in your LGU's dashboard.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn dashboard-btn-primary">
+            <i class="bx bx-send"></i> Compile &amp; submit
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ── Compile & Submit — Overnight modal ───────────────────────────────────── #}
+{% if user.role == 'establishment_owner' and night_drafts %}
+<div class="modal fade dashboard-modal" id="compileNightModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('dashboard.compile_arrival_records') }}">
+        <input type="hidden" name="visitor_category" value="overnight" />
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bx bx-moon me-1"></i> Compile &amp; submit overnight to LGU</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted small mb-3">
+            Select the spot, report type, and date. All overnight drafts saved on that date
+            for the selected spot will be compiled and submitted to your LGU Tourism Office.
+          </p>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Tourist spot</label>
+              <select name="tourist_spot_id" class="form-select" required>
+                {% for s in spots %}
+                <option value="{{ s.id }}">{{ s.name }}{% if s.code %} ({{ s.code }}){% endif %}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Report type</label>
+              <select name="report_type" class="form-select" required>
+                <option value="daily">Daily — records from a single day</option>
+                <option value="weekly">Weekly — records spanning a week</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Date to compile</label>
+              <select name="compile_date" class="form-select" required>
+                {% set seen_dates = [] %}
+                {% for r in night_drafts %}
+                  {% if r.report_date not in seen_dates %}
+                    {% set _ = seen_dates.append(r.report_date) %}
+                    <option value="{{ r.report_date }}">{{ r.report_date | format_date }}</option>
+                  {% endif %}
+                {% endfor %}
+              </select>
+              <div class="form-text">Only drafts saved on this date will be compiled.</div>
+            </div>
+          </div>
+          <p class="text-muted small mt-3 mb-0"><i class="bx bx-info-circle me-1"></i>This action cannot be undone. Submitted records will appear in your LGU's dashboard.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn dashboard-btn-primary">
+            <i class="bx bx-send"></i> Compile &amp; submit
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% endblock %}
+
