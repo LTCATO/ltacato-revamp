@@ -1,18 +1,24 @@
 """
 Spot & Event Insights Generator
-Analyzes combined internal + online feedback per tourist spot and event,
-detects recurring issue themes, and generates specific actionable suggestions.
-
-AI (Gemini) is NOT called during page load — only template suggestions are used.
-This keeps the page fast (~2s load). AI integration can be added as a background job.
+Combines internal feedback + online reviews per spot/event.
+AI (Gemini) runs only when generating missing cache rows — page load reads DB only.
 """
 
 from __future__ import annotations
 
+import json
+import os
+import re
 from typing import Any
 
 from services.scrapers.sentiment_analyzer import _translate_to_english
 from services.supabase_client import get_supabase
+
+_ICON_BY_COLOR = {
+    "danger": "bx-error-circle",
+    "warning": "bx-info-circle",
+    "info": "bx-bulb",
+}
 
 # ── Spot issue detection map ──────────────────────────────────────────────
 ISSUE_MAP: dict[str, dict] = {
@@ -488,6 +494,186 @@ EVENT_ISSUE_MAP: dict[str, dict] = {
 _PRIORITY_ORDER = {"high": 0, "normal": 1, "low": 2}
 
 
+# ── Cached insights (Supabase generated_insights table) ─────────────────────
+
+
+def _cached_entity_ids(entity_type: str) -> set[Any]:
+    try:
+        rows = (
+            get_supabase()
+            .table("generated_insights")
+            .select("entity_id")
+            .eq("entity_type", entity_type)
+            .execute()
+            .data
+            or []
+        )
+        return {r["entity_id"] for r in rows}
+    except Exception:
+        return set()
+
+
+def _load_cached_insights(entity_type: str) -> list[dict[str, Any]]:
+    try:
+        rows = (
+            get_supabase()
+            .table("generated_insights")
+            .select("payload")
+            .eq("entity_type", entity_type)
+            .execute()
+            .data
+            or []
+        )
+        out: list[dict[str, Any]] = []
+        for row in rows:
+            payload = row.get("payload")
+            if isinstance(payload, dict) and payload:
+                out.append(payload)
+        out.sort(key=lambda x: (-len(x.get("issues") or []), -x.get("negative_pct", 0)))
+        return out
+    except Exception:
+        return []
+
+
+def _save_cached_insight(entity_type: str, entity_id: Any, payload: dict[str, Any]) -> bool:
+    try:
+        eid = int(entity_id) if str(entity_id).isdigit() else entity_id
+        sb = get_supabase()
+        existing = (
+            sb.table("generated_insights")
+            .select("id")
+            .eq("entity_type", entity_type)
+            .eq("entity_id", eid)
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        row = {"entity_type": entity_type, "entity_id": eid, "payload": payload}
+        if existing:
+            sb.table("generated_insights").update({"payload": payload}).eq(
+                "id", existing[0]["id"]
+            ).execute()
+        else:
+            sb.table("generated_insights").insert(row).execute()
+        return True
+    except Exception:
+        return False
+
+
+def _parse_ai_issues(raw: str) -> list[dict[str, Any]] | None:
+    if not raw:
+        return None
+    text = raw.strip()
+    fence = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
+    if fence:
+        text = fence.group(1).strip()
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        match = re.search(r"\[[\s\S]*\]", text)
+        if not match:
+            return None
+        try:
+            data = json.loads(match.group(0))
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(data, list):
+        return None
+    issues: list[dict[str, Any]] = []
+    for item in data[:6]:
+        if not isinstance(item, dict):
+            continue
+        label = (item.get("label") or "").strip()
+        suggestion = (item.get("suggestion") or "").strip()
+        if not label or not suggestion:
+            continue
+        priority = (item.get("priority") or "normal").lower()
+        if priority not in ("high", "normal", "low"):
+            priority = "normal"
+        color = (item.get("color") or "warning").lower()
+        if color not in ("danger", "warning", "info"):
+            color = "warning"
+        icon = (item.get("icon") or _ICON_BY_COLOR.get(color, "bx-bulb")).strip()
+        issues.append(
+            {
+                "label": label,
+                "suggestion": suggestion,
+                "priority": priority,
+                "color": color,
+                "icon": icon,
+            }
+        )
+    return issues or None
+
+
+def _ai_generate_issues(
+    entity_name: str,
+    entity_kind: str,
+    internal_texts: list[str],
+    online_texts: list[str],
+) -> list[dict[str, Any]] | None:
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return None
+    samples: list[str] = []
+    for t in (internal_texts + online_texts)[:12]:
+        t = (t or "").strip()
+        if t and t not in samples:
+            samples.append(t[:400])
+    if not samples:
+        return None
+    internal_block = "\n".join(f"- {t}" for t in internal_texts[:8]) or "(none)"
+    online_block = "\n".join(f"- {t}" for t in online_texts[:8]) or "(none)"
+    prompt = f"""You are a tourism operations analyst for Laguna Province, Philippines.
+Analyze negative visitor feedback for this {entity_kind}: "{entity_name}".
+
+INTERNAL FEEDBACK (submitted on LTCATO spot/event pages):
+{internal_block}
+
+ONLINE REVIEWS (scraped from web/social):
+{online_block}
+
+Return ONLY a JSON array (no markdown prose) of 1–4 distinct issues. Each object:
+{{"label": "short issue title", "suggestion": "specific actionable fix for LGU staff", "priority": "high|normal|low", "color": "danger|warning|info"}}
+
+Base issues only on the feedback above. Be concrete and practical."""
+
+    try:
+        from google import genai as google_genai  # type: ignore
+        from google.genai import types as genai_types  # type: ignore
+
+        client = google_genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model="gemini-3.1-flash-lite",
+            contents=prompt,
+            config=genai_types.GenerateContentConfig(
+                max_output_tokens=1024,
+                temperature=0.4,
+            ),
+        )
+        raw = ""
+        if response and response.candidates:
+            candidate = response.candidates[0]
+            if candidate.content and candidate.content.parts:
+                raw = "".join(
+                    p.text for p in candidate.content.parts if hasattr(p, "text")
+                ).strip()
+        return _parse_ai_issues(raw)
+    except Exception:
+        return None
+
+
+def get_spot_insights() -> list[dict[str, Any]]:
+    """Fast page load: read cached AI insights from database only."""
+    return _load_cached_insights("spot")
+
+
+def get_event_insights() -> list[dict[str, Any]]:
+    """Fast page load: read cached AI insights from database only."""
+    return _load_cached_insights("event")
+
+
 def _detect_issues(texts: list[str], issue_map: dict) -> list[str]:
     """Detect issue categories from feedback texts (translates to English first)."""
     if not texts:
@@ -520,15 +706,11 @@ def _build_issue_card(key: str, issue_map: dict) -> dict:
     }
 
 
-# ── Spot insights ──────────────────────────────────────────────────────────
+# ── Spot insights generation (AI + cache) ─────────────────────────────────
 
 
-def generate_spot_insights() -> list[dict[str, Any]]:
-    """
-    Generate per-spot insights from internal feedbacks + external reviews.
-    Fetches ALL feedbacks grouped by tourist_spot_id regardless of approval status.
-    NOTE: No AI calls — uses template suggestions for speed.
-    """
+def _collect_spot_data() -> dict[Any, dict]:
+    """Aggregate internal + online feedback per tourist spot."""
     spot_data: dict[Any, dict] = {}
 
     # Internal feedbacks
@@ -550,7 +732,8 @@ def generate_spot_insights() -> list[dict[str, Any]]:
                 spot_data[sid] = {
                     "name": spot_info.get("name") or "Unknown Spot",
                     "lgu": (spot_info.get("lgus") or {}).get("name", "—"),
-                    "neg_texts": [],
+                    "internal_neg": [],
+                    "online_neg": [],
                     "all": 0,
                     "neg": 0,
                     "ratings": [],
@@ -563,7 +746,7 @@ def generate_spot_insights() -> list[dict[str, Any]]:
                 filter(None, [row.get("comments"), row.get("suggestions")])
             ).strip()
             if text and (row.get("sentiment") == "negative" or r <= 2):
-                spot_data[sid]["neg_texts"].append(text)
+                spot_data[sid]["internal_neg"].append(text)
                 spot_data[sid]["neg"] += 1
     except Exception:
         pass
@@ -589,7 +772,8 @@ def generate_spot_insights() -> list[dict[str, Any]]:
                 spot_data[sid] = {
                     "name": spot_info.get("name") or "General Review",
                     "lgu": (spot_info.get("lgus") or {}).get("name", "—"),
-                    "neg_texts": [],
+                    "internal_neg": [],
+                    "online_neg": [],
                     "all": 0,
                     "neg": 0,
                     "ratings": [],
@@ -597,52 +781,72 @@ def generate_spot_insights() -> list[dict[str, Any]]:
             spot_data[sid]["all"] += 1
             text = (row.get("review_text") or "").strip()
             if text and row.get("sentiment") == "negative":
-                spot_data[sid]["neg_texts"].append(text)
+                spot_data[sid]["online_neg"].append(text)
                 spot_data[sid]["neg"] += 1
     except Exception:
         pass
+    return spot_data
 
-    insights: list[dict] = []
+
+def run_spot_insights_generation(force: bool = False) -> dict[str, Any]:
+    """
+    AI-generate spot insights from internal + online feedback.
+    Skips spots already stored in generated_insights unless force=True.
+    """
+    cached_ids = set() if force else _cached_entity_ids("spot")
+    spot_data = _collect_spot_data()
+    generated = 0
+    skipped = 0
+    errors: list[str] = []
+
     for sid, data in spot_data.items():
-        if not data["neg_texts"]:
+        if sid in cached_ids:
+            skipped += 1
             continue
-        detected_keys = _detect_issues(data["neg_texts"], ISSUE_MAP)
-        if not detected_keys:
+        internal_neg = data.get("internal_neg") or []
+        online_neg = data.get("online_neg") or []
+        if not internal_neg and not online_neg:
             continue
-        detected_keys.sort(
-            key=lambda k: _PRIORITY_ORDER.get(ISSUE_MAP[k]["priority"], 99)
+
+        issues = _ai_generate_issues(
+            data["name"], "tourist spot", internal_neg, online_neg
         )
+        if not issues:
+            combined = internal_neg + online_neg
+            detected_keys = _detect_issues(combined, ISSUE_MAP)
+            if not detected_keys:
+                continue
+            detected_keys.sort(
+                key=lambda k: _PRIORITY_ORDER.get(ISSUE_MAP[k]["priority"], 99)
+            )
+            issues = [_build_issue_card(k, ISSUE_MAP) for k in detected_keys]
+
         ratings = data["ratings"]
-        insights.append(
-            {
-                "spot_id": sid,
-                "spot_name": data["name"],
-                "lgu_name": data["lgu"],
-                "total_feedback": data["all"],
-                "negative_count": data["neg"],
-                "negative_pct": round(data["neg"] / data["all"] * 100, 1)
-                if data["all"]
-                else 0,
-                "avg_rating": round(sum(ratings) / len(ratings), 1)
-                if ratings
-                else None,
-                "issues": [_build_issue_card(k, ISSUE_MAP) for k in detected_keys],
-            }
-        )
-    insights.sort(key=lambda x: (-len(x["issues"]), -x["negative_pct"]))
-    return insights
+        payload = {
+            "spot_id": sid,
+            "spot_name": data["name"],
+            "lgu_name": data["lgu"],
+            "total_feedback": data["all"],
+            "negative_count": data["neg"],
+            "negative_pct": round(data["neg"] / data["all"] * 100, 1)
+            if data["all"]
+            else 0,
+            "avg_rating": round(sum(ratings) / len(ratings), 1) if ratings else None,
+            "issues": issues,
+        }
+        if _save_cached_insight("spot", sid, payload):
+            generated += 1
+        else:
+            errors.append(f"Could not save insight for spot {data['name']}")
+
+    return {"ok": True, "generated": generated, "skipped": skipped, "errors": errors}
 
 
-# ── Event insights ─────────────────────────────────────────────────────────
+# ── Event insights generation (AI + cache) ────────────────────────────────
 
 
-def generate_event_insights() -> list[dict[str, Any]]:
-    """
-    Generate per-event insights from:
-    1. Internal event_feedbacks (ALL comments with text, not just low ratings)
-    2. External reviews with event_id set (Facebook + online)
-    NOTE: No AI calls — uses template suggestions for speed.
-    """
+def _collect_event_data() -> dict[Any, dict]:
+    """Aggregate internal event feedback + online reviews per event."""
     event_data: dict[Any, dict] = {}
 
     # Internal event_feedbacks — include ALL comments that have text
@@ -666,7 +870,8 @@ def generate_event_insights() -> list[dict[str, Any]]:
                     "title": ev_info.get("title") or f"Event #{eid}",
                     "lgu": (ev_info.get("lgus") or {}).get("name", "—"),
                     "status": ev_info.get("event_status") or "unknown",
-                    "neg_texts": [],
+                    "internal_neg": [],
+                    "online_neg": [],
                     "all": 0,
                     "neg": 0,
                     "ratings": [],
@@ -676,11 +881,9 @@ def generate_event_insights() -> list[dict[str, Any]]:
             if r:
                 event_data[eid]["ratings"].append(r)
             text = (row.get("comment") or "").strip()
-            if text:
-                # Include comment if: low rating (≤3) OR has negative sentiment words
-                if r <= 3:
-                    event_data[eid]["neg_texts"].append(text)
-                    event_data[eid]["neg"] += 1
+            if text and r <= 3:
+                event_data[eid]["internal_neg"].append(text)
+                event_data[eid]["neg"] += 1
     except Exception:
         pass
 
@@ -708,7 +911,8 @@ def generate_event_insights() -> list[dict[str, Any]]:
                     "title": ev_info.get("title") or f"Event #{eid}",
                     "lgu": (ev_info.get("lgus") or {}).get("name", "—"),
                     "status": ev_info.get("event_status") or "unknown",
-                    "neg_texts": [],
+                    "internal_neg": [],
+                    "online_neg": [],
                     "all": 0,
                     "neg": 0,
                     "ratings": [],
@@ -716,40 +920,77 @@ def generate_event_insights() -> list[dict[str, Any]]:
             event_data[eid]["all"] += 1
             text = (row.get("review_text") or "").strip()
             if text and row.get("sentiment") == "negative":
-                event_data[eid]["neg_texts"].append(text)
+                event_data[eid]["online_neg"].append(text)
                 event_data[eid]["neg"] += 1
     except Exception:
         pass
+    return event_data
 
-    insights: list[dict] = []
+
+def run_event_insights_generation(force: bool = False) -> dict[str, Any]:
+    """
+    AI-generate event insights from internal feedback + online coverage.
+    Skips events already in generated_insights unless force=True.
+    """
+    cached_ids = set() if force else _cached_entity_ids("event")
+    event_data = _collect_event_data()
+    generated = 0
+    skipped = 0
+    errors: list[str] = []
+
     for eid, data in event_data.items():
-        if not data["neg_texts"]:
+        if eid in cached_ids:
+            skipped += 1
             continue
-        detected_keys = _detect_issues(data["neg_texts"], EVENT_ISSUE_MAP)
-        if not detected_keys:
+        internal_neg = data.get("internal_neg") or []
+        online_neg = data.get("online_neg") or []
+        if not internal_neg and not online_neg:
             continue
-        detected_keys.sort(
-            key=lambda k: _PRIORITY_ORDER.get(EVENT_ISSUE_MAP[k]["priority"], 99)
+
+        issues = _ai_generate_issues(
+            data["title"], "tourism event", internal_neg, online_neg
         )
+        if not issues:
+            combined = internal_neg + online_neg
+            detected_keys = _detect_issues(combined, EVENT_ISSUE_MAP)
+            if not detected_keys:
+                continue
+            detected_keys.sort(
+                key=lambda k: _PRIORITY_ORDER.get(EVENT_ISSUE_MAP[k]["priority"], 99)
+            )
+            issues = [_build_issue_card(k, EVENT_ISSUE_MAP) for k in detected_keys]
+
         ratings = data["ratings"]
-        insights.append(
-            {
-                "event_id": eid,
-                "event_title": data["title"],
-                "lgu_name": data["lgu"],
-                "event_status": data["status"],
-                "total_feedback": data["all"],
-                "negative_count": data["neg"],
-                "negative_pct": round(data["neg"] / data["all"] * 100, 1)
-                if data["all"]
-                else 0,
-                "avg_rating": round(sum(ratings) / len(ratings), 1)
-                if ratings
-                else None,
-                "issues": [
-                    _build_issue_card(k, EVENT_ISSUE_MAP) for k in detected_keys
-                ],
-            }
-        )
-    insights.sort(key=lambda x: (-len(x["issues"]), -x["negative_pct"]))
-    return insights
+        payload = {
+            "event_id": eid,
+            "event_title": data["title"],
+            "lgu_name": data["lgu"],
+            "event_status": data["status"],
+            "total_feedback": data["all"],
+            "negative_count": data["neg"],
+            "negative_pct": round(data["neg"] / data["all"] * 100, 1)
+            if data["all"]
+            else 0,
+            "avg_rating": round(sum(ratings) / len(ratings), 1) if ratings else None,
+            "issues": issues,
+        }
+        if _save_cached_insight("event", eid, payload):
+            generated += 1
+        else:
+            errors.append(f"Could not save insight for event {data['title']}")
+
+    return {"ok": True, "generated": generated, "skipped": skipped, "errors": errors}
+
+
+def run_insights_generation(force: bool = False) -> dict[str, Any]:
+    """Generate missing spot + event insights (AI with template fallback)."""
+    spot = run_spot_insights_generation(force=force)
+    event = run_event_insights_generation(force=force)
+    return {
+        "ok": True,
+        "generated": spot.get("generated", 0) + event.get("generated", 0),
+        "skipped": spot.get("skipped", 0) + event.get("skipped", 0),
+        "spot": spot,
+        "event": event,
+        "errors": (spot.get("errors") or []) + (event.get("errors") or []),
+    }

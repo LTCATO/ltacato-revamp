@@ -256,8 +256,60 @@ page_header %}
         background: #dcfce7;
         color: #166534;
     }
+
+    .ds-loading-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 2000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(26, 26, 26, 0.45);
+        backdrop-filter: blur(2px);
+    }
+    .ds-loading-overlay[hidden] {
+        display: none !important;
+    }
+    .ds-loading-card {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.5rem 2rem;
+        text-align: center;
+        max-width: 22rem;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    }
+    .ds-loading-card .spinner-border {
+        width: 2.25rem;
+        height: 2.25rem;
+        color: var(--primary);
+    }
+    .ds-loading-card__title {
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin: 0.75rem 0 0.25rem;
+    }
+    .ds-loading-card__hint {
+        font-size: 0.72rem;
+        color: var(--muted-foreground);
+        margin: 0;
+    }
 </style>
-{% endblock %} {% block content %} {% include
+{% endblock %} {% block content %}
+<div
+    id="ds-loading-overlay"
+    class="ds-loading-overlay"
+    hidden
+    aria-live="polite"
+    aria-busy="true"
+>
+    <div class="ds-loading-card">
+        <div class="spinner-border" role="status" aria-hidden="true"></div>
+        <p class="ds-loading-card__title" id="ds-loading-message">Working…</p>
+        <p class="ds-loading-card__hint">Please wait — do not close this tab.</p>
+    </div>
+</div>
+{% include
 "include/dashboard/module_header.html" %} {# ── Weather alert
 ──────────────────────────────────────────────────────── #} {% if
 ds.weather_alert %}
@@ -306,12 +358,17 @@ ds.weather_alert %}
 
 {# ── Spot Insights & Action Items ────────────────────────────────────── #}
 <div class="dashboard-card mb-4" id="spot-insights">
-  <div class="d-flex align-items-center gap-2 mb-3">
+  <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
     <i class="bx bx-target-lock fs-5" style="color:var(--primary)"></i>
     <div>
       <h3 class="dashboard-card__title mb-0">Spot Insights &amp; Action Items</h3>
-      <p class="text-muted small mb-0">Auto-generated from combined internal feedback + online reviews per tourist spot. Each detected issue includes a specific corrective action.</p>
+      <p class="text-muted small mb-0">AI-generated from internal + online feedback per spot. Cached in the database — use Generate Insights only for new data.</p>
     </div>
+    <form method="post" action="{{ url_for('dashboard.generate_insights') }}" class="ds-async-form ms-auto" data-ds-loading="Generating AI insights from feedback…">
+      <button type="submit" class="btn btn-sm dashboard-btn-primary">
+        <i class="bx bx-bulb"></i> Generate Insights
+      </button>
+    </form>
   </div>
   {% if ds.spot_insights %}
   <div class="row g-3">
@@ -351,7 +408,7 @@ ds.weather_alert %}
   <div class="text-center text-muted py-3">
     <i class="bx bx-check-shield fs-1 d-block mb-2"></i>
     <strong>No critical issues detected yet.</strong><br>
-    <span class="small">Insights appear when tourists leave negative feedback on spots. Run <strong>Analyze Sentiment</strong> first to label any unlabeled feedbacks.</span>
+    <span class="small">Run <strong>Analyze Sentiment</strong> on new feedback, then <strong>Generate Insights</strong> (AI). Existing insights are not regenerated.</span>
   </div>
   {% endif %}
 </div>
@@ -362,7 +419,7 @@ ds.weather_alert %}
     <i class="bx bx-calendar-event fs-5" style="color:var(--primary)"></i>
     <div>
       <h3 class="dashboard-card__title mb-0">Event Insights &amp; Action Items</h3>
-      <p class="text-muted small mb-0">AI-generated from event feedback + Facebook posts about your events. Click <strong>Scrape Reviews</strong> in Data Refresh to pull new social media data.</p>
+      <p class="text-muted small mb-0">AI-generated from event feedback + online/social reviews. Use <strong>Generate Insights</strong> after scraping new reviews.</p>
     </div>
   </div>
   {% if ds.event_insights %}
@@ -1258,7 +1315,7 @@ ds.weather_alert %}
             <div class="ds-row">
                 <span class="ds-dot ds-dot--off"></span>
                 <span class="ds-label fw-medium"><i class="bx bx-brain me-1"></i> Sentiment Analysis (TextBlob)</span>
-                <span class="ds-ts">Re-labels all rows (with Tagalog)</span>
+                <span class="ds-ts">Labels only new/unlabeled rows</span>
                 <form method="post" action="{{ url_for('dashboard.run_sentiment_analysis') }}" class="ms-auto">
                     <button type="submit" class="btn btn-sm dashboard-btn-primary py-0 px-2">Run</button>
                 </form>
@@ -1272,9 +1329,9 @@ ds.weather_alert %}
                 <i class="bx bx-info-circle me-1"></i> Sentiment Analysis Info
             </h3>
             <p class="text-muted small mb-2">
-                The <strong>Analyze Sentiment</strong> button re-labels all
-                feedback and reviews using TextBlob with automatic
-                Tagalog/Filipino translation.
+                <strong>Analyze Sentiment</strong> labels only rows that do not
+                have a sentiment yet (existing labels are kept). Uses TextBlob
+                with Tagalog/Filipino translation.
             </p>
             <div class="p-3 rounded" style="background: var(--muted)">
                 <p class="small mb-2">
@@ -1292,9 +1349,9 @@ ds.weather_alert %}
                     automatically
                 </p>
                 <p class="small mb-0">
-                    <i class="bx bx-info-circle text-primary me-1"></i>Click
-                    <strong>Analyze Sentiment</strong> once after adding new
-                    feedbacks to re-label all rows including Tagalog ones.
+                    <i class="bx bx-info-circle text-primary me-1"></i>After new
+                    feedback or reviews, run <strong>Analyze Sentiment</strong>,
+                    then <strong>Generate Insights</strong> for AI action items.
                 </p>
             </div>
             <div style="display: none">
@@ -1682,4 +1739,40 @@ ds.weather_alert %}
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block script %}
+<script>
+(function () {
+  var overlay = document.getElementById("ds-loading-overlay");
+  var msgEl = document.getElementById("ds-loading-message");
+  if (!overlay) return;
+
+  var messages = [
+    ["generate/insights", "Generating AI insights from internal & online feedback…"],
+    ["scrape/reviews", "Scraping online reviews & social media…"],
+    ["analyze/sentiment", "Labeling new feedback (existing sentiments kept)…"],
+    ["scrape/weather", "Refreshing weather data…"],
+    ["scrape/news", "Fetching tourism news…"],
+    ["scrape/trends", "Fetching Google Trends…"],
+  ];
+
+  function messageForForm(form) {
+    if (form.dataset.dsLoading) return form.dataset.dsLoading;
+    var action = form.getAttribute("action") || "";
+    for (var i = 0; i < messages.length; i++) {
+      if (action.indexOf(messages[i][0]) !== -1) return messages[i][1];
+    }
+    return "Processing…";
+  }
+
+  document.querySelectorAll(".content-wrapper form[method='post']").forEach(function (form) {
+    form.addEventListener("submit", function () {
+      if (msgEl) msgEl.textContent = messageForForm(form);
+      overlay.hidden = false;
+      document.body.style.overflow = "hidden";
+    });
+  });
+})();
+</script>
 {% endblock %}

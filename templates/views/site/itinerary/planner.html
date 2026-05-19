@@ -3,245 +3,438 @@
 {% block title %}Itinerary Planner{% endblock %}
 
 {% block style %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+<style>
+  /* Hide the normal footer to maximize app-like feel */
+  footer {
+    display: none !important;
+  }
+
+  /* The full-screen map background */
+  #planner-route-map {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 0;
+  }
+
+  /* Ensure the navbar sits above the map */
+  .navbar {
+    position: relative;
+    z-index: 20;
+  }
+
+  /* Base Panel Styles */
+  .planner-panel {
+    position: fixed;
+    top: 80px;
+    bottom: 0;
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 2px 0 15px rgba(0, 0, 0, 0.15);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+  }
+
+  /* Primary Form Panel */
+  #planner-form-panel {
+    left: 0;
+    width: 380px;
+    z-index: 10;
+  }
+
+  #planner-form-panel.is-closed {
+    transform: translateX(-100%);
+  }
+
+  /* Secondary Results Panel */
+  #planner-results-panel {
+    left: 0;
+    width: 400px;
+    z-index: 9;
+    /* Slides under the form panel when closed */
+    border-left: 1px solid #e0e0e0;
+    transform: translateX(380px);
+  }
+
+  #planner-results-panel.is-closed {
+    transform: translateX(-100%);
+  }
+
+  /* FAB for opening form */
+  .planner-fab {
+    position: fixed;
+    top: 100px;
+    left: 20px;
+    z-index: 9;
+    background: var(--ltcato-primary, #9b2c2c);
+    color: white;
+    border: none;
+    border-radius: 2rem;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+  }
+
+  .planner-fab:hover {
+    transform: scale(1.05);
+  }
+
+  .planner-fab.is-hidden {
+    transform: scale(0.8) translateX(-100px);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .planner-panel-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    background: #f8f9fa;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    /* Prevents header from collapsing */
+  }
+
+  .planner-panel-header h1 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--ltcato-dark);
+  }
+
+  .planner-panel-header p {
+    font-size: 0.85rem;
+    margin: 0;
+    color: var(--ltcato-gray);
+  }
+
+  .planner-panel-content {
+    overflow-y: auto;
+    padding: 1.5rem;
+    flex: 1 1 auto;
+    /* Fixes flexbox scrolling bug */
+    min-height: 0;
+    /* Crucial for flexbox children to shrink below content size */
+  }
+
+  .planner-panel-content::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .planner-panel-content::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+  }
+
+  /* Mobile Adjustments */
+  @media (max-width: 768px) {
+    .planner-panel {
+      top: auto;
+      bottom: 0;
+      left: 0 !important;
+      width: 100% !important;
+      height: 70vh;
+      border-radius: 1.25rem 1.25rem 0 0;
+    }
+
+    #planner-form-panel {
+      transform: translateY(0);
+    }
+
+    #planner-form-panel.is-closed {
+      transform: translateY(100%);
+    }
+
+    #planner-results-panel {
+      z-index: 11;
+      /* Cover the form on mobile */
+      transform: translateY(0);
+    }
+
+    #planner-results-panel.is-closed {
+      transform: translateY(100%);
+    }
+
+    .planner-fab {
+      top: auto;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .planner-fab.is-hidden {
+      transform: translateX(-50%) scale(0.8) translateY(100px);
+    }
+  }
+</style>
 {% endblock %}
 
 {% block content %}
-<section class="page-hero page-hero--planner">
-  <div class="container-xl">
-    <nav class="page-breadcrumb" aria-label="Breadcrumb">
-      <a href="{{ url_for('public.home') }}">Home</a>
-      <i class="ph ph-caret-right"></i>
-      <span>Itinerary planner</span>
-    </nav>
-    <span class="section-eyebrow">Plan your Laguna trip</span>
-    <h1 class="page-hero__title">Build your travel itinerary</h1>
-    <p class="page-hero__lead">
-      Choose verified tourist spots, set your dates and preferences, and get a day-by-day schedule with
-      routes, weather tips, and budget estimates — then save it to your profile.
-    </p>
-  </div>
-</section>
+<!-- The map element goes first so it is rendered in background -->
+<div id="planner-route-map"></div>
 
-<section class="spots-toolbar-section">
-  <div class="container-xl">
-    <form class="spots-filters" method="get" action="{{ url_for('itinerary.planner') }}">
-      <div class="spots-filters__search">
-        <i class="ph ph-magnifying-glass"></i>
-        <input type="search" name="q" value="{{ active_q }}" placeholder="Search spots to add…" aria-label="Search spots" />
+<button id="btn-open-planner" class="planner-fab is-hidden">
+  <i class="ph ph-list-dashes"></i> Open Planner
+</button>
+
+<!-- PRIMARY PANEL (FORM) -->
+<div class="planner-panel" id="planner-form-panel">
+  <div class="planner-panel-header">
+    <div>
+      <h1>Itinerary Planner</h1>
+      <p>Plan your perfect Laguna trip</p>
+    </div>
+    <button id="btn-close-planner"
+      class="btn btn-sm btn-light border rounded-circle p-2 d-flex align-items-center justify-content-center"
+      title="Close Panel">
+      <i class="ph ph-x"></i>
+    </button>
+  </div>
+
+  <div class="planner-panel-content">
+    <form class="spots-filters mb-4" method="get" action="{{ url_for('itinerary.planner') }}">
+      <div class="input-group input-group-sm mb-2">
+        <input type="search" name="q" class="form-control" value="{{ active_q }}" placeholder="Search spots…"
+          aria-label="Search spots" />
+        <button type="submit" class="btn btn-outline-secondary"><i class="ph ph-magnifying-glass"></i></button>
       </div>
-      <select name="category_id" class="spots-filters__select" aria-label="Category">
-        <option value="">All categories</option>
-        {% for cat in categories %}
-        <option value="{{ cat.id }}" {% if active_category == cat.id %}selected{% endif %}>{{ cat.name }}</option>
-        {% endfor %}
-      </select>
-      <select name="lgu_id" class="spots-filters__select" aria-label="LGU">
-        <option value="">All LGUs</option>
-        {% for lgu in lgus %}
-        <option value="{{ lgu.id }}" {% if active_lgu == lgu.id %}selected{% endif %}>{{ lgu.name }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit" class="btn ltcato-btn-pill">Filter spots</button>
-    </form>
-  </div>
-</section>
-
-<section class="planner-section">
-  <div class="container-xl">
-    <div class="row g-4">
-      <div class="col-lg-5">
-        <form class="planner-form" method="post" action="{{ url_for('itinerary.planner') }}" id="planner-form">
-          <input type="hidden" name="action" value="generate" id="planner-action" />
-
-          <h2 class="planner-form__title"><i class="ph ph-note-pencil"></i> Trip details</h2>
-
-          <div class="mb-3">
-            <label class="form-label" for="title">Trip name</label>
-            <input type="text" class="form-control" id="title" name="title" value="{{ form_values.title }}" required maxlength="200" placeholder="e.g. Summer Laguna Heritage Tour" />
-          </div>
-
-          <div class="row g-2 mb-3">
-            <div class="col-6">
-              <label class="form-label" for="start_date">Start date</label>
-              <input type="date" class="form-control" id="start_date" name="start_date" value="{{ form_values.start_date }}" required />
-            </div>
-            <div class="col-6">
-              <label class="form-label" for="end_date">End date</label>
-              <input type="date" class="form-control" id="end_date" name="end_date" value="{{ form_values.end_date }}" required />
-            </div>
-          </div>
-          <p class="small text-muted mb-3" id="trip-duration-hint">Duration is calculated from your dates.</p>
-
-          <div class="mb-3">
-            <label class="form-label" for="starting_point">Starting point</label>
-            <input type="text" class="form-control" id="starting_point" name="starting_point" value="{{ form_values.starting_point }}" placeholder="e.g. Calamba, SLEX exit" />
-          </div>
-
-          <div class="row g-2 mb-3">
-            <div class="col-6">
-              <label class="form-label" for="traveler_count">Travelers</label>
-              <input type="number" class="form-control" id="traveler_count" name="traveler_count" min="1" max="30" value="{{ form_values.traveler_count }}" />
-            </div>
-            <div class="col-6">
-              <label class="form-label" for="total_budget">Total budget (₱)</label>
-              <input type="number" class="form-control" id="total_budget" name="total_budget" min="0" step="100" value="{{ form_values.total_budget }}" placeholder="Optional" />
-            </div>
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label" for="trip_purpose">Trip purpose</label>
-            <select class="form-select" id="trip_purpose" name="trip_purpose">
-              {% for key, label in trip_purposes %}
-              <option value="{{ key }}" {% if form_values.trip_purpose == key %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label" for="pace">Daily pace</label>
-            <select class="form-select" id="pace" name="pace">
-              {% for key, label in pace_options %}
-              <option value="{{ key }}" {% if form_values.pace == key %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label" for="route_style">Route style</label>
-            <select class="form-select" id="route_style" name="route_style">
-              {% for key, label in route_styles %}
-              <option value="{{ key }}" {% if form_values.route_style == key %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label">Interest categories (optional)</label>
-            <div class="planner-categories">
-              {% for cat in categories %}
-              <label class="planner-category-chip">
-                <input type="checkbox" name="category_ids" value="{{ cat.id }}" />
-                <span>{{ cat.name }}</span>
-              </label>
-              {% endfor %}
-            </div>
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label" for="notes">Notes</label>
-            <textarea class="form-control" id="notes" name="notes" rows="2" placeholder="Dietary needs, mobility, must-see towns…">{{ form_values.notes }}</textarea>
-          </div>
-
-          <hr class="my-4" />
-          <h3 class="h6 planner-form__title"><i class="ph ph-map-pin"></i> Choose spots ({{ spots|length }} shown)</h3>
-          <p class="small text-muted">Select destinations and set priority for each.</p>
-
-          <div class="planner-spot-picker mb-3">
-            {% for spot in spots %}
-            {% set img = spot.main_image_url | normalize_image_url %}
-            {% set checked = spot.id in selected_spot_ids %}
-            <div class="mb-2">
-              <label class="planner-spot-option d-block">
-                <input type="checkbox" name="spot_ids" value="{{ spot.id }}" class="spot-checkbox" data-name="{{ spot.name }}" {% if checked %}checked{% endif %} />
-                <span class="planner-spot-option__card">
-                  {% if img %}
-                  <img src="{{ img }}" alt="" class="planner-spot-option__img" loading="lazy" />
-                  {% else %}
-                  <span class="planner-spot-option__img planner-spot-option__img--empty"><i class="ph ph-image"></i></span>
-                  {% endif %}
-                  <span class="planner-spot-option__text">
-                    <strong>{{ spot.name }}</strong>
-                    <small>{{ spot|spot_lgu_name }}{% if spot.rating %} · ★ {{ spot.rating }}{% endif %}</small>
-                  </span>
-                </span>
-              </label>
-              <select name="priority_{{ spot.id }}" class="form-select form-select-sm ms-4" style="max-width: 14rem" aria-label="Priority for {{ spot.name }}">
-                {% for pkey, plabel in priority_options %}
-                <option value="{{ pkey }}">{{ plabel }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            {% else %}
-            <p class="small text-muted">No spots match your filters.</p>
+      <div class="row g-2">
+        <div class="col-6">
+          <select name="category_id" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="">All categories</option>
+            {% for cat in categories %}
+            <option value="{{ cat.id }}" {% if active_category==cat.id %}selected{% endif %}>{{ cat.name }}</option>
             {% endfor %}
-          </div>
-
-          <div class="planner-selected-summary mb-3" id="selected-spots-summary">
-            <span class="text-muted small">Selected spots will appear here.</span>
-          </div>
-
-          <div class="planner-actions d-grid gap-2">
-            <button type="submit" class="btn ltcato-btn-pill">
-              <i class="ph ph-magic-wand"></i> Generate itinerary
-            </button>
-          </div>
-        </form>
-
-        {% if plan and plan.ok %}
-        <div class="mt-3">
-          {% if current_tourist %}
-          <form method="post" action="{{ url_for('itinerary.planner') }}" id="planner-save-form">
-            <input type="hidden" name="action" value="save" />
-            <textarea name="plan_json" class="d-none">{{ plan_json }}</textarea>
-            <button type="submit" class="btn ltcato-btn-outline-lg w-100">
-              <i class="ph ph-floppy-disk"></i> Save to my trips
-            </button>
-          </form>
-          {% else %}
-          <a href="{{ url_for('auth.login', next=url_for('itinerary.planner')) }}" class="btn ltcato-btn-outline-lg w-100">
-            <i class="ph ph-sign-in"></i> Sign in to save itinerary
-          </a>
-          {% endif %}
+          </select>
         </div>
-        {% endif %}
+        <div class="col-6">
+          <select name="lgu_id" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="">All towns</option>
+            {% for lgu in lgus %}
+            <option value="{{ lgu.id }}" {% if active_lgu==lgu.id %}selected{% endif %}>{{ lgu.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </form>
+
+    <form class="planner-form" method="post" action="{{ url_for('itinerary.planner') }}" id="planner-form">
+      <input type="hidden" name="action" value="generate" id="planner-action" />
+
+      <h2 class="h6 planner-form__title"><i class="ph ph-note-pencil"></i> Trip details</h2>
+
+      <div class="mb-3">
+        <label class="form-label small" for="title">Trip name</label>
+        <input type="text" class="form-control form-control-sm" id="title" name="title" value="{{ form_values.title }}"
+          required maxlength="200" placeholder="e.g. Summer Laguna Heritage Tour" />
       </div>
 
-      <div class="col-lg-7">
-        {% if plan and plan.ok %}
-        <ul class="nav nav-pills planner-tabs mb-3" role="tablist">
-          <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-schedule" type="button">Schedule</button></li>
-          <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-budget" type="button">Budget</button></li>
-        </ul>
-        <div class="tab-content planner-tab-content">
-          <div class="tab-pane fade show active" id="tab-schedule">
-            {% include "views/site/itinerary/_plan_preview.html" %}
-          </div>
-          <div class="tab-pane fade" id="tab-budget">
-            <div class="planner-form">
-              <h3 class="planner-form__title h6"><i class="ph ph-chart-pie"></i> Budget overview</h3>
-              <ul class="planner-passport-facts">
-                <li><i class="ph ph-wallet"></i> Estimated activities: <strong>₱{{ '%.0f'|format(plan.estimated_expense or 0) }}</strong></li>
-                {% if plan.total_budget %}
-                <li><i class="ph ph-scales"></i> Your budget: <strong>₱{{ '%.0f'|format(plan.total_budget) }}</strong></li>
-                <li><i class="ph ph-trend-up"></i> Remaining (est.): <strong>₱{{ '%.0f'|format(plan.budget_remaining or 0) }}</strong></li>
-                {% endif %}
-                <li><i class="ph ph-currency-circle-dollar"></i> Currency: {{ plan.currency or 'PHP' }}</li>
-              </ul>
-              <p class="small text-muted mt-3">Entrance fees are parsed from spot listings; food and transport are estimates only.</p>
-            </div>
-          </div>
+      <div class="row g-2 mb-3">
+        <div class="col-6">
+          <label class="form-label small" for="start_date">Start date</label>
+          <input type="date" class="form-control form-control-sm" id="start_date" name="start_date"
+            value="{{ form_values.start_date }}" required />
+        </div>
+        <div class="col-6">
+          <label class="form-label small" for="end_date">End date</label>
+          <input type="date" class="form-control form-control-sm" id="end_date" name="end_date"
+            value="{{ form_values.end_date }}" required />
+        </div>
+      </div>
+
+      <div class="row g-2 mb-3">
+        <div class="col-6">
+          <label class="form-label small" for="departure_time">Daily Start Time</label>
+          <input type="time" class="form-control form-control-sm" id="departure_time" name="departure_time"
+            value="{{ form_values.departure_time }}" required />
+        </div>
+        <div class="col-6">
+          <label class="form-label small" for="return_time">Daily End Time</label>
+          <input type="time" class="form-control form-control-sm" id="return_time" name="return_time"
+            value="{{ form_values.return_time }}" required />
+        </div>
+      </div>
+
+      <p class="small text-muted mb-3" id="trip-duration-hint">Duration is calculated from your dates.</p>
+
+      <div class="mb-3">
+        <label class="form-label small" for="starting_point">Starting point</label>
+        <div class="input-group input-group-sm">
+          <input type="text" class="form-control" id="starting_point" name="starting_point"
+            value="{{ form_values.starting_point }}" placeholder="e.g. Calamba, SLEX exit" />
+          <button class="btn btn-outline-secondary" type="button" id="btn-use-gps" title="Use Current Location">
+            <i class="ph ph-crosshair"></i> GPS
+          </button>
+        </div>
+        <input type="hidden" id="starting_lat" name="starting_lat" value="{{ form_values.starting_lat }}" />
+        <input type="hidden" id="starting_lng" name="starting_lng" value="{{ form_values.starting_lng }}" />
+      </div>
+
+      <div class="row g-2 mb-3">
+        <div class="col-6">
+          <label class="form-label small" for="traveler_count">Travelers</label>
+          <input type="number" class="form-control form-control-sm" id="traveler_count" name="traveler_count" min="1"
+            max="30" value="{{ form_values.traveler_count }}" />
+        </div>
+        <div class="col-6">
+          <label class="form-label small" for="total_budget">Budget (₱)</label>
+          <input type="number" class="form-control form-control-sm" id="total_budget" name="total_budget" min="0"
+            step="100" value="{{ form_values.total_budget }}" placeholder="Optional" />
+        </div>
+      </div>
+
+      <div class="row g-2 mb-3">
+        <div class="col-6">
+          <label class="form-label small" for="trip_purpose">Purpose</label>
+          <select class="form-select form-select-sm" id="trip_purpose" name="trip_purpose">
+            {% for key, label in trip_purposes %}
+            <option value="{{ key }}" {% if form_values.trip_purpose==key %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label small" for="pace">Daily pace</label>
+          <select class="form-select form-select-sm" id="pace" name="pace">
+            {% for key, label in pace_options %}
+            <option value="{{ key }}" {% if form_values.pace==key %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <hr class="my-4" />
+      <h3 class="h6 planner-form__title"><i class="ph ph-map-pin"></i> Choose spots ({{ spots|length }} shown)</h3>
+      <p class="small text-muted">Select destinations and set priority for each.</p>
+
+      <div class="planner-spot-picker mb-3">
+        {% for spot in spots %}
+        {% set img = spot.main_image_url | normalize_image_url %}
+        {% set checked = spot.id in selected_spot_ids %}
+        <div class="mb-2">
+          <label class="planner-spot-option d-block">
+            <input type="checkbox" name="spot_ids" value="{{ spot.id }}" class="spot-checkbox"
+              data-name="{{ spot.name }}" data-lat="{{ spot.latitude }}" data-lng="{{ spot.longitude }}" {% if checked
+              %}checked{% endif %} />
+            <span class="planner-spot-option__card">
+              {% if img %}
+              <img src="{{ img }}" alt="" class="planner-spot-option__img" loading="lazy" />
+              {% else %}
+              <span class="planner-spot-option__img planner-spot-option__img--empty"><i class="ph ph-image"></i></span>
+              {% endif %}
+              <span class="planner-spot-option__text">
+                <strong>{{ spot.name }}</strong>
+                <small>{{ spot|spot_lgu_name }}{% if spot.rating %} · ★ {{ spot.rating }}{% endif %}</small>
+              </span>
+            </span>
+          </label>
         </div>
         {% else %}
-        <div class="planner-empty">
-          <i class="ph ph-calendar-dots"></i>
-          <h3>Your itinerary preview</h3>
-          <p class="text-muted">Fill in trip details, select tourist spots, and click <strong>Generate itinerary</strong> to see your day-by-day plan.</p>
-          {% if not current_tourist %}
-          <p class="small"><a href="{{ url_for('auth.register') }}">Create a free tourist account</a> to save trips and collect Laguna passport stamps.</p>
-          {% endif %}
-        </div>
-        {% endif %}
+        <p class="small text-muted">No spots match your filters.</p>
+        {% endfor %}
       </div>
+
+      <div class="planner-selected-summary mb-3" id="selected-spots-summary">
+        <span class="text-muted small">Selected spots will appear here.</span>
+      </div>
+
+      <div id="nearby-suggestions-container" class="mb-3 d-none">
+        <h4 class="h6 planner-form__title text-primary"><i class="ph ph-compass"></i> Suggested Nearby (< 5km)</h4>
+        <div id="nearby-suggestions-list" class="d-flex flex-wrap gap-2"></div>
+      </div>
+
+      <div class="planner-actions d-grid gap-2">
+        {% if plan and plan.ok %}
+        <button type="button" class="btn btn-outline-primary mb-2" id="btn-reopen-results">
+          <i class="ph ph-eye"></i> View Generated Itinerary
+        </button>
+        {% endif %}
+        <button type="submit" class="btn ltcato-btn-pill">
+          <i class="ph ph-magic-wand"></i> Generate itinerary
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- SECONDARY PANEL (RESULTS) -->
+<div class="planner-panel {% if not plan or not plan.ok %}is-closed{% endif %}" id="planner-results-panel">
+  <div class="planner-panel-header bg-white">
+    <div class="d-flex align-items-center gap-2">
+      <button id="btn-close-results"
+        class="btn btn-sm btn-light border p-2 d-flex align-items-center justify-content-center" title="Back to Form">
+        <i class="ph ph-arrow-left"></i>
+      </button>
+      <h2 class="h6 mb-0 fw-bold">Generated Itinerary</h2>
     </div>
   </div>
-</section>
+
+  <div class="planner-panel-content">
+    {% if plan and plan.ok %}
+    <ul class="nav nav-pills planner-tabs mb-3 nav-justified" role="tablist">
+      <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-schedule"
+          type="button">Schedule</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-budget"
+          type="button">Budget</button></li>
+    </ul>
+
+    <div class="tab-content planner-tab-content">
+      <div class="tab-pane fade show active" id="tab-schedule">
+        {% include "views/site/itinerary/_plan_preview.html" %}
+      </div>
+      <div class="tab-pane fade" id="tab-budget">
+        <div class="planner-form">
+          <h3 class="planner-form__title h6"><i class="ph ph-chart-pie"></i> Budget overview</h3>
+          <ul class="planner-passport-facts">
+            <li><i class="ph ph-wallet"></i> Estimated activities: <strong>₱{{ '%.0f'|format(plan.estimated_expense or
+                0) }}</strong></li>
+            {% if plan.total_budget %}
+            <li><i class="ph ph-scales"></i> Your budget: <strong>₱{{ '%.0f'|format(plan.total_budget) }}</strong></li>
+            <li><i class="ph ph-trend-up"></i> Remaining (est.): <strong>₱{{ '%.0f'|format(plan.budget_remaining or 0)
+                }}</strong></li>
+            {% endif %}
+            <li><i class="ph ph-currency-circle-dollar"></i> Currency: {{ plan.currency or 'PHP' }}</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-4 d-grid gap-2">
+      {% if current_tourist %}
+      <form method="post" action="{{ url_for('itinerary.planner') }}" id="planner-save-form">
+        <input type="hidden" name="action" value="save" />
+        <textarea name="plan_json" class="d-none">{{ plan_json }}</textarea>
+        <button type="submit" class="btn ltcato-btn-pill w-100">
+          <i class="ph ph-floppy-disk"></i> Save to my trips
+        </button>
+      </form>
+      {% else %}
+      <a href="{{ url_for('auth.login', next=url_for('itinerary.planner')) }}" class="btn ltcato-btn-pill w-100">
+        <i class="ph ph-sign-in"></i> Sign in to save
+      </a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
 {% endblock %}
 
 {% block script %}
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<!-- Load Mapbox -->
+<script src='https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js'></script>
+<link href='https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css' rel='stylesheet' />
 <script>
+  window.MAPBOX_TOKEN = "{{ map_api_key }}";
   window.LTCATO_PLANNER_MAP = {{ map_points | tojson }};
+  window.LTCATO_ALL_SPOTS = {{ all_spots_json | default('[]') | tojson }};
+  window.HAS_PLAN = {{ 'true' if (plan and plan.ok) else 'false' }};
 </script>
 <script src="{{ url_for('static', filename='js/planner.js') }}"></script>
 {% endblock %}

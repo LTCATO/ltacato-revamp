@@ -122,6 +122,27 @@ def list_event_exhibitors(event_id: int) -> list[dict[str, Any]]:
         return []
 
 
+def _filter_active_public_events(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep upcoming/ongoing events, ordered soonest first."""
+    active = [e for e in rows if _compute_event_status(e) in ("upcoming", "ongoing")]
+    active.sort(key=lambda e: (e.get("start_date") or "9999-12-31"))
+    return active
+
+
+def list_home_events(limit: int = 3) -> list[dict[str, Any]]:
+    """Enriched upcoming/ongoing events for the home page."""
+    raw = list_events(public_approved_only=True, limit=100)
+    active = _filter_active_public_events(raw)
+    return [enrich_event_for_display(e) for e in active[:limit]]
+
+
+def list_lgu_public_events(lgu_id: int, limit: int = 4) -> list[dict[str, Any]]:
+    """Enriched upcoming/ongoing events for an LGU detail page."""
+    raw = list_events(lgu_id=lgu_id, public_approved_only=True, limit=50)
+    active = _filter_active_public_events(raw)
+    return [enrich_event_for_display(e) for e in active[:limit]]
+
+
 def list_events_public(
     *,
     lgu_id: int | None = None,
@@ -133,9 +154,10 @@ def list_events_public(
         lgu_id=lgu_id,
         public_approved_only=True,
         limit=200,
-        event_status=status,
         category=category,
     )
+    if status:
+        events = [e for e in events if _compute_event_status(e) == status]
     if not q:
         return events
     term = q.strip().lower()
@@ -160,7 +182,8 @@ def get_event_lgu_name(event: dict[str, Any]) -> str:
 
 def _compute_event_status(event: dict[str, Any]) -> str:
     explicit = (event.get("event_status") or "").lower()
-    if explicit in EVENT_STATUSES:
+    # Published lifecycle statuses are authoritative; draft/missing uses dates.
+    if explicit in ("upcoming", "ongoing", "finished"):
         return explicit
     today = date.today()
     start_raw = event.get("start_date")

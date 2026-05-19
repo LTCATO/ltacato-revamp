@@ -2,7 +2,9 @@ import logging
 
 from flask import Blueprint, abort, render_template, request
 
+from services.events import list_lgu_public_events
 from services.lgus import get_lgu, get_lgu_spots, get_related_lgus, list_lgus
+from utils.jinja_helpers import normalize_image_url
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +59,15 @@ def lgu_detail(lgu_id: int):
     try:
         spots = get_lgu_spots(lgu_id)
         related = get_related_lgus(municipality)
+        events = list_lgu_public_events(lgu_id, limit=4)
     except Exception:
         spots = []
         related = []
+        events = []
+
+    for event in events:
+        img = normalize_image_url(event.get("image"))
+        event["image"] = img or event.get("image")
 
     lat = municipality.get("latitude")
     lng = municipality.get("longitude")
@@ -71,6 +79,7 @@ def lgu_detail(lgu_id: int):
         "views/site/lgu/detail.html",
         municipality=municipality,
         spots=spots,
+        events=events,
         related=related,
         spot_count=len(spots),
         maps_url=maps_url,

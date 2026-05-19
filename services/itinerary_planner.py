@@ -144,6 +144,10 @@ def generate_plan(
     start_date: date,
     end_date: date,
     starting_point: str = "",
+    starting_lat: float | None = None,
+    starting_lng: float | None = None,
+    departure_time: str = "08:00",
+    return_time: str = "18:00",
     traveler_count: int = 1,
     trip_purpose: str = "vacation",
     total_budget: float | None = None,
@@ -180,6 +184,11 @@ def generate_plan(
 
     coords_list: list[tuple[float, float]] = []
     valid_spots: list[dict[str, Any]] = []
+    
+    # If starting coordinates are provided, consider it the first coordinate for routing
+    if starting_lat is not None and starting_lng is not None:
+        coords_list.append((starting_lat, starting_lng))
+    
     for spot in ordered_pool:
         c = _spot_coords(spot)
         if c:
@@ -191,14 +200,37 @@ def generate_plan(
     matrix: list[list[int]] = []
     if len(coords_list) >= 2:
         matrix = travel_matrix_minutes(coords_list)
-        coord_index = {id(s): i for i, s in enumerate(valid_spots) if _spot_coords(s)}
-        indexed = [(i, s) for i, s in enumerate(valid_spots) if _spot_coords(s)]
+        
+        # We need to map spots to matrix indices. 
+        # If we added starting_lat/lng, matrix index 0 is the start point, spot 0 is matrix index 1.
+        offset = 1 if (starting_lat is not None and starting_lng is not None) else 0
+        
+        indexed = [(i + offset, s) for i, s in enumerate(valid_spots) if _spot_coords(s)]
         if route_style == "scenic":
             routed = _order_spots_scenic(valid_spots)
         elif indexed:
             sub_spots = [s for _, s in indexed]
-            sub_matrix = travel_matrix_minutes([_spot_coords(s) for s in sub_spots if _spot_coords(s)])
-            sub_ordered = _order_spots_nearest_neighbor(sub_spots, sub_matrix)
+            
+            # Use nearest neighbor starting from index 0 if offset exists
+            # For simplicity, we just use the existing algorithm on the subset
+            # travel_matrix_minutes takes coords, let's just use it directly
+            # Actually, to properly route from the starting point, we would need to include the start point in the algorithm.
+            # But since `_order_spots_nearest_neighbor` starts at index 0, if `coords_list[0]` is the start point, it naturally works!
+            
+            # Let's extract the sub-matrix corresponding to valid_spots + start_point if it exists
+            # Actually, _order_spots_nearest_neighbor expects a list of spots and a matrix of matching size.
+            # To handle the start point without it being a "spot", we can create a dummy spot.
+            if offset == 1:
+                dummy_spot = {"id": "START", "name": "Start", "latitude": starting_lat, "longitude": starting_lng}
+                spots_for_routing = [dummy_spot] + sub_spots
+                sub_matrix = travel_matrix_minutes([_spot_coords(s) for s in spots_for_routing if _spot_coords(s)])
+                sub_ordered_with_start = _order_spots_nearest_neighbor(spots_for_routing, sub_matrix)
+                # Remove dummy spot
+                sub_ordered = [s for s in sub_ordered_with_start if s.get("id") != "START"]
+            else:
+                sub_matrix = travel_matrix_minutes([_spot_coords(s) for s in sub_spots if _spot_coords(s)])
+                sub_ordered = _order_spots_nearest_neighbor(sub_spots, sub_matrix)
+                
             no_coord = [s for s in valid_spots if not _spot_coords(s)]
             routed = sub_ordered + no_coord
         else:
@@ -233,7 +265,32 @@ def generate_plan(
         forecast = weather.get("daily", {}).get(day_key)
         stops: list[dict[str, Any]] = []
 
+        try:
+            dh, dm = map(int, departure_time.split(":"))
+        except ValueError:
+            dh, dm = 8, 0
+        current_time_mins = dh * 60 + dm
+        added_lunch = False
+
         for spot in day_spots:
+            # Inject lunch if time crosses noon or it's the second stop
+            if not added_lunch and current_time_mins >= 11 * 60 + 30:
+                lunch_time_str = f"{current_time_mins // 60:02d}:{current_time_mins % 60:02d}"
+                stops.append({
+                    "tourist_spot_id": None,
+                    "type": "dining",
+                    "name": "Local Dining Suggestion",
+                    "description": f"Take a break and enjoy some local Laguna cuisine near {stops[-1]['lgu_name'] if stops else 'your current location'}.",
+                    "lgu_name": stops[-1]['lgu_name'] if stops else "",
+                    "activity_date": day_key,
+                    "activity_time": lunch_time_str,
+                    "estimated_cost": 300 * max(1, traveler_count),
+                    "notes": "Try finding a local eatery or ask locals for the best buko pie or special dishes."
+                })
+                total_estimated += 300 * max(1, traveler_count)
+                current_time_mins += 90 # 1.5 hours for lunch
+                added_lunch = True
+
             time_slot = slots[slot_idx % len(slots)]
             slot_idx += 1
             priority = spot_priorities.get(spot["id"], "must_visit")
@@ -255,9 +312,13 @@ def generate_plan(
 
             lgu = spot.get("lgus") or {}
             cat = spot.get("attraction_categories") or {}
+            
+            activity_time_str = f"{current_time_mins // 60:02d}:{current_time_mins % 60:02d}"
+            
             stops.append(
                 {
                     "tourist_spot_id": spot["id"],
+                    "type": "spot",
                     "name": spot.get("name"),
                     "description": (spot.get("hook_text") or spot.get("description") or "")[:280],
                     "main_image_url": spot.get("main_image_url"),
@@ -273,7 +334,7 @@ def generate_plan(
                     "reviews_count": spot.get("reviews_count"),
                     "day_number": day_num,
                     "activity_date": day_key,
-                    "activity_time": SLOT_TIMES.get(time_slot, "09:00"),
+                    "activity_time": activity_time_str,
                     "time_slot": time_slot,
                     "priority": priority,
                     "estimated_cost": cost,
@@ -282,6 +343,41 @@ def generate_plan(
                     "notes": "",
                 }
             )
+            
+            # Add stop duration and travel time for the next spot
+            current_time_mins += 120 + travel_minutes
+            
+        # Ensure lunch is added even if few stops
+        if not added_lunch and current_time_mins < 15 * 60:
+            lunch_time_str = "12:30"
+            stops.append({
+                "tourist_spot_id": None,
+                "type": "dining",
+                "name": "Local Dining Suggestion",
+                "description": f"Take a break and enjoy some local Laguna cuisine near {stops[-1]['lgu_name'] if stops else 'your current location'}.",
+                "lgu_name": stops[-1]['lgu_name'] if stops else "",
+                "activity_date": day_key,
+                "activity_time": lunch_time_str,
+                "estimated_cost": 300 * max(1, traveler_count),
+                "notes": "Try finding a local eatery or ask locals for the best buko pie or special dishes."
+            })
+            total_estimated += 300 * max(1, traveler_count)
+            # Sort stops by activity_time so lunch appears in correct order if appended at end
+            stops.sort(key=lambda s: s.get("activity_time", "00:00"))
+
+        if duration_days >= 2 and day_num < duration_days:
+            stops.append({
+                "tourist_spot_id": None,
+                "type": "accommodation",
+                "name": "Accommodation / Rest",
+                "description": f"Time to rest and recharge for tomorrow! We recommend finding a place to stay near {stops[-1]['lgu_name'] if stops else 'Laguna'}.",
+                "lgu_name": stops[-1]['lgu_name'] if stops else "",
+                "activity_date": day_key,
+                "activity_time": return_time,
+                "estimated_cost": 2000,
+                "notes": "Consider booking a local resort, inn, or homestay to experience Laguna hospitality."
+            })
+            total_estimated += 2000
 
         days_out.append(
             {

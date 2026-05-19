@@ -9,8 +9,8 @@ import time as _time
 from typing import Any
 
 from services.scrapers.insights_generator import (
-    generate_event_insights,
-    generate_spot_insights,
+    get_event_insights,
+    get_spot_insights,
 )
 from services.scrapers.news_scraper import get_latest_news
 from services.scrapers.reviews_scraper import (
@@ -48,8 +48,8 @@ def _build_data(lgu_id: int | None = None) -> dict[str, Any]:
     fb_sentiment = get_feedback_sentiment_summary(lgu_id)
     ext_sentiment = get_external_review_sentiment_summary()
 
-    spot_insights = generate_spot_insights()
-    event_insights = generate_event_insights()
+    spot_insights = get_spot_insights()
+    event_insights = get_event_insights()
 
     weather_alert = get_weather_alert(weather)
 
