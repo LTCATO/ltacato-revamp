@@ -767,7 +767,10 @@ def _collect_spot_data() -> dict[Any, dict]:
             pass
         for row in q.execute().data or []:
             spot_info = row.get("tourist_spots") or {}
-            sid = row.get("tourist_spot_id") or "general"
+            sid = row.get("tourist_spot_id")
+            # Skip reviews not linked to a specific spot — they can't be saved
+            if not sid:
+                continue
             if sid not in spot_data:
                 spot_data[sid] = {
                     "name": spot_info.get("name") or "General Review",
