@@ -40,6 +40,8 @@ NAV_BY_ROLE: dict[str, list[dict[str, Any]]] = {
         {"label": "Promotions", "icon": "bx-calendar-event", "endpoint": "dashboard.promotions"},
         {"label": "Chatbot config", "icon": "bx-bot", "endpoint": "dashboard.chatbot"},
         {"label": "Feedback", "icon": "bx-message-square-dots", "endpoint": "dashboard.feedback"},
+        {"section": "Account"},
+        {"label": "My profile", "icon": "bx-user-circle", "endpoint": "dashboard.manage_profile"},
     ],
     "ltcato_staff": [
         {"section": "Overview"},
@@ -52,6 +54,8 @@ NAV_BY_ROLE: dict[str, list[dict[str, Any]]] = {
         {"label": "LGU management", "icon": "bx-map", "endpoint": "dashboard.lgu_management"},
         {"label": "Promotions", "icon": "bx-calendar-event", "endpoint": "dashboard.promotions"},
         {"label": "Chatbot config", "icon": "bx-bot", "endpoint": "dashboard.chatbot"},
+        {"section": "Account"},
+        {"label": "My profile", "icon": "bx-user-circle", "endpoint": "dashboard.manage_profile"},
     ],
     "lgu_admin": [
         {"section": "Overview"},
@@ -62,6 +66,8 @@ NAV_BY_ROLE: dict[str, list[dict[str, Any]]] = {
         {"label": "Tourist spots", "icon": "bx-map", "endpoint": "dashboard.tourist_spots"},
         {"label": "Arrival data", "icon": "bx-upload", "endpoint": "dashboard.arrivals"},
         {"label": "Feedback", "icon": "bx-message-square-dots", "endpoint": "dashboard.feedback"},
+        {"section": "Account"},
+        {"label": "My profile", "icon": "bx-user-circle", "endpoint": "dashboard.manage_profile"},
     ],
     "establishment_owner": [
         {"section": "Overview"},
@@ -71,6 +77,8 @@ NAV_BY_ROLE: dict[str, list[dict[str, Any]]] = {
         {"section": "My establishment"},
         {"label": "Arrival data", "icon": "bx-edit", "endpoint": "dashboard.arrivals"},
         {"label": "Site updates", "icon": "bx-store", "endpoint": "dashboard.site_updates"},
+        {"section": "Account"},
+        {"label": "My profile", "icon": "bx-user-circle", "endpoint": "dashboard.manage_profile"},
     ],
 }
 
