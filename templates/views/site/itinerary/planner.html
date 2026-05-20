@@ -93,45 +93,321 @@
   }
 
   .planner-panel-header {
-    padding: 1.25rem 1.5rem;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-    background: #f8f9fa;
+    padding: 1.35rem 1.5rem 1.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    background: linear-gradient(135deg, var(--hero-maroon, #4a0404) 0%, var(--chart-3, #7f1d1d) 100%);
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-shrink: 0;
-    /* Prevents header from collapsing */
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Subtle grid overlay — mirrors hero-grid */
+  .planner-panel-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.1;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+  }
+
+  .planner-panel-header__inner {
+    position: relative;
+    z-index: 1;
+  }
+
+  .planner-panel-header__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.65rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--hero-gold, #f5c842);
+    border: 1px solid rgba(245, 200, 66, 0.45);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(4px);
   }
 
   .planner-panel-header h1 {
-    font-size: 1.25rem;
+    font-size: 1.2rem;
     font-weight: 700;
-    margin: 0;
-    color: var(--ltcato-dark);
+    margin: 0 0 0.2rem;
+    color: #fff;
+    letter-spacing: -0.01em;
   }
 
   .planner-panel-header p {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     margin: 0;
-    color: var(--ltcato-gray);
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  .planner-panel-header .btn-close-panel {
+    position: relative;
+    z-index: 1;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    border-radius: 50%;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.2s ease;
+    padding: 0;
+  }
+
+  .planner-panel-header .btn-close-panel:hover {
+    background: rgba(255, 255, 255, 0.22);
+  }
+
+  /* Results panel header — slightly lighter variant */
+  #planner-results-panel .planner-panel-header {
+    background: linear-gradient(135deg, var(--chart-3, #7f1d1d) 0%, var(--hero-maroon, #4a0404) 100%);
   }
 
   .planner-panel-content {
     overflow-y: auto;
-    padding: 1.5rem;
+    padding: 1.25rem 1.35rem;
     flex: 1 1 auto;
-    /* Fixes flexbox scrolling bug */
     min-height: 0;
-    /* Crucial for flexbox children to shrink below content size */
+    background: var(--background, #faf7f5);
   }
 
   .planner-panel-content::-webkit-scrollbar {
-    width: 6px;
+    width: 5px;
   }
 
   .planner-panel-content::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(155, 44, 44, 0.2);
     border-radius: 3px;
+  }
+
+  /* ── Section dividers inside the panel ── */
+  .planner-panel-content .planner-form__title {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--primary, #9b2c2c);
+    margin-bottom: 0.85rem;
+  }
+
+  .planner-panel-content .planner-form__title i {
+    font-size: 1rem;
+  }
+
+  /* ── Filter bar ── */
+  .planner-panel-content .spots-filters {
+    background: #fff;
+    border: 1px solid var(--border, #f5e8d2);
+    border-radius: 0.75rem;
+    padding: 0.85rem 1rem;
+    margin-bottom: 1.25rem;
+    box-shadow: 0 2px 8px rgba(74, 4, 4, 0.04);
+  }
+
+  .planner-panel-content .spots-filters .form-control,
+  .planner-panel-content .spots-filters .form-select {
+    border-color: var(--border, #f5e8d2);
+    background: var(--card, #faf7f5);
+    font-size: 0.82rem;
+  }
+
+  .planner-panel-content .spots-filters .form-control:focus,
+  .planner-panel-content .spots-filters .form-select:focus {
+    border-color: var(--primary, #9b2c2c);
+    box-shadow: 0 0 0 3px rgba(155, 44, 44, 0.1);
+  }
+
+  .planner-panel-content .spots-filters .btn-outline-secondary {
+    border-color: var(--border, #f5e8d2);
+    color: var(--primary, #9b2c2c);
+  }
+
+  .planner-panel-content .spots-filters .btn-outline-secondary:hover {
+    background: var(--primary, #9b2c2c);
+    border-color: var(--primary, #9b2c2c);
+    color: #fff;
+  }
+
+  /* ── Main form card ── */
+  .planner-panel-content .planner-form {
+    background: #fff;
+    border: 1px solid var(--border, #f5e8d2);
+    border-radius: 0.75rem;
+    padding: 1.1rem 1.15rem;
+    box-shadow: 0 2px 8px rgba(74, 4, 4, 0.04);
+  }
+
+  /* ── Form labels ── */
+  .planner-panel-content .form-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--muted-foreground, #57534e);
+    margin-bottom: 0.3rem;
+  }
+
+  /* ── Inputs & selects ── */
+  .planner-panel-content .form-control,
+  .planner-panel-content .form-select {
+    border-color: var(--border, #f5e8d2);
+    background: var(--card, #faf7f5);
+    font-size: 0.85rem;
+    border-radius: 0.5rem;
+  }
+
+  .planner-panel-content .form-control:focus,
+  .planner-panel-content .form-select:focus {
+    border-color: var(--primary, #9b2c2c);
+    box-shadow: 0 0 0 3px rgba(155, 44, 44, 0.1);
+    background: #fff;
+  }
+
+  /* GPS button */
+  .planner-panel-content #btn-use-gps {
+    border-color: var(--border, #f5e8d2);
+    color: var(--primary, #9b2c2c);
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  .planner-panel-content #btn-use-gps:hover {
+    background: var(--primary, #9b2c2c);
+    border-color: var(--primary, #9b2c2c);
+    color: #fff;
+  }
+
+  /* Duration hint */
+  .planner-panel-content #trip-duration-hint {
+    font-size: 0.78rem;
+    color: var(--muted-foreground, #57534e);
+    background: var(--accent, #fef3c7);
+    border-left: 3px solid var(--hero-gold, #f5c842);
+    padding: 0.4rem 0.65rem;
+    border-radius: 0 0.4rem 0.4rem 0;
+    margin-top: -0.5rem;
+  }
+
+  /* ── Section hr ── */
+  .planner-panel-content hr {
+    border-color: var(--border, #f5e8d2);
+    opacity: 1;
+  }
+
+  /* ── Spot picker ── */
+  .planner-panel-content .planner-spot-picker {
+    max-height: 260px;
+    border: 1px solid var(--border, #f5e8d2);
+    border-radius: 0.6rem;
+    padding: 0.5rem;
+    background: var(--card, #faf7f5);
+  }
+
+  .planner-panel-content .planner-spot-option__card {
+    background: #fff;
+    border-color: var(--border, #f5e8d2);
+    border-radius: 0.5rem;
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  }
+
+  .planner-panel-content .planner-spot-option__card:hover {
+    border-color: rgba(155, 44, 44, 0.35);
+    box-shadow: 0 2px 8px rgba(155, 44, 44, 0.08);
+  }
+
+  .planner-panel-content .planner-spot-option input:checked + .planner-spot-option__card {
+    border-color: var(--primary, #9b2c2c);
+    background: var(--accent, #fef3c7);
+    box-shadow: 0 0 0 2px rgba(155, 44, 44, 0.15);
+  }
+
+  /* ── Selected summary ── */
+  .planner-panel-content .planner-selected-summary {
+    background: var(--secondary, #fdf2d6);
+    border: 1px solid rgba(245, 200, 66, 0.35);
+    border-radius: 0.6rem;
+    padding: 0.75rem 1rem;
+  }
+
+  /* ── Nearby suggestions ── */
+  .planner-panel-content #nearby-suggestions-container .planner-form__title {
+    color: var(--primary, #9b2c2c);
+  }
+
+  /* ── Actions bar ── */
+  .planner-panel-content .planner-actions {
+    border-top: 1px solid var(--border, #f5e8d2);
+    padding-top: 1rem;
+    margin-top: 0.5rem;
+  }
+
+  .planner-panel-content .btn-outline-primary {
+    border-color: var(--primary, #9b2c2c);
+    color: var(--primary, #9b2c2c);
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .planner-panel-content .btn-outline-primary:hover {
+    background: var(--primary, #9b2c2c);
+    color: #fff;
+  }
+
+  /* ── Results panel content ── */
+  #planner-results-panel .planner-panel-content {
+    background: var(--background, #faf7f5);
+  }
+
+  #planner-results-panel .planner-tabs .nav-link {
+    font-size: 0.8rem;
+    border-radius: 999px;
+  }
+
+  #planner-results-panel .planner-day {
+    border-color: var(--border, #f5e8d2);
+    border-radius: 0.75rem;
+    box-shadow: 0 2px 8px rgba(74, 4, 4, 0.04);
+  }
+
+  #planner-results-panel .planner-day__head {
+    border-bottom-color: var(--border, #f5e8d2);
+  }
+
+  #planner-results-panel .planner-passport-facts {
+    background: #fff;
+    border: 1px solid var(--border, #f5e8d2);
+    border-radius: 0.75rem;
+    padding: 1rem 1.15rem;
+    list-style: none;
+    margin: 0;
+  }
+
+  #planner-results-panel .planner-passport-facts li {
+    padding: 0.45rem 0;
+    border-bottom: 1px solid var(--muted, #f0ebe8);
+    font-size: 0.85rem;
+  }
+
+  #planner-results-panel .planner-passport-facts li:last-child {
+    border-bottom: none;
   }
 
   /* Mobile Adjustments */
@@ -188,12 +464,15 @@
 <!-- PRIMARY PANEL (FORM) -->
 <div class="planner-panel" id="planner-form-panel">
   <div class="planner-panel-header">
-    <div>
+    <div class="planner-panel-header__inner">
+      <div class="planner-panel-header__badge">
+        <i class="ph ph-sparkle"></i> Laguna Trip Planner
+      </div>
       <h1>Itinerary Planner</h1>
       <p>Plan your perfect Laguna trip</p>
     </div>
     <button id="btn-close-planner"
-      class="btn btn-sm btn-light border rounded-circle p-2 d-flex align-items-center justify-content-center"
+      class="btn btn-sm btn-close-panel"
       title="Close Panel">
       <i class="ph ph-x"></i>
     </button>
@@ -366,13 +645,19 @@
 
 <!-- SECONDARY PANEL (RESULTS) -->
 <div class="planner-panel {% if not plan or not plan.ok %}is-closed{% endif %}" id="planner-results-panel">
-  <div class="planner-panel-header bg-white">
-    <div class="d-flex align-items-center gap-2">
+  <div class="planner-panel-header">
+    <div class="planner-panel-header__inner d-flex align-items-center gap-2">
       <button id="btn-close-results"
-        class="btn btn-sm btn-light border p-2 d-flex align-items-center justify-content-center" title="Back to Form">
+        class="btn btn-sm btn-close-panel"
+        title="Back to Form">
         <i class="ph ph-arrow-left"></i>
       </button>
-      <h2 class="h6 mb-0 fw-bold">Generated Itinerary</h2>
+      <div>
+        <div class="planner-panel-header__badge">
+          <i class="ph ph-calendar-check"></i> Your Itinerary
+        </div>
+        <h2 class="mb-0" style="font-size:1.1rem;font-weight:700;color:#fff;margin:0;">Generated Itinerary</h2>
+      </div>
     </div>
   </div>
 

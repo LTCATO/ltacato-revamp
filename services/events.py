@@ -258,6 +258,7 @@ def enrich_event_for_display(event: dict[str, Any]) -> dict[str, Any]:
         **event,
         "image": event.get("cover_image")
         or event.get("banner_image")
+        or event.get("official_banner")
         or "/static/images/kapitolyo.jpg",
         "municipality": get_event_lgu_name(event),
         "summary": short,
@@ -371,6 +372,10 @@ def build_event_payload_from_form(form, files) -> dict[str, Any]:
     )
     if banner:
         payload["official_banner"] = banner
+        # If no cover image was uploaded, use the official banner as the cover
+        if not cover:
+            payload["cover_image"] = banner
+            payload["banner_image"] = banner
 
     logo = upload_optional_file(
         files.get("event_logo"), folder="events/logos", kind="image"
