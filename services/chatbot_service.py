@@ -1,12 +1,8 @@
 """
-LARA Chatbot Service — Gemini AI powered (google-genai package).
+LARA Chatbot Service — Gemini AI powered (google-generativeai package).
 Role-aware tourism assistant for Laguna Province.
 
-Install: pip install google-genai
-Model: gemini-2.5-flash (free tier: 20 req/day — upgrade at https://ai.google.dev)
-
-Free tier limit: 20 requests/day. Quota resets at midnight UTC.
-For production, enable billing at https://ai.google.dev to get 1,500+ req/day.
+Install: pip install google-generativeai
 """
 
 from __future__ import annotations
@@ -202,42 +198,57 @@ def chat(
         return {"success": True, "reply": cached, "cached": True}
 
     try:
-        from google import genai as google_genai  # type: ignore
-        from google.genai import types as genai_types  # type: ignore
+        import google.generativeai as genai  # type: ignore
 
-        client = google_genai.Client(api_key=api_key)
+        genai.configure(api_key=api_key)
 
         db_context = _build_db_context(normalized_role, lgu_id)
         system_instruction = _SYSTEM_PROMPTS[normalized_role].format(
             db_context=db_context
         )
 
-        # Build conversation contents for the API
-        contents: list = []
+        model = genai.GenerativeModel(
+            model_name="gemini-3.1-flash-lite",
+            system_instruction=system_instruction,
+        )
+
+        # Build conversation history for the API
+        history_for_api = []
         for item in (history or [])[-8:]:  # Last 8 turns to save tokens
             g_role = "user" if item.get("role") == "user" else "model"
             content = (item.get("content") or "").strip()
             if content:
-                contents.append({"role": g_role, "parts": [{"text": content}]})
-        contents.append({"role": "user", "parts": [{"text": message}]})
+                history_for_api.append({"role": g_role, "parts": [content]})
 
-        response = client.models.generate_content(
-            model="gemini-3.1-flash-lite",
-            contents=contents,
-            config=genai_types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                max_output_tokens=512,
-                temperature=0.7,
-            ),
-        )
+        chat_session = model.start_chat(history=history_for_api)
 
-        reply_text = ""
-        if response and response.candidates:
-            candidate = response.candidates[0]
-            if candidate.content and candidate.content.parts:
-                reply_text = "".join(
-                    p.text for p in candidate.content.parts if hasattr(p, "text")
-                ).strip()
+        # Retry once on transient 500 errors from the Gemini API
+        last_exc = None
+        for attempt in range(2):
+            try:
+                response = chat_session.send_message(
+                    message,
+                    generation_config=genai.types.GenerationConfig(
+                        max_output_tokens=512,
+                        temperature=0.7,
+                    ),
+                )
+                last_exc = None
+                break
+            except Exception as e:
+                last_exc = e
+                err_str = str(e)
+                # Only retry on transient server errors (500), not quota/auth errors
+                if "500" in err_str and attempt == 0:
+                    time.sleep(1.5)
+                    chat_session = model.start_chat(history=history_for_api)
+                    continue
+                raise
+
+        if last_exc:
+            raise last_exc
+
+        reply_text = (response.text or "").strip()
 
         if reply_text:
             _set_cached(message, normalized_role, reply_text)

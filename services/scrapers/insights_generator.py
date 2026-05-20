@@ -640,25 +640,20 @@ Return ONLY a JSON array (no markdown prose) of 1–4 distinct issues. Each obje
 Base issues only on the feedback above. Be concrete and practical."""
 
     try:
-        from google import genai as google_genai  # type: ignore
-        from google.genai import types as genai_types  # type: ignore
+        import google.generativeai as genai  # type: ignore
 
-        client = google_genai.Client(api_key=api_key)
-        response = client.models.generate_content(
-            model="gemini-3.1-flash-lite",
-            contents=prompt,
-            config=genai_types.GenerateContentConfig(
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(
+            model_name="gemini-3.1-flash-lite",
+        )
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
                 max_output_tokens=1024,
                 temperature=0.4,
             ),
         )
-        raw = ""
-        if response and response.candidates:
-            candidate = response.candidates[0]
-            if candidate.content and candidate.content.parts:
-                raw = "".join(
-                    p.text for p in candidate.content.parts if hasattr(p, "text")
-                ).strip()
+        raw = (response.text or "").strip()
         return _parse_ai_issues(raw)
     except Exception:
         return None
