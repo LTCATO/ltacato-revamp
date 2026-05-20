@@ -445,15 +445,91 @@ def promotions():
 def chatbot():
     user = get_current_dashboard_user()
     can_approve = user["role"] == "super_admin"
-    entries = list_knowledge(approval_status=None if can_approve else None, limit=100)
+    entries = list_knowledge(approval_status=None, limit=100)
     return render_dashboard(
         "views/dashboard/pages/chatbot.html",
         user,
         entries=entries,
         can_approve=can_approve,
         page_title="Chatbot configuration",
-        page_description="FAQ knowledge base for the AI tourism assistant.",
+        page_description="Manage the FAQ knowledge base for the LARA AI tourism assistant.",
         page_icon="bx-bot",
+    )
+
+
+@dashboard_bp.route("/profile", methods=["GET", "POST"])
+@dashboard_login_required
+def manage_profile():
+    from services.profiles import get_dashboard_profile, update_dashboard_profile
+    from supabase import create_client
+    import os
+
+    user = get_current_dashboard_user()
+    profile = get_dashboard_profile(str(user["id"]))
+
+    if request.method == "POST":
+        action = request.form.get("action", "profile")
+
+        if action == "profile":
+            ok, err = update_dashboard_profile(
+                str(user["id"]),
+                first_name=request.form.get("first_name", ""),
+                last_name=request.form.get("last_name", ""),
+                middle_name=request.form.get("middle_name", ""),
+                position=request.form.get("position", ""),
+            )
+            if ok:
+                # Refresh session name
+                first = request.form.get("first_name", "").strip()
+                last = request.form.get("last_name", "").strip()
+                from flask import session as _session
+                _session["dashboard_name"] = f"{first} {last}".strip() or user["name"]
+                flash("Profile updated successfully.", "success")
+            else:
+                flash(err or "Could not update profile.", "danger")
+            return redirect(url_for("dashboard.manage_profile"))
+
+        elif action == "password":
+            current_pw = request.form.get("current_password", "").strip()
+            new_pw = request.form.get("new_password", "").strip()
+            confirm_pw = request.form.get("confirm_password", "").strip()
+
+            if not current_pw or not new_pw or not confirm_pw:
+                flash("All password fields are required.", "danger")
+            elif new_pw != confirm_pw:
+                flash("New passwords do not match.", "danger")
+            elif len(new_pw) < 8:
+                flash("New password must be at least 8 characters.", "danger")
+            else:
+                # Verify current password by attempting sign-in
+                url = os.getenv("SUPABASE_URL")
+                anon_key = os.getenv("SUPABASE_KEY")
+                try:
+                    temp_client = create_client(url, anon_key)
+                    temp_client.auth.sign_in_with_password(
+                        {"email": user["email"], "password": current_pw}
+                    )
+                    # Current password is correct — update via admin API
+                    from services.supabase_client import get_supabase
+                    get_supabase().auth.admin.update_user_by_id(
+                        str(user["id"]), {"password": new_pw}
+                    )
+                    flash("Password changed successfully.", "success")
+                except Exception as exc:
+                    err_str = str(exc).lower()
+                    if "invalid" in err_str or "credentials" in err_str or "password" in err_str:
+                        flash("Current password is incorrect.", "danger")
+                    else:
+                        flash(f"Could not change password: {exc}", "danger")
+            return redirect(url_for("dashboard.manage_profile"))
+
+    return render_dashboard(
+        "views/dashboard/pages/profile.html",
+        user,
+        profile=profile,
+        page_title="My profile",
+        page_description="Update your personal details and change your password.",
+        page_icon="bx-user-circle",
     )
 
 

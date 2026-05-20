@@ -77,7 +77,23 @@ def tourist_profile():
         first_name = (request.form.get("first_name") or "").strip()
         last_name = (request.form.get("last_name") or "").strip()
         middle_name = (request.form.get("middle_name") or "").strip()
-        profile_image = (request.form.get("profile_image") or "").strip() or None
+
+        # Handle profile image: file upload takes priority over URL field
+        profile_image: str | None = None
+        uploaded_file = request.files.get("profile_image_file")
+        if uploaded_file and uploaded_file.filename and uploaded_file.filename.strip():
+            try:
+                from services.storage import upload_image
+                profile_image = upload_image(
+                    uploaded_file.stream,
+                    uploaded_file.filename,
+                    folder="profiles",
+                )
+            except Exception as exc:
+                flash(f"Image upload failed: {exc}", "danger")
+                profile_image = (request.form.get("profile_image") or "").strip() or None
+        else:
+            profile_image = (request.form.get("profile_image") or "").strip() or None
 
         ok, err = update_tourist_profile(
             tourist["id"],

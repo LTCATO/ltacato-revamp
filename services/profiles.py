@@ -44,6 +44,55 @@ def profile_role_label(row: dict[str, Any]) -> str:
     return "—"
 
 
+def get_dashboard_profile(user_id: str) -> dict[str, Any] | None:
+    """Fetch a dashboard user's full profile (all roles)."""
+    try:
+        response = (
+            get_supabase()
+            .table("profiles")
+            .select(PROFILE_FIELDS)
+            .eq("id", user_id)
+            .single()
+            .execute()
+        )
+        return response.data
+    except Exception:
+        return None
+
+
+def update_dashboard_profile(
+    user_id: str,
+    *,
+    first_name: str,
+    last_name: str,
+    middle_name: str = "",
+    position: str = "",
+) -> tuple[bool, str | None]:
+    """Update name/position for a dashboard user (all roles)."""
+    first_name = (first_name or "").strip()
+    last_name = (last_name or "").strip()
+    middle_name = (middle_name or "").strip()
+    position = (position or "").strip()
+
+    if len(first_name) < 2:
+        return False, "Please enter your first name (at least 2 characters)."
+    if len(last_name) < 2:
+        return False, "Please enter your last name (at least 2 characters)."
+
+    payload: dict[str, Any] = {
+        "first_name": first_name,
+        "last_name": last_name,
+        "middle_name": middle_name or None,
+        "position": position or None,
+    }
+
+    try:
+        get_supabase().table("profiles").update(payload).eq("id", user_id).execute()
+        return True, None
+    except Exception:
+        return False, "Unable to update profile. Please try again."
+
+
 TOURIST_PROFILE_FIELDS = (
     "id, first_name, last_name, middle_name, email, profile_image, created_at, "
     "roles(id, role_key, role_name)"

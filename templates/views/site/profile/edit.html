@@ -280,6 +280,7 @@ content %}
                             <form
                                 method="post"
                                 action="{{ url_for('profile.tourist_profile') }}"
+                                enctype="multipart/form-data"
                             >
                                 <input
                                     type="hidden"
@@ -307,23 +308,33 @@ content %}
                                         {% endif %}
                                     </div>
                                     <div class="flex-grow-1">
-                                        <label
-                                            class="form-label"
-                                            for="profile_image"
-                                            >Profile image URL</label
-                                        >
-                                        <input
-                                            type="url"
-                                            class="form-control"
-                                            id="profile_image"
-                                            name="profile_image"
-                                            value="{{ form_data.profile_image }}"
-                                            placeholder="https://…"
-                                        />
-                                        <p class="small text-muted mb-0">
-                                            Paste a public image link
-                                            (optional).
-                                        </p>
+                                        <label class="form-label fw-semibold">Profile photo</label>
+                                        <div class="mb-2">
+                                            <label class="form-label small text-muted mb-1" for="profile_image_file">Upload from device</label>
+                                            <input
+                                                type="file"
+                                                class="form-control form-control-sm"
+                                                id="profile_image_file"
+                                                name="profile_image_file"
+                                                accept="image/jpeg,image/png,image/webp,image/gif"
+                                            />
+                                            <p class="small text-muted mb-0">JPG, PNG, WebP or GIF — max 10 MB.</p>
+                                        </div>
+                                        <div>
+                                            <label
+                                                class="form-label small text-muted mb-1"
+                                                for="profile_image"
+                                                >Or paste an image URL</label
+                                            >
+                                            <input
+                                                type="url"
+                                                class="form-control form-control-sm"
+                                                id="profile_image"
+                                                name="profile_image"
+                                                value="{{ form_data.profile_image }}"
+                                                placeholder="https://…"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="row g-3 mb-3">
@@ -507,15 +518,17 @@ content %}
 {% endblock %} {% block script %}
 <script>
     (function () {
-      var input = document.getElementById("profile_image");
-      if (!input) return;
-      input.addEventListener("input", function () {
-        var url = input.value.trim();
+      // Live preview for URL input
+      var urlInput = document.getElementById("profile_image");
+      var fileInput = document.getElementById("profile_image_file");
+
+      function setPreview(src) {
+        var preview = document.querySelector(".profile-avatar-preview");
+        if (!preview) return;
         var img = document.getElementById("avatar-preview-img");
-        var ph = document.getElementById("avatar-preview-placeholder");
-        if (url) {
+        var ph  = document.getElementById("avatar-preview-placeholder");
+        if (src) {
           if (!img) {
-            var preview = document.querySelector(".profile-avatar-preview");
             img = document.createElement("img");
             img.id = "avatar-preview-img";
             img.className = "profile-avatar-preview__img";
@@ -523,10 +536,33 @@ content %}
             preview.innerHTML = "";
             preview.appendChild(img);
           }
-          img.src = url;
+          img.src = src;
           if (ph) ph.style.display = "none";
         }
-      });
+      }
+
+      if (urlInput) {
+        urlInput.addEventListener("input", function () {
+          var url = urlInput.value.trim();
+          if (url) setPreview(url);
+        });
+      }
+
+      // File input: show local preview and clear URL field
+      if (fileInput) {
+        fileInput.addEventListener("change", function () {
+          var file = fileInput.files && fileInput.files[0];
+          if (!file) return;
+          var reader = new FileReader();
+          reader.onload = function (e) {
+            setPreview(e.target.result);
+            // Clear URL field so the file takes priority
+            if (urlInput) urlInput.value = "";
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
       // Open settings tab if there's a flash message (profile save feedback)
       {% if get_flashed_messages() %}
       var settingsBtn = document.querySelector('[data-bs-target="#tab-settings"]');

@@ -6,46 +6,199 @@
 
 {% block content %}
 {% set header_actions %}
-{% if not can_approve %}
-<button type="button" class="btn dashboard-btn-primary" data-bs-toggle="modal" data-bs-target="#faqModal"><i class="bx bx-plus"></i> Add FAQ</button>
-{% endif %}
+<button type="button" class="btn dashboard-btn-primary"
+  data-bs-toggle="modal" data-bs-target="#addFaqModal">
+  <i class="bx bx-plus"></i> Add FAQ entry
+</button>
 {% endset %}
 {% include "include/dashboard/module_header.html" %}
 
+{# ── FAQ table ─────────────────────────────────────────────────────────────── #}
 <div class="dashboard-card">
-  <table class="table dashboard-table mb-0">
-    <thead><tr><th>Category</th><th>Question</th><th>Answer</th><th>Status</th>{% if can_approve %}<th></th>{% endif %}</tr></thead>
-    <tbody>
-      {% for e in entries %}
-      <tr>
-        <td>{{ e.category or 'General' }}</td>
-        <td><strong>{{ e.question }}</strong></td>
-        <td class="small">{{ e.answer|truncate_text(100) }}</td>
-        <td>{{ status_badge(e.approval_status) }}</td>
-        {% if can_approve and e.approval_status == 'pending' %}
-        <td class="dashboard-table__actions">
-          <form method="post" action="{{ url_for('dashboard.approve_chatbot', entry_id=e.id) }}" class="d-inline"><button class="btn btn-sm dashboard-btn-primary">Approve</button></form>
-          <form method="post" action="{{ url_for('dashboard.reject_chatbot', entry_id=e.id) }}" class="d-inline"><button class="btn btn-sm btn-outline-secondary">Reject</button></form>
-        </td>
-        {% elif can_approve %}<td>—</td>{% endif %}
-      </tr>
-      {% else %}
-      <tr><td colspan="5" class="text-center text-muted py-4">No chatbot knowledge entries yet.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="dashboard-card__header">
+    <h3 class="dashboard-card__title mb-0">Knowledge base entries</h3>
+    <p class="text-muted small mb-0">
+      Only <strong>approved</strong> entries are injected into LARA's context.
+      New entries are immediately active.
+    </p>
+  </div>
+  <div class="table-responsive">
+    <table class="table dashboard-table mb-0">
+      <thead>
+        <tr>
+          <th style="width:120px">Category</th>
+          <th>Question</th>
+          <th>Answer</th>
+          <th style="width:130px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in entries %}
+        <tr>
+          <td class="small text-muted">{{ e.category or 'General' }}</td>
+          <td><strong>{{ e.question }}</strong></td>
+          <td class="small">{{ e.answer | truncate(120) }}</td>
+          <td class="dashboard-table__actions">
+
+            {# Edit — opens pre-filled modal #}
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+              data-bs-toggle="modal" data-bs-target="#editFaqModal"
+              data-id="{{ e.id }}"
+              data-question="{{ e.question | e }}"
+              data-answer="{{ e.answer | e }}"
+              data-category="{{ e.category or '' | e }}"
+              title="Edit">
+              <i class="bx bx-edit"></i>
+            </button>
+
+            {# Approve / Reject — super_admin only, for any pending/rejected entries #}
+            {% if can_approve and e.approval_status != 'approved' %}
+            <form method="post"
+              action="{{ url_for('dashboard.approve_chatbot', entry_id=e.id) }}"
+              class="d-inline">
+              <button type="submit" class="btn btn-sm dashboard-btn-primary" title="Approve">
+                <i class="bx bx-check"></i>
+              </button>
+            </form>
+            {% endif %}
+            {% if can_approve and e.approval_status == 'approved' %}
+            <form method="post"
+              action="{{ url_for('dashboard.reject_chatbot', entry_id=e.id) }}"
+              class="d-inline">
+              <button type="submit" class="btn btn-sm btn-outline-secondary" title="Revoke">
+                <i class="bx bx-x"></i>
+              </button>
+            </form>
+            {% endif %}
+
+            {# Delete #}
+            <form method="post"
+              action="{{ url_for('dashboard.delete_chatbot_entry', entry_id=e.id) }}"
+              class="d-inline"
+              onsubmit="return confirm('Delete this FAQ entry? This cannot be undone.')">
+              <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                <i class="bx bx-trash"></i>
+              </button>
+            </form>
+
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="4" class="text-center text-muted py-4">
+            No FAQ entries yet. Click <strong>Add FAQ entry</strong> to get started.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
-{% if not can_approve %}
-<div class="modal fade" id="faqModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
-<form method="post" action="{{ url_for('dashboard.form_save_stub') }}"><input type="hidden" name="form_type" value="chatbot_faq" />
-<div class="modal-header"><h5 class="modal-title">Add FAQ entry</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-<div class="modal-body">
-  <div class="mb-3"><label class="form-label">Category</label><input name="category" class="form-control" placeholder="e.g. Transportation" /></div>
-  <div class="mb-3"><label class="form-label">Question</label><input name="question" class="form-control" required /></div>
-  <div class="mb-3"><label class="form-label">Answer</label><textarea name="answer" class="form-control" rows="4" required></textarea></div>
+{# ── Add FAQ modal ─────────────────────────────────────────────────────────── #}
+<div class="modal fade dashboard-modal" id="addFaqModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('dashboard.add_chatbot_entry') }}">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bx bx-plus me-1"></i> Add FAQ entry</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-success small mb-3">
+            <i class="bx bx-check-circle me-1"></i>
+            Your entry will be <strong>immediately active</strong> in LARA's knowledge base.
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Category</label>
+            <input type="text" name="category" class="form-control"
+              placeholder="e.g. Transportation, Accommodation, Events" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Question <span class="text-danger">*</span></label>
+            <input type="text" name="question" class="form-control" required
+              placeholder="e.g. How do I get to Pagsanjan Falls?" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Answer <span class="text-danger">*</span></label>
+            <textarea name="answer" class="form-control" rows="5" required
+              placeholder="Provide a clear, concise answer for LARA to use..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn dashboard-btn-primary">
+            <i class="bx bx-save me-1"></i> Add &amp; activate
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
-<div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn dashboard-btn-primary">Submit for approval</button></div>
-</form></div></div></div>
-{% endif %}
+
+{# ── Edit FAQ modal ────────────────────────────────────────────────────────── #}
+<div class="modal fade dashboard-modal" id="editFaqModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <form method="post" id="editFaqForm" action="">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bx bx-edit me-1"></i> Edit FAQ entry</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Category</label>
+            <input type="text" name="category" id="editCategory" class="form-control"
+              placeholder="e.g. Transportation" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Question <span class="text-danger">*</span></label>
+            <input type="text" name="question" id="editQuestion" class="form-control" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Answer <span class="text-danger">*</span></label>
+            <textarea name="answer" id="editAnswer" class="form-control" rows="5" required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn dashboard-btn-primary">
+            <i class="bx bx-save me-1"></i> Save changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block script %}
+<script>
+(function () {
+  var editModal = document.getElementById('editFaqModal');
+  if (!editModal) return;
+
+  editModal.addEventListener('show.bs.modal', function (event) {
+    var btn = event.relatedTarget;
+    if (!btn) return;
+
+    var id       = btn.getAttribute('data-id');
+    var question = btn.getAttribute('data-question') || '';
+    var answer   = btn.getAttribute('data-answer') || '';
+    var category = btn.getAttribute('data-category') || '';
+
+    var form = document.getElementById('editFaqForm');
+    if (form) form.action = '/dashboard/actions/chatbot/' + id + '/edit';
+
+    var qEl = document.getElementById('editQuestion');
+    var aEl = document.getElementById('editAnswer');
+    var cEl = document.getElementById('editCategory');
+
+    if (qEl) qEl.value = question;
+    if (aEl) aEl.value = answer;
+    if (cEl) cEl.value = category;
+  });
+})();
+</script>
 {% endblock %}

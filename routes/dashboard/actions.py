@@ -15,8 +15,9 @@ from services.supabase_client import get_supabase
 @dashboard_login_required
 @role_required("super_admin")
 def approve_chatbot(entry_id: int):
+    user = get_current_dashboard_user()
     get_supabase().table("chatbot_knowledge").update(
-        {"approval_status": "approved"}
+        {"approval_status": "approved", "approved_by": str(user["id"])}
     ).eq("id", entry_id).execute()
     flash("FAQ entry approved for the chatbot.", "success")
     return redirect(url_for("dashboard.chatbot"))
@@ -30,6 +31,72 @@ def reject_chatbot(entry_id: int):
         {"approval_status": "rejected"}
     ).eq("id", entry_id).execute()
     flash("FAQ entry rejected.", "info")
+    return redirect(url_for("dashboard.chatbot"))
+
+
+@dashboard_bp.route("/actions/chatbot/add", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def add_chatbot_entry():
+    from services.chatbot_knowledge import create_knowledge
+
+    user = get_current_dashboard_user()
+    question = request.form.get("question", "").strip()
+    answer = request.form.get("answer", "").strip()
+    category = request.form.get("category", "").strip()
+
+    # Both super_admin and ltcato_staff auto-approve — they have equivalent trust
+    ok, err = create_knowledge(
+        question=question,
+        answer=answer,
+        category=category,
+        created_by=str(user["id"]),
+        auto_approve=True,
+    )
+    if ok:
+        flash("FAQ entry added and is now active in LARA's knowledge base.", "success")
+    else:
+        flash(err or "Could not add FAQ entry.", "danger")
+    return redirect(url_for("dashboard.chatbot"))
+
+
+@dashboard_bp.route("/actions/chatbot/<int:entry_id>/edit", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def edit_chatbot_entry(entry_id: int):
+    from services.chatbot_knowledge import update_knowledge
+
+    user = get_current_dashboard_user()
+    question = request.form.get("question", "").strip()
+    answer = request.form.get("answer", "").strip()
+    category = request.form.get("category", "").strip()
+
+    # Both roles are trusted — keep entry approved after edit
+    ok, err = update_knowledge(
+        entry_id,
+        question=question,
+        answer=answer,
+        category=category,
+        approved_by=str(user["id"]),
+    )
+    if ok:
+        flash("FAQ entry updated.", "success")
+    else:
+        flash(err or "Could not update FAQ entry.", "danger")
+    return redirect(url_for("dashboard.chatbot"))
+
+
+@dashboard_bp.route("/actions/chatbot/<int:entry_id>/delete", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def delete_chatbot_entry(entry_id: int):
+    from services.chatbot_knowledge import delete_knowledge
+
+    ok, err = delete_knowledge(entry_id)
+    if ok:
+        flash("FAQ entry deleted.", "info")
+    else:
+        flash(err or "Could not delete FAQ entry.", "danger")
     return redirect(url_for("dashboard.chatbot"))
 
 
