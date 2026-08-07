@@ -154,6 +154,165 @@ def delete_arrival_record(record_id: int):
     return redirect(url_for("dashboard.arrivals"))
 
 
+@dashboard_bp.route("/actions/visit-schedule/<int:visit_id>/<new_status>", methods=["POST"])
+@dashboard_login_required
+@role_required("establishment_owner")
+def update_visit_status(visit_id: int, new_status: str):
+    """Confirm/decline/complete/cancel a visit request (establishment owner only)."""
+    from services.visit_schedules import update_visit_status as _update_visit_status
+
+    user = get_current_dashboard_user()
+    try:
+        _update_visit_status(visit_id, new_status, owner_id=str(user.get("id")))
+        flash(f"Visit request marked as {new_status}.", "success")
+    except PermissionError:
+        flash("You can only manage visits for your own establishment.", "danger")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    except Exception as exc:
+        flash(f"Could not update visit: {exc}", "danger")
+    return redirect(url_for("dashboard.visit_schedules"))
+
+
+@dashboard_bp.route("/actions/visit-schedule/<int:visit_id>/check-in", methods=["POST"])
+@dashboard_login_required
+@role_required("establishment_owner")
+def check_in_visit(visit_id: int):
+    """One-click 'Mark arrived' — stamps arrived_at and completes the visit."""
+    from services.visit_schedules import check_in_visit as _check_in_visit
+
+    user = get_current_dashboard_user()
+    try:
+        _check_in_visit(visit_id, owner_id=str(user.get("id")))
+        flash("Visit marked as arrived.", "success")
+    except PermissionError:
+        flash("You can only manage visits for your own establishment.", "danger")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    except Exception as exc:
+        flash(f"Could not check in visit: {exc}", "danger")
+    return redirect(url_for("dashboard.visit_schedules"))
+
+
+@dashboard_bp.route("/actions/visit-schedule/<int:visit_id>/undo-check-in", methods=["POST"])
+@dashboard_login_required
+@role_required("establishment_owner")
+def undo_check_in(visit_id: int):
+    """Revert an accidental 'Mark arrived' click back to confirmed."""
+    from services.visit_schedules import undo_check_in as _undo_check_in
+
+    user = get_current_dashboard_user()
+    try:
+        _undo_check_in(visit_id, owner_id=str(user.get("id")))
+        flash("Check-in undone.", "info")
+    except PermissionError:
+        flash("You can only manage visits for your own establishment.", "danger")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    except Exception as exc:
+        flash(f"Could not undo check-in: {exc}", "danger")
+    return redirect(url_for("dashboard.visit_schedules"))
+
+
+@dashboard_bp.route("/actions/visit-schedule/manual-log", methods=["POST"])
+@dashboard_login_required
+@role_required("establishment_owner")
+def add_manual_log():
+    """Record a walk-in visitor who didn't schedule online."""
+    from services.visit_schedules import create_manual_log
+
+    user = get_current_dashboard_user()
+    try:
+        create_manual_log(
+            {
+                "tourist_spot_id": request.form.get("tourist_spot_id", type=int),
+                "visitor_name": request.form.get("visitor_name", ""),
+                "visitor_email": (request.form.get("visitor_email") or "").strip() or None,
+                "visitor_phone": (request.form.get("visitor_phone") or "").strip() or None,
+                "party_size": request.form.get("party_size", type=int) or 1,
+                "visit_date": request.form.get("visit_date"),
+                "visit_time": request.form.get("visit_time") or "00:00",
+                "visitor_category": request.form.get("visitor_category") or "day_tour",
+                "overnight_nights": request.form.get("overnight_nights", type=int) or 0,
+                "origin": request.form.get("origin") or None,
+                "male_count": request.form.get("male_count", type=int),
+                "female_count": request.form.get("female_count", type=int),
+                "notes": (request.form.get("notes") or "").strip() or None,
+            },
+            owner_id=str(user.get("id")),
+        )
+        flash("Manual log added.", "success")
+    except PermissionError:
+        flash("You can only log visits for your own establishment.", "danger")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    except Exception as exc:
+        flash(f"Could not add manual log: {exc}", "danger")
+    return redirect(url_for("dashboard.visit_schedules", tab="logs"))
+
+
+@dashboard_bp.route("/actions/visit-schedule/<int:visit_id>/demographics", methods=["POST"])
+@dashboard_login_required
+@role_required("establishment_owner")
+def update_visit_demographics(visit_id: int):
+    """Backfill/edit the origin + male/female breakdown for a log row."""
+    from services.visit_schedules import update_visit_demographics as _update_demographics
+
+    user = get_current_dashboard_user()
+    try:
+        _update_demographics(
+            visit_id,
+            owner_id=str(user.get("id")),
+            visitor_category=request.form.get("visitor_category"),
+            overnight_nights=request.form.get("overnight_nights", type=int),
+            origin=request.form.get("origin") or None,
+            male_count=request.form.get("male_count", type=int),
+            female_count=request.form.get("female_count", type=int),
+        )
+        flash("Log updated.", "success")
+    except PermissionError:
+        flash("You can only manage visits for your own establishment.", "danger")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    except Exception as exc:
+        flash(f"Could not update log: {exc}", "danger")
+    return redirect(url_for("dashboard.visit_schedules", tab="logs"))
+
+
+@dashboard_bp.route("/actions/arrival-report/generate", methods=["POST"])
+@dashboard_login_required
+@role_required("establishment_owner")
+def generate_arrival_report():
+    """Generate and submit an LTCATO arrival report aggregated from real visit logs."""
+    from services.visit_schedules import generate_and_submit_arrival_report
+
+    user = get_current_dashboard_user()
+    report_type = request.form.get("report_type") or "daily"
+    visitor_category = request.form.get("visitor_category") or "day_tour"
+    date_from = request.form.get("date_from") or ""
+    date_to = request.form.get("date_to") or date_from
+    if report_type == "daily":
+        date_to = date_from
+
+    try:
+        generate_and_submit_arrival_report(
+            owner_id=str(user.get("id")),
+            spot_id=request.form.get("tourist_spot_id", type=int),
+            visitor_category=visitor_category,
+            report_type=report_type,
+            date_from=date_from,
+            date_to=date_to,
+        )
+        flash("Arrival report generated and submitted to your LGU.", "success")
+    except PermissionError:
+        flash("You can only generate reports for your own establishment.", "danger")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    except Exception as exc:
+        flash(f"Could not generate report: {exc}", "danger")
+    return redirect(url_for("dashboard.arrivals"))
+
+
 @dashboard_bp.route("/actions/arrival-records/compile", methods=["POST"])
 @dashboard_login_required
 @role_required("establishment_owner")
@@ -220,16 +379,25 @@ def compile_arrival_records():
 
 @dashboard_bp.route("/actions/event/save", methods=["POST"])
 @dashboard_login_required
-@role_required("ltcato_staff")
+@role_required("super_admin", "ltcato_staff", "lgu_admin")
 def save_event():
     from services.events import create_event_from_request
 
     user = get_current_dashboard_user()
+    forced_lgu_id = resolve_dashboard_lgu_id(user) if user["role"] == "lgu_admin" else None
+    approval_status = "pending" if user["role"] == "lgu_admin" else "approved"
     try:
         create_event_from_request(
-            request.form, request.files, created_by=str(user.get("id") or "")
+            request.form,
+            request.files,
+            created_by=str(user.get("id") or ""),
+            forced_lgu_id=forced_lgu_id,
+            approval_status=approval_status,
         )
-        flash("Event published successfully.", "success")
+        if approval_status == "pending":
+            flash("Event submitted and is pending LTCATO approval.", "success")
+        else:
+            flash("Event published successfully.", "success")
     except ValueError as exc:
         flash(str(exc), "danger")
     except Exception as exc:
@@ -239,6 +407,105 @@ def save_event():
             "For uploads, ensure Storage bucket exists (see SUPABASE_STORAGE_BUCKET).",
             "danger",
         )
+    return redirect(url_for("dashboard.promotions"))
+
+
+@dashboard_bp.route("/actions/event/<int:event_id>/approve", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def approve_event(event_id: int):
+    get_supabase().table("events").update({"approval_status": "approved"}).eq(
+        "id", event_id
+    ).execute()
+    flash("Event approved and published.", "success")
+    return redirect(url_for("dashboard.promotions"))
+
+
+@dashboard_bp.route("/actions/event/<int:event_id>/reject", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def reject_event(event_id: int):
+    get_supabase().table("events").update({"approval_status": "rejected"}).eq(
+        "id", event_id
+    ).execute()
+    flash("Event rejected.", "info")
+    return redirect(url_for("dashboard.promotions"))
+
+
+@dashboard_bp.route("/actions/event/<int:event_id>/request-featured", methods=["POST"])
+@dashboard_login_required
+@role_required("lgu_admin", "super_admin", "ltcato_staff")
+def request_event_featured(event_id: int):
+    from services.events import request_event_featured as _request_featured
+
+    user = get_current_dashboard_user()
+    lgu_id = resolve_dashboard_lgu_id(user) if user["role"] == "lgu_admin" else None
+    try:
+        _request_featured(
+            event_id,
+            requested_by=str(user.get("id")),
+            lgu_id=lgu_id,
+            payment_reference=(request.form.get("payment_reference") or "").strip() or None,
+        )
+        flash("Featured request submitted for LTCATO review.", "success")
+    except PermissionError:
+        flash("You can only request Featured for your own LGU's events.", "danger")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    return redirect(url_for("dashboard.promotions"))
+
+
+@dashboard_bp.route("/actions/event/<int:event_id>/featured/<decision>", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def review_event_featured(event_id: int, decision: str):
+    from services.events import review_event_featured as _review_featured
+
+    user = get_current_dashboard_user()
+    if decision not in ("approve", "reject"):
+        flash("Invalid decision.", "danger")
+        return redirect(url_for("dashboard.promotions"))
+    try:
+        _review_featured(event_id, approve=(decision == "approve"), reviewed_by=str(user.get("id")))
+        flash(f"Featured request {decision}d.", "success")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    return redirect(url_for("dashboard.promotions"))
+
+
+@dashboard_bp.route("/actions/event/<int:event_id>/notify-visitors", methods=["POST"])
+@dashboard_login_required
+@role_required("lgu_admin", "ltcato_staff", "super_admin")
+def notify_event_visitors(event_id: int):
+    """Email tourists who've completed a visit to a spot in this event's LGU."""
+    from services.email_service import send_email
+    from services.visit_schedules import list_previous_visitor_emails_for_lgu
+
+    user = get_current_dashboard_user()
+    event_res = (
+        get_supabase().table("events").select("id, title, lgu_id").eq("id", event_id).execute()
+    )
+    rows = event_res.data or []
+    if not rows:
+        flash("Event not found.", "danger")
+        return redirect(url_for("dashboard.promotions"))
+    event = rows[0]
+    lgu_id = event.get("lgu_id")
+    if not lgu_id:
+        flash("This event isn't tied to a specific LGU, so there's no visitor list to notify.", "warning")
+        return redirect(url_for("dashboard.promotions"))
+    if user["role"] == "lgu_admin" and int(lgu_id) != int(resolve_dashboard_lgu_id(user) or -1):
+        flash("You can only notify visitors for events in your own LGU.", "danger")
+        return redirect(url_for("dashboard.promotions"))
+
+    emails = list_previous_visitor_emails_for_lgu(lgu_id, limit=300)
+    subject = f"New event: {event['title']}"
+    body = (
+        f"<p>A new event, <strong>{event['title']}</strong>, has just been posted "
+        "for a destination you've previously visited. Check it out on the LTCATO site!</p>"
+    )
+    sent = sum(1 for email in emails if send_email(email, subject, body))
+    flash(f"Notified {sent} of {len(emails)} previous visitor(s).", "success")
     return redirect(url_for("dashboard.promotions"))
 
 

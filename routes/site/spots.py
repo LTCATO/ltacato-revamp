@@ -1,4 +1,5 @@
 import logging
+from datetime import date, datetime
 
 from flask import Blueprint, abort, jsonify, render_template, request
 
@@ -18,8 +19,10 @@ from services.spots import (
     list_spots,
     spot_lgu_name,
 )
+from services.email_service import send_visit_scheduled_emails
 from services.supabase_client import get_supabase
-from services.tourist_auth import get_current_tourist
+from services.tourist_auth import EMAIL_PATTERN, get_current_tourist
+from services.visit_schedules import create_visit_schedule
 from utils.jinja_helpers import ensure_list, normalize_image_url
 
 logger = logging.getLogger(__name__)
@@ -229,5 +232,79 @@ def spot_feedback(spot_id: int):
     except Exception as exc:
         logger.exception("spot_feedback error: %s", exc)
         return jsonify({"error": "server_error"}), 500
+
+    return jsonify({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Schedule visit (appointment request, works for anonymous visitors too)
+# ---------------------------------------------------------------------------
+
+
+@spots_bp.route("/spots/<int:spot_id>/schedule-visit", methods=["POST"])
+def schedule_visit(spot_id: int):
+    spot = get_spot(spot_id)
+    if not spot:
+        return jsonify({"error": "not_found"}), 404
+
+    tourist = get_current_tourist()
+
+    visitor_name = (
+        request.form.get("visitor_name") or (tourist or {}).get("name") or ""
+    ).strip()
+    visitor_email = (
+        request.form.get("visitor_email") or (tourist or {}).get("email") or ""
+    ).strip().lower()
+    visitor_phone = (request.form.get("visitor_phone") or "").strip()
+    visit_date_raw = (request.form.get("visit_date") or "").strip()
+    visit_time_raw = (request.form.get("visit_time") or "").strip()
+    party_size = request.form.get("party_size", type=int) or 1
+    notes = (request.form.get("notes") or "").strip()
+    visitor_category = request.form.get("visitor_category") or "day_tour"
+    if visitor_category not in ("day_tour", "overnight"):
+        visitor_category = "day_tour"
+    overnight_nights = request.form.get("overnight_nights", type=int) or 0
+
+    if not visitor_name or not visit_date_raw or not visit_time_raw:
+        return jsonify({"error": "invalid_input"}), 400
+    if visitor_email and not EMAIL_PATTERN.match(visitor_email):
+        return jsonify({"error": "invalid_input"}), 400
+    if party_size < 1:
+        return jsonify({"error": "invalid_input"}), 400
+    if visitor_category == "overnight" and overnight_nights < 1:
+        return jsonify({"error": "invalid_input"}), 400
+
+    try:
+        visit_date = date.fromisoformat(visit_date_raw)
+        visit_time = datetime.strptime(visit_time_raw, "%H:%M").time()
+    except ValueError:
+        return jsonify({"error": "invalid_input"}), 400
+
+    if visit_date < date.today():
+        return jsonify({"error": "invalid_input"}), 400
+
+    try:
+        visit = create_visit_schedule(
+            {
+                "tourist_spot_id": spot_id,
+                "tourist_id": tourist["id"] if tourist else None,
+                "visitor_name": visitor_name,
+                "visitor_email": visitor_email or None,
+                "visitor_phone": visitor_phone or None,
+                "visit_date": visit_date.isoformat(),
+                "visit_time": visit_time.isoformat(),
+                "party_size": party_size,
+                "notes": notes or None,
+                "visitor_category": visitor_category,
+                "overnight_nights": overnight_nights if visitor_category == "overnight" else 0,
+            }
+        )
+    except ValueError:
+        return jsonify({"error": "invalid_input"}), 400
+    except Exception as exc:
+        logger.exception("schedule_visit error: %s", exc)
+        return jsonify({"error": "server_error"}), 500
+
+    send_visit_scheduled_emails(visit, spot)
 
     return jsonify({"ok": True})

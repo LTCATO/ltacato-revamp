@@ -65,6 +65,13 @@
         <a href="{{ url_for('events.event_detail', event_id=event.id) }}" class="event-card event-card--link">
           <div class="event-image-container">
             <img src="{{ event.image | normalize_image_url }}" alt="{{ event.title }}" class="event-image" loading="lazy" />
+            {% if event.is_featured_now %}
+            <div
+              style="position:absolute; top:0.75rem; right:0.75rem; z-index:2; display:flex; align-items:center; gap:0.25rem; padding:0.35rem 0.65rem; border-radius:999px; background:linear-gradient(135deg, #f59e0b, #d97706); color:#fff; font-size:0.75rem; font-weight:600; letter-spacing:0.02em;"
+            >
+              <i class="ph ph-star"></i> Featured
+            </div>
+            {% endif %}
             <div class="event-date-badge">
               <div class="date-month">{{ event.date_month }}</div>
               <div class="date-day">{{ event.date_day }}</div>

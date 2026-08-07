@@ -144,17 +144,15 @@ def arrivals():
 
     if role == "establishment_owner":
         spots = list_spots_for_dashboard(owner_id=user.get("id"), limit=20)
-        draft_records = list_arrival_reports(owner_id=user.get("id"), status="draft", limit=100)
+        draft_records = []
         submitted_records = list_arrival_reports(owner_id=user.get("id"), status="submitted", limit=80)
-        reports = draft_records + submitted_records
+        reports = submitted_records
         reports.sort(key=lambda r: r.get("report_date") or "", reverse=True)
-        report_types = ("daily", "weekly")
+        report_types = ()
         page_desc = (
-            "Save daily or weekly arrival records as drafts, then compile and submit "
-            "them to your LGU Tourism Office when ready."
+            "Reports submitted to your LGU Tourism Office, generated from your visit logs. "
+            "Go to Logs to add walk-ins or generate a new report."
         )
-        can_submit_day_tour = bool(spots)
-        can_submit_overnight = bool(spots)
     elif role == "lgu_admin":
         draft_records = []
         submitted_records = []
@@ -424,15 +422,21 @@ def accounts():
 
 @dashboard_bp.route("/promotions")
 @dashboard_login_required
-@role_required("super_admin", "ltcato_staff")
+@role_required("super_admin", "ltcato_staff", "lgu_admin")
 def promotions():
     user = get_current_dashboard_user()
-    events = list_events(approval_status=None, limit=80)
+    forced_lgu_id = None
+    if user["role"] == "lgu_admin":
+        forced_lgu_id = _user_lgu_id(user)
+        events = list_events(lgu_id=forced_lgu_id, approval_status=None, limit=80)
+    else:
+        events = list_events(approval_status=None, limit=80)
     return render_dashboard(
         "views/dashboard/pages/promotions.html",
         user,
         events=events,
         lgus=list_lgus_simple(),
+        forced_lgu_id=forced_lgu_id,
         page_title="Promotions & events",
         page_description="Create and manage provincial promotions and events for the public site.",
         page_icon="bx-calendar-event",
@@ -584,6 +588,36 @@ def tourist_spots():
         page_title="Tourist spots",
         page_description="Establishments under your LGU — create owner accounts; owners register their own spots.",
         page_icon="bx-map",
+    )
+
+
+@dashboard_bp.route("/visit-schedule")
+@dashboard_login_required
+@role_required("establishment_owner")
+def visit_schedules():
+    from services.visit_schedules import list_logs_for_owner, list_visits_for_owner
+
+    user = get_current_dashboard_user()
+    visits = list_visits_for_owner(str(user.get("id")), limit=200)
+
+    q = request.args.get("q") or None
+    date_from = request.args.get("date_from") or None
+    date_to = request.args.get("date_to") or None
+    logs = list_logs_for_owner(str(user.get("id")), q=q, date_from=date_from, date_to=date_to)
+    spots = list_spots_for_dashboard(owner_id=user.get("id"), limit=20)
+
+    return render_dashboard(
+        "views/dashboard/pages/visit_schedules.html",
+        user,
+        visits=visits,
+        logs=logs,
+        spots=spots,
+        q=q or "",
+        date_from=date_from or "",
+        date_to=date_to or "",
+        page_title="Visit schedule",
+        page_description="Manage visit requests, browse logs, and generate LTCATO reports for your establishment.",
+        page_icon="bx-calendar-check",
     )
 
 

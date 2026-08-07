@@ -392,6 +392,14 @@ ensure_list %} {% set driving = spot.driving_guide | ensure_list %}
                             Include this spot when you build a day-by-day route
                             in the planner.
                         </p>
+                        <button
+                            type="button"
+                            class="btn ltcato-btn-pill w-100 mb-2"
+                            data-bs-toggle="modal"
+                            data-bs-target="#scheduleVisitModal"
+                        >
+                            <i class="ph ph-calendar-plus"></i> Schedule Visit
+                        </button>
                         <a
                             href="{{ url_for('itinerary.planner', spot_id=spot.id) }}"
                             class="btn ltcato-btn-pill w-100 mb-2"
@@ -410,6 +418,8 @@ ensure_list %} {% set driving = spot.driving_guide | ensure_list %}
         </div>
     </div>
 </section>
+
+{% include "include/site/schedule_visit_modal.html" %}
 
 {% if related %}
 <section class="home-section featured-section spot-related-section">
@@ -571,6 +581,57 @@ ensure_list %} {% set driving = spot.driving_guide | ensure_list %}
                     }
                 } else if (resp.status === 401) {
                     window.location.href = '{{ url_for("auth.login") }}';
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        });
+    }
+
+    // Schedule visit form
+    const scheduleVisitDateInput = document.getElementById("scheduleVisitDate");
+    if (scheduleVisitDateInput) {
+        scheduleVisitDateInput.min = new Date().toISOString().split("T")[0];
+    }
+
+    const scheduleVisitCategory = document.getElementById("scheduleVisitCategory");
+    const scheduleVisitNightsWrap = document.getElementById("scheduleVisitNightsWrap");
+    if (scheduleVisitCategory && scheduleVisitNightsWrap) {
+        scheduleVisitCategory.addEventListener("change", () => {
+            scheduleVisitNightsWrap.classList.toggle(
+                "d-none",
+                scheduleVisitCategory.value !== "overnight"
+            );
+        });
+    }
+
+    const scheduleVisitForm = document.getElementById("scheduleVisitForm");
+    if (scheduleVisitForm) {
+        scheduleVisitForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const msg = document.getElementById("scheduleVisitMsg");
+            const spotId = scheduleVisitForm.dataset.spotId;
+            const formData = new FormData(scheduleVisitForm);
+            if (msg) msg.classList.add("d-none");
+            try {
+                const resp = await fetch(`/spots/${spotId}/schedule-visit`, {
+                    method: "POST",
+                    body: formData,
+                });
+                const data = await resp.json();
+                if (data.ok) {
+                    scheduleVisitForm.innerHTML =
+                        '<div class="modal-body"><div class="alert alert-success mb-0">Visit request sent! You will receive a confirmation email once the establishment reviews it.</div></div>';
+                    setTimeout(() => {
+                        const modalEl = document.getElementById("scheduleVisitModal");
+                        bootstrap.Modal.getInstance(modalEl)?.hide();
+                    }, 2000);
+                } else {
+                    if (msg) {
+                        msg.textContent =
+                            "Please check the form and try again.";
+                        msg.classList.remove("d-none");
+                    }
                 }
             } catch (e) {
                 console.error(e);

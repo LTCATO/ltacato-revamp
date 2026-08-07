@@ -245,6 +245,13 @@
             <div class="col-lg-4 col-md-6">
                 <article class="event-card">
                     <div class="event-image-container">
+                        {% if ev.is_featured_now %}
+                        <div
+                            style="position:absolute; top:0.75rem; right:0.75rem; z-index:2; display:flex; align-items:center; gap:0.25rem; padding:0.35rem 0.65rem; border-radius:999px; background:linear-gradient(135deg, #f59e0b, #d97706); color:#fff; font-size:0.75rem; font-weight:600; letter-spacing:0.02em;"
+                        >
+                            <i class="ph ph-star"></i> Featured
+                        </div>
+                        {% endif %}
                         {% if img %}
                         <img
                             src="{{ img | normalize_image_url }}"

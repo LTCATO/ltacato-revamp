@@ -287,6 +287,16 @@
                                     </select>
                                 </div>
                                 <div class="col-md-4">
+                                    {% if forced_lgu_id %}
+                                    <label class="form-label">LGU / municipality</label>
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        value="{{ user.organization }}"
+                                        disabled
+                                    />
+                                    <input type="hidden" name="lgu_id" value="{{ forced_lgu_id }}" />
+                                    {% else %}
                                     <label class="form-label"
                                         >LGU / municipality</label
                                     >
@@ -298,6 +308,7 @@
                                         </option>
                                         {% endfor %}
                                     </select>
+                                    {% endif %}
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Organizer</label>

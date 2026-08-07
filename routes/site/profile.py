@@ -17,6 +17,7 @@ from services.tourist_passport import (
     list_passport_stamps,
     stamp_spot,
 )
+from services.visit_schedules import list_visits_for_tourist
 from utils.jinja_helpers import normalize_image_url
 from utils.tourist_helpers import tourist_login_required
 
@@ -53,6 +54,12 @@ def tourist_profile():
         pass
 
     dss = get_tourist_decision_support(tourist["id"])
+
+    my_visits = []
+    try:
+        my_visits = list_visits_for_tourist(tourist["id"], tourist["email"])
+    except Exception:
+        pass
 
     form_data = {
         "first_name": profile.get("first_name") or "",
@@ -133,4 +140,5 @@ def tourist_profile():
         saved_spots=saved_spots,
         saved_events=saved_events,
         dss=dss,
+        my_visits=my_visits,
     )

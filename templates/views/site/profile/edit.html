@@ -65,6 +65,19 @@ content %}
                 <button
                     class="nav-link"
                     data-bs-toggle="pill"
+                    data-bs-target="#tab-visits"
+                    type="button"
+                >
+                    <i class="ph ph-calendar-check"></i> My visits {% if
+                    my_visits %}
+                    <span class="profile-tab-count">{{ my_visits|length }}</span>
+                    {% endif %}
+                </button>
+            </li>
+            <li class="nav-item">
+                <button
+                    class="nav-link"
+                    data-bs-toggle="pill"
                     data-bs-target="#tab-settings"
                     type="button"
                 >
@@ -263,6 +276,60 @@ content %}
                     <a
                         href="{{ url_for('spots.spots_list') }}"
                         class="btn ltcato-btn-pill"
+                        >Browse spots</a
+                    >
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- TAB: My visits -->
+            <div class="tab-pane fade" id="tab-visits" role="tabpanel">
+                {% if my_visits %}
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>Spot</th>
+                                <th>Date / time</th>
+                                <th>Party size</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for v in my_visits %}
+                            {% set vspot = v.tourist_spots or {} %}
+                            <tr>
+                                <td>
+                                    {% if vspot.id %}
+                                    <a href="{{ url_for('spots.spot_detail', spot_id=vspot.id) }}"
+                                        >{{ vspot.name or 'Spot' }}</a
+                                    >
+                                    {% else %} {{ vspot.name or 'Spot' }} {%
+                                    endif %}
+                                </td>
+                                <td>
+                                    {{ v.visit_date }}
+                                    <span class="text-muted small">{{ v.visit_time }}</span>
+                                </td>
+                                <td>{{ v.party_size }}</td>
+                                <td>
+                                    {% set vs = (v.status or '')|lower %}
+                                    <span
+                                        class="badge {{ 'text-bg-success' if vs == 'confirmed' else 'text-bg-warning' if vs == 'pending' else 'text-bg-danger' if vs == 'declined' else 'text-bg-secondary' }}"
+                                        >{{ v.status|replace('_', ' ')|title }}</span
+                                    >
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="spots-empty">
+                    <i class="ph ph-calendar-check"></i>
+                    <h3>No scheduled visits yet</h3>
+                    <p>Requests you make from a spot page will show up here.</p>
+                    <a href="{{ url_for('spots.spots_list') }}" class="btn ltcato-btn-pill"
                         >Browse spots</a
                     >
                 </div>
