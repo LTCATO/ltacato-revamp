@@ -22,7 +22,7 @@ instead of being typed by hand.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from services.supabase_client import get_supabase
@@ -44,6 +44,9 @@ _ORIGIN_COUNT_KEYS = {
     "other_province": ("other_province_male", "other_province_female"),
     "foreign": ("foreign_male", "foreign_female"),
 }
+_ORIGIN_COUNT_KEYS_FLAT = tuple(
+    key for pair in _ORIGIN_COUNT_KEYS.values() for key in pair
+)
 
 VISIT_FIELDS = (
     "id, tourist_spot_id, tourist_id, visitor_name, visitor_email, visitor_phone, "
@@ -88,12 +91,25 @@ def _normalize_visit_row(row: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
+def _insert_visit_row(row: dict[str, Any]):
+    """Insert into visit_schedules, tolerating a not-yet-migrated `source`
+    column (pre-arrival_reports_v2.sql) by retrying without it."""
+    try:
+        return get_supabase().table("visit_schedules").insert(row).execute()
+    except Exception as exc:
+        if "source" in str(exc) and "source" in row:
+            row = {k: v for k, v in row.items() if k != "source"}
+            return get_supabase().table("visit_schedules").insert(row).execute()
+        raise
+
+
 def create_visit_schedule(payload: dict[str, Any]) -> dict[str, Any]:
     row = {k: payload[k] for k in _CREATE_ALLOWED if k in payload}
     row = _normalize_visit_row(row)
     row["status"] = "pending"
+    row["source"] = "scheduled"
 
-    response = get_supabase().table("visit_schedules").insert(row).execute()
+    response = _insert_visit_row(row)
     data = response.data or []
     if not data:
         raise RuntimeError("Failed to save visit schedule.")
@@ -128,20 +144,22 @@ def create_manual_log(payload: dict[str, Any], *, owner_id: str) -> dict[str, An
     row = _normalize_visit_row(row)
     if not row["visitor_name"]:
         raise ValueError("Visitor name is required.")
-    if row.get("origin") not in ORIGINS:
-        row["origin"] = None
-    row["male_count"] = (
-        int(payload["male_count"]) if payload.get("male_count") not in (None, "") else None
-    )
-    row["female_count"] = (
-        int(payload["female_count"]) if payload.get("female_count") not in (None, "") else None
-    )
+    if payload.get("origin") not in ORIGINS:
+        raise ValueError("Origin is required.")
+    if payload.get("male_count") in (None, ""):
+        raise ValueError("Male count is required.")
+    if payload.get("female_count") in (None, ""):
+        raise ValueError("Female count is required.")
+    row["origin"] = payload["origin"]
+    row["male_count"] = int(payload["male_count"])
+    row["female_count"] = int(payload["female_count"])
     row["status"] = "completed"
     row["is_manual"] = True
+    row["source"] = "walk_in"
     row["logged_by"] = owner_id
     row["arrived_at"] = datetime.now(timezone.utc).isoformat()
 
-    response = get_supabase().table("visit_schedules").insert(row).execute()
+    response = _insert_visit_row(row)
     data = response.data or []
     if not data:
         raise RuntimeError("Failed to save manual log.")
@@ -379,6 +397,7 @@ def aggregate_logs_for_report(
         "foreign_female": 0,
     }
     overnight_nights = 0
+    unclassified_count = 0
     for row in rows:
         origin = row.get("origin")
         keys = _ORIGIN_COUNT_KEYS.get(origin)
@@ -386,10 +405,16 @@ def aggregate_logs_for_report(
             male_key, female_key = keys
             counts[male_key] += int(row.get("male_count") or 0)
             counts[female_key] += int(row.get("female_count") or 0)
+        else:
+            # No residence on record — the official Excel template has no
+            # cell for this, so it can't appear in the breakdown. Surface it
+            # as a count rather than silently dropping these visitors.
+            unclassified_count += int(row.get("party_size") or 0)
         overnight_nights += int(row.get("overnight_nights") or 0)
 
     counts["overnight_nights"] = overnight_nights
     counts["visit_count"] = len(rows)
+    counts["unclassified_count"] = unclassified_count
     return counts
 
 
@@ -401,7 +426,10 @@ def generate_and_submit_arrival_report(
     report_type: str,
     date_from: str,
     date_to: str,
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], int]:
+    """Returns (report_row, unclassified_count) — the latter is the number
+    of visitors with no residence on record, excluded from the breakdown
+    but not silently lost (see aggregate_logs_for_report)."""
     from services.arrival_reports import create_arrival_report
 
     spot = _verify_spot_owner(spot_id, owner_id)
@@ -409,6 +437,7 @@ def generate_and_submit_arrival_report(
         owner_id, spot_id, date_from=date_from, date_to=date_to, visitor_category=visitor_category
     )
     aggregated.pop("visit_count", None)
+    unclassified_count = aggregated.pop("unclassified_count", 0)
 
     payload = {
         "tourist_spot_id": spot_id,
@@ -420,7 +449,165 @@ def generate_and_submit_arrival_report(
         "status": "submitted",
         **aggregated,
     }
-    return create_arrival_report(payload)
+    return create_arrival_report(payload), unclassified_count
+
+
+# ---------------------------------------------------------------------------
+# Phase 2: automatic aggregation — LGU/owner see live daily/weekly/monthly
+# totals computed directly from completed visit_schedules rows. No owner
+# action creates a report; viewing is a pure read/aggregate (idempotent by
+# construction — nothing is written to the database by these functions).
+# ---------------------------------------------------------------------------
+
+_VISIT_AGGREGATE_FIELDS = (
+    "id, tourist_spot_id, visit_date, party_size, visitor_category, "
+    "overnight_nights, origin, male_count, female_count, "
+    "tourist_spots(id, name, code)"
+)
+
+
+def list_completed_visits(
+    *,
+    spot_ids: list[int] | None = None,
+    lgu_id: int | None = None,
+    date_from: str,
+    date_to: str,
+    visitor_category: str | None = None,
+    limit: int = 2000,
+) -> list[dict[str, Any]]:
+    """Raw completed visit_schedules rows in a date range, scoped to either
+    an explicit list of spot ids (owner's own view) or a whole LGU."""
+    if spot_ids is None:
+        if lgu_id is None:
+            raise ValueError("Either spot_ids or lgu_id is required.")
+        from services.spots import list_spots_for_dashboard
+
+        spots = list_spots_for_dashboard(lgu_id=lgu_id, limit=500)
+        spot_ids = [int(s["id"]) for s in spots if s.get("id") is not None]
+
+    if not spot_ids:
+        return []
+
+    query = (
+        get_supabase()
+        .table("visit_schedules")
+        .select(_VISIT_AGGREGATE_FIELDS)
+        .in_("tourist_spot_id", spot_ids)
+        .eq("status", "completed")
+        .gte("visit_date", date_from)
+        .lte("visit_date", date_to)
+    )
+    if visitor_category:
+        query = query.eq("visitor_category", visitor_category)
+    response = query.order("visit_date").limit(limit).execute()
+    return response.data or []
+
+
+def aggregate_visits_by_spot(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Group completed visit rows into one summary row per tourist spot —
+    same shape the LGU consolidation flow has always used."""
+    by_spot: dict[int, dict[str, Any]] = {}
+    for row in rows:
+        sid = row.get("tourist_spot_id")
+        if sid is None:
+            continue
+        sid = int(sid)
+        if sid not in by_spot:
+            spot = row.get("tourist_spots") or {}
+            by_spot[sid] = {
+                "tourist_spot_id": sid,
+                "spot_name": spot.get("name") or f"Spot #{sid}",
+                "spot_code": spot.get("code"),
+                "report_count": 0,
+                "unclassified_count": 0,
+                "overnight_nights": 0,
+                **{k: 0 for k in _ORIGIN_COUNT_KEYS_FLAT},
+            }
+        entry = by_spot[sid]
+        entry["report_count"] += 1
+        entry["overnight_nights"] += int(row.get("overnight_nights") or 0)
+        keys = _ORIGIN_COUNT_KEYS.get(row.get("origin"))
+        if keys:
+            male_key, female_key = keys
+            entry[male_key] += int(row.get("male_count") or 0)
+            entry[female_key] += int(row.get("female_count") or 0)
+        else:
+            entry["unclassified_count"] += int(row.get("party_size") or 0)
+
+    results = list(by_spot.values())
+    for entry in results:
+        entry["total_visitors"] = sum(entry[k] for k in _ORIGIN_COUNT_KEYS_FLAT)
+    return sorted(results, key=lambda x: x["spot_name"])
+
+
+def aggregate_visits_by_day(
+    rows: list[dict[str, Any]], *, date_from: str, date_to: str
+) -> list[dict[str, Any]]:
+    """Group completed visit rows into one row per calendar date (zero-filled
+    for dates with no activity), so a week/month view shows a real daily
+    breakdown instead of a single number."""
+    by_day: dict[str, dict[str, Any]] = {}
+    start = date.fromisoformat(date_from)
+    end = date.fromisoformat(date_to)
+    d = start
+    while d <= end:
+        iso = d.isoformat()
+        by_day[iso] = {"date": iso, "day_tour_total": 0, "overnight_total": 0, "total": 0}
+        d += timedelta(days=1)
+
+    for row in rows:
+        iso = str(row.get("visit_date"))[:10]
+        entry = by_day.get(iso)
+        if entry is None:
+            continue
+        party = int(row.get("party_size") or 0)
+        entry["total"] += party
+        if row.get("visitor_category") == "overnight":
+            entry["overnight_total"] += party
+        else:
+            entry["day_tour_total"] += party
+
+    return [by_day[k] for k in sorted(by_day.keys())]
+
+
+def consolidate_lgu_visits_for_month(
+    lgu_id: int, *, year: int, month: int, visitor_category: str
+) -> list[dict[str, Any]]:
+    """Per-spot totals for a full month, automatically aggregated from
+    completed visit_schedules — replaces the old owner-submitted-reports
+    based consolidation. Excludes spots that already have a submitted
+    monthly arrival_reports row for this period, same as before."""
+    from calendar import monthrange
+
+    first_day = date(year, month, 1)
+    last_day = date(year, month, monthrange(year, month)[1])
+
+    rows = list_completed_visits(
+        lgu_id=lgu_id,
+        date_from=first_day.isoformat(),
+        date_to=last_day.isoformat(),
+        visitor_category=visitor_category,
+    )
+    spot_rows = aggregate_visits_by_spot(rows)
+
+    already_submitted = (
+        get_supabase()
+        .table("arrival_reports")
+        .select("tourist_spot_id")
+        .eq("lgu_id", lgu_id)
+        .eq("report_type", "monthly")
+        .eq("visitor_category", visitor_category)
+        .gte("report_date", first_day.isoformat())
+        .lte("report_date", last_day.isoformat())
+        .execute()
+    )
+    already_submitted_ids = {
+        int(r["tourist_spot_id"])
+        for r in (already_submitted.data or [])
+        if r.get("tourist_spot_id") is not None
+    }
+
+    return [r for r in spot_rows if r["tourist_spot_id"] not in already_submitted_ids]
 
 
 def list_previous_visitor_emails_for_lgu(lgu_id: int, *, limit: int = 300) -> list[str]:

@@ -12,9 +12,7 @@ from routes.dashboard.helpers import (
 )
 from services.arrival_export import export_combined_workbook
 from services.arrival_reports import (
-    consolidate_establishment_reports,
     create_arrival_report,
-    establishment_reports_for_lgu,
     list_arrival_reports,
     monthly_spot_reports_for_export,
 )
@@ -130,97 +128,178 @@ def decision_support():
     )
 
 
+def _paginate_reports_by_year(
+    rows: list[dict], page: int
+) -> tuple[list[dict], str, bool]:
+    """Page 1 = the current calendar year; each higher page number goes one
+    year further into the past. The target year is computed fresh from
+    today's date on every request (nothing is stored), so once a new year
+    starts, what used to be page 1 automatically becomes page 2. These rows
+    are already one-per-month (monthly submissions), so pagination here is
+    by year rather than by month."""
+    today = date.today()
+    target_year = today.year - (page - 1)
+    prefix = f"{target_year:04d}"
+    page_rows = [r for r in rows if str(r.get("report_date") or "").startswith(prefix)]
+    has_older = any(str(r.get("report_date") or "")[:4] < prefix for r in rows)
+    return page_rows, str(target_year), has_older
+
+
+def _month_range_for_page(live_page: int) -> tuple[str, str, str]:
+    """Page 1 = the current calendar month; each higher page goes one month
+    further into the past. Returns (date_from, date_to, month_label) for
+    that whole month, computed fresh from today's date every request."""
+    from calendar import monthrange
+
+    today = date.today()
+    total_months = today.year * 12 + (today.month - 1) - (live_page - 1)
+    target_year, target_month = divmod(total_months, 12)
+    target_month += 1
+    last_day = monthrange(target_year, target_month)[1]
+    date_from = date(target_year, target_month, 1).isoformat()
+    date_to = date(target_year, target_month, last_day).isoformat()
+    month_label = date(target_year, target_month, 1).strftime("%B %Y")
+    return date_from, date_to, month_label
+
+
 @dashboard_bp.route("/arrivals")
 @dashboard_login_required
 def arrivals():
+    from services.visit_schedules import (
+        aggregate_visits_by_day,
+        aggregate_visits_by_spot,
+        list_completed_visits,
+    )
+
     user = get_current_dashboard_user()
     role = user["role"]
     lgu_id = _user_lgu_id(user)
 
-    can_submit_day_tour = False
-    can_submit_overnight = False
     can_download = role in ("super_admin", "ltcato_staff")
     spots: list = []
+    reports: list = []
+    monthly_rows: list = []
+    live_day_tour_rows: list = []
+    live_overnight_rows: list = []
+    live_daily_breakdown: list = []
+
+    page = request.args.get("page", 1, type=int)
+    if page < 1:
+        page = 1
+    page_year_label = ""
+    has_older_page = False
+
+    # The day tour / overnight live view pages through whole calendar months
+    # (page 1 = current month). An explicit date_from/date_to in the query
+    # string overrides the page nav for a custom range.
+    live_page = request.args.get("live_page", 1, type=int)
+    if live_page < 1:
+        live_page = 1
+    explicit_range = bool(request.args.get("date_from") or request.args.get("date_to"))
+    if explicit_range:
+        live_date_from = request.args.get("date_from") or date.today().isoformat()
+        live_date_to = request.args.get("date_to") or live_date_from
+        if live_date_to < live_date_from:
+            live_date_from, live_date_to = live_date_to, live_date_from
+        live_month_label = ""
+    else:
+        live_date_from, live_date_to, live_month_label = _month_range_for_page(live_page)
 
     if role == "establishment_owner":
         spots = list_spots_for_dashboard(owner_id=user.get("id"), limit=20)
-        draft_records = []
-        submitted_records = list_arrival_reports(owner_id=user.get("id"), status="submitted", limit=80)
-        reports = submitted_records
-        reports.sort(key=lambda r: r.get("report_date") or "", reverse=True)
-        report_types = ()
+        spot_ids = [int(s["id"]) for s in spots if s.get("id") is not None]
+        live_rows = (
+            list_completed_visits(spot_ids=spot_ids, date_from=live_date_from, date_to=live_date_to)
+            if spot_ids
+            else []
+        )
+        live_day_tour_rows = aggregate_visits_by_spot(
+            [r for r in live_rows if r.get("visitor_category") != "overnight"]
+        )
+        live_overnight_rows = aggregate_visits_by_spot(
+            [r for r in live_rows if r.get("visitor_category") == "overnight"]
+        )
+        live_daily_breakdown = aggregate_visits_by_day(
+            live_rows, date_from=live_date_from, date_to=live_date_to
+        )
         page_desc = (
-            "Reports submitted to your LGU Tourism Office, generated from your visit logs. "
-            "Go to Logs to add walk-ins or generate a new report."
+            "Visitor activity from your Logs is automatically included here — no report "
+            "generation needed. Add walk-ins or edit demographics from the Logs page."
         )
     elif role == "lgu_admin":
-        draft_records = []
-        submitted_records = []
         spots = list_spots_for_dashboard(lgu_id=lgu_id, limit=200) if lgu_id else []
-        establishment_rows = establishment_reports_for_lgu(lgu_id) if lgu_id else []
-        monthly_rows = (
+        live_rows = (
+            list_completed_visits(lgu_id=lgu_id, date_from=live_date_from, date_to=live_date_to)
+            if lgu_id
+            else []
+        )
+        live_day_tour_rows = aggregate_visits_by_spot(
+            [r for r in live_rows if r.get("visitor_category") != "overnight"]
+        )
+        live_overnight_rows = aggregate_visits_by_spot(
+            [r for r in live_rows if r.get("visitor_category") == "overnight"]
+        )
+        live_daily_breakdown = aggregate_visits_by_day(
+            live_rows, date_from=live_date_from, date_to=live_date_to
+        )
+        all_monthly_rows = (
             list_arrival_reports(
-                lgu_id=lgu_id, report_type="monthly", require_spot=True, limit=100
+                lgu_id=lgu_id, report_type="monthly", require_spot=True, limit=1000
             )
             if lgu_id
             else []
         )
-        reports = establishment_rows + monthly_rows
-        reports.sort(key=lambda r: r.get("report_date") or "", reverse=True)
-        report_types = ()
+        monthly_rows, page_year_label, has_older_page = _paginate_reports_by_year(
+            all_monthly_rows, page
+        )
         page_desc = (
-            "Review establishment daily/weekly reports below, then use "
-            "'Compile Monthly Report' to submit consolidated monthly totals to LTCATO."
+            "Visitor activity is aggregated automatically from establishment logs — pick a "
+            "date range to review it, then use 'Compile Monthly Report' to submit validated "
+            "monthly totals to LTCATO."
         )
-        can_submit_day_tour = False
-        can_submit_overnight = False
     elif role == "ltcato_staff":
-        draft_records = []
-        submitted_records = []
-        reports = list_arrival_reports(
-            report_type="monthly", require_spot=True, limit=200
+        all_reports = list_arrival_reports(
+            report_type="monthly", require_spot=True, limit=1000
         )
-        report_types = ()
+        reports, page_year_label, has_older_page = _paginate_reports_by_year(
+            all_reports, page
+        )
         page_desc = (
             "Monthly per-spot arrivals from LGUs. Download Excel by municipality "
             "(all spots that reported)."
         )
     else:
-        draft_records = []
-        submitted_records = []
-        reports = list_arrival_reports(
-            report_type="monthly", require_spot=True, limit=250
+        all_reports = list_arrival_reports(
+            report_type="monthly", require_spot=True, limit=1000
         )
-        report_types = ()
+        reports, page_year_label, has_older_page = _paginate_reports_by_year(
+            all_reports, page
+        )
         page_desc = (
             "Provincial oversight of monthly per-spot arrivals. Download Excel by LGU."
         )
 
     export_lgus = list_lgus_simple() if can_download else []
     needs_lgu_selection = role == "lgu_admin" and not lgu_id
-    lgu_picker_list = list_lgus_simple() if needs_lgu_selection else []
-
-    # For establishment owners, pass draft/submitted split; others get a flat list
-    if role == "establishment_owner":
-        template_draft_records = draft_records
-        template_submitted_records = submitted_records
-    else:
-        template_draft_records = []
-        template_submitted_records = []
 
     return render_dashboard(
         "views/dashboard/pages/arrivals.html",
         user,
         reports=reports,
-        draft_records=template_draft_records,
-        submitted_records=template_submitted_records,
-        report_types=report_types,
+        monthly_rows=monthly_rows,
+        live_day_tour_rows=live_day_tour_rows,
+        live_overnight_rows=live_overnight_rows,
+        live_daily_breakdown=live_daily_breakdown,
+        live_date_from=live_date_from,
+        live_date_to=live_date_to,
+        live_page=live_page,
+        live_month_label=live_month_label,
+        report_page=page,
+        page_year_label=page_year_label,
+        has_older_page=has_older_page,
         spots=spots,
         lgus=export_lgus,
-        lgu_picker_list=lgu_picker_list,
         needs_lgu_selection=needs_lgu_selection,
-        can_submit_day_tour=can_submit_day_tour,
-        can_submit_overnight=can_submit_overnight,
         can_download=can_download,
         page_title="Arrivals",
         page_description=page_desc,
@@ -253,10 +332,12 @@ def arrivals_consolidate():
     except ValueError:
         year, month = today.year, today.month
 
-    day_tour_rows = consolidate_establishment_reports(
+    from services.visit_schedules import consolidate_lgu_visits_for_month
+
+    day_tour_rows = consolidate_lgu_visits_for_month(
         lgu_id, year=year, month=month, visitor_category="day_tour"
     )
-    overnight_rows = consolidate_establishment_reports(
+    overnight_rows = consolidate_lgu_visits_for_month(
         lgu_id, year=year, month=month, visitor_category="overnight"
     )
 
@@ -319,12 +400,14 @@ def arrivals_consolidate_submit():
         return redirect(url_for("dashboard.arrivals_consolidate"))
 
     # Re-aggregate from DB to avoid tampering via hidden fields
-    rows = consolidate_establishment_reports(
+    from services.visit_schedules import consolidate_lgu_visits_for_month
+
+    rows = consolidate_lgu_visits_for_month(
         lgu_id, year=year, month=month, visitor_category=visitor_category
     )
     if not rows:
         flash(
-            f"No establishment reports found for {date(year, month, 1).strftime('%B %Y')} "
+            f"No visitor activity found for {date(year, month, 1).strftime('%B %Y')} "
             f"({'day tour' if visitor_category == 'day_tour' else 'overnight'}). "
             "Nothing to submit.",
             "warning",
@@ -343,6 +426,7 @@ def arrivals_consolidate_submit():
             "report_type": "monthly",
             "report_date": last_day.isoformat(),
             "visitor_category": visitor_category,
+            "status": "submitted",
             "overnight_nights": row.get("overnight_nights", 0),
             **{k: row.get(k, 0) for k in (
                 "this_city_male", "this_city_female",
@@ -382,14 +466,21 @@ def arrivals_export():
     lgu_id = int(lgu_raw)
     report_date = date.fromisoformat(date_raw) if date_raw else None
 
-    data, filename = export_combined_workbook(lgu_id=lgu_id, report_date=report_date)
-
+    # Check for data BEFORE generating the file: flashing a message and then
+    # still send_file()-ing left the warning stranded in the session (it can
+    # only render on the *next* full page load, not this download response),
+    # which looked like "a warning appeared instead of the download." Now
+    # it's one or the other, cleanly: no data -> redirect with the message,
+    # no leftover flash; data exists -> the file downloads with nothing else.
     if not monthly_spot_reports_for_export(lgu_id=lgu_id, report_date=report_date):
         flash(
-            "No monthly per-spot reports for this LGU yet. "
-            "LGU officers must submit monthly data per tourist spot.",
+            "No monthly per-spot reports for this LGU yet — LGU officers must submit "
+            "monthly data per tourist spot before an Excel report can be generated.",
             "info",
         )
+        return redirect(url_for("dashboard.arrivals"))
+
+    data, filename = export_combined_workbook(lgu_id=lgu_id, report_date=report_date)
 
     return send_file(
         BytesIO(data),
@@ -616,7 +707,8 @@ def visit_schedules():
         date_from=date_from or "",
         date_to=date_to or "",
         page_title="Visit schedule",
-        page_description="Manage visit requests, browse logs, and generate LTCATO reports for your establishment.",
+        page_description="Manage visit requests and browse logs — activity here is automatically "
+        "included in your LGU's arrival reporting.",
         page_icon="bx-calendar-check",
     )
 
@@ -635,23 +727,18 @@ def attraction_subcategories_api():
 @role_required("establishment_owner")
 def site_updates():
     user = get_current_dashboard_user()
-    spots = list_spots_for_dashboard(owner_id=user.get("id"), limit=10)
-    spot = spots[0] if spots else None
+    spots = list_spots_for_dashboard(owner_id=user.get("id"), limit=20)
     lgu_id = _user_lgu_id(user)
-    claimable_spots = (
-        list_claimable_spots_for_lgu(lgu_id, limit=100) if lgu_id and not spot else []
-    )
-    categories = get_categories() if not spot else []
+    claimable_spots = list_claimable_spots_for_lgu(lgu_id, limit=100) if lgu_id else []
+    categories = get_categories()
     return render_dashboard(
         "views/dashboard/pages/site_updates.html",
         user,
-        spot=spot,
+        spots=spots,
         categories=categories,
-        subcategories_by_category=subcategories_grouped_by_category()
-        if categories
-        else {},
+        subcategories_by_category=subcategories_grouped_by_category(),
         claimable_spots=claimable_spots,
         page_title="Site updates",
-        page_description="Claim, register, or update your establishment on the public portal.",
+        page_description="Claim, register, or update your establishments on the public portal.",
         page_icon="bx-store",
     )
