@@ -1,9 +1,12 @@
 """
 Fill the DTA3 Excel template with combined day tour + overnight arrival data.
 
-Overnight total visitors for the Excel = overnight_nights × visitor_count
-(nights stayed × number of visitors), but this multiplied figure is only
-used in the exported file — the dashboard always shows raw counts.
+An overnight visitor contributes their actual headcount once, exactly like
+a day tour visitor — the number of nights they stayed is not a multiplier
+on arrivals (a 3-night stay of 2 people is 2 arrivals, not 6). Nights are
+tracked separately on arrival_reports.overnight_nights for potential future
+guest-nights reporting; the fixed DTA3 template has no cell for that metric,
+so it is intentionally not written into the residence/sex breakdown.
 """
 
 from __future__ import annotations
@@ -81,25 +84,6 @@ def _lgu_label(lgu_id: int) -> str:
     return f"LGU_{lgu_id}"
 
 
-def _overnight_excel_visitors(rep: dict[str, Any]) -> int:
-    """
-    For the Excel export only: overnight total = night_stay × visitor_count.
-    visitor_count is the sum of the 8 origin/sex fields.
-    """
-    visitor_count = sum(int(rep.get(k) or 0) for k in _COUNT_KEYS)
-    nights = int(rep.get("overnight_nights") or 0)
-    return nights * visitor_count
-
-
-def _scale_counts(rep: dict[str, Any]) -> dict[str, int]:
-    """
-    Return count fields scaled by overnight_nights for the Excel export.
-    Each origin/sex cell = raw_count × nights.
-    """
-    nights = int(rep.get("overnight_nights") or 0)
-    return {k: int(rep.get(k) or 0) * nights for k in _COUNT_KEYS}
-
-
 def _merge_by_spot(
     day_reports: list[dict[str, Any]],
     night_reports: list[dict[str, Any]],
@@ -107,9 +91,8 @@ def _merge_by_spot(
     """
     Merge day tour and overnight reports into one row per tourist spot.
 
-    Day tour counts are used as-is.
-    Overnight counts are scaled by overnight_nights before merging
-    (night_stay × visitors per origin/sex cell).
+    Both day tour and overnight counts are used as-is — an overnight
+    visitor's stay length does not multiply their headcount.
 
     The merged rows are sorted by spot name for consistent output.
     """
@@ -137,7 +120,6 @@ def _merge_by_spot(
         if sid is None:
             continue
         sid = int(sid)
-        scaled = _scale_counts(rep)
         if sid not in merged:
             merged[sid] = {
                 "tourist_spot_id": sid,
@@ -148,7 +130,7 @@ def _merge_by_spot(
                 **{k: 0 for k in _COUNT_KEYS},
             }
         for k in _COUNT_KEYS:
-            merged[sid][k] += scaled[k]
+            merged[sid][k] += int(rep.get(k) or 0)
 
     return sorted(merged.values(), key=lambda x: x["_spot_name"])
 

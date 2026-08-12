@@ -295,7 +295,7 @@ def generate_arrival_report():
         date_to = date_from
 
     try:
-        generate_and_submit_arrival_report(
+        _report, unclassified_count = generate_and_submit_arrival_report(
             owner_id=str(user.get("id")),
             spot_id=request.form.get("tourist_spot_id", type=int),
             visitor_category=visitor_category,
@@ -304,6 +304,13 @@ def generate_arrival_report():
             date_to=date_to,
         )
         flash("Arrival report generated and submitted to your LGU.", "success")
+        if unclassified_count:
+            flash(
+                f"{unclassified_count} visitor(s) in this range have no residence recorded "
+                "and are excluded from the LTCATO breakdown — still counted in your Logs. "
+                "Edit their demographics on the Logs page to include them.",
+                "warning",
+            )
     except PermissionError:
         flash("You can only generate reports for your own establishment.", "danger")
     except ValueError as exc:
@@ -777,17 +784,10 @@ def create_owner_account():
 @dashboard_login_required
 @role_required("establishment_owner")
 def register_establishment_spot():
-    from services.spots import (
-        create_tourist_spot_for_owner,
-        list_spots_for_dashboard,
-        owner_has_spot,
-    )
+    from services.spots import create_tourist_spot_for_owner
 
     user = get_current_dashboard_user()
     owner_id = str(user.get("id") or "")
-    if owner_has_spot(owner_id):
-        flash("You already have a registered establishment.", "info")
-        return redirect(url_for("dashboard.site_updates"))
 
     lgu_id = resolve_dashboard_lgu_id(user)
     if not lgu_id:
@@ -840,13 +840,10 @@ def register_establishment_spot():
 @dashboard_login_required
 @role_required("establishment_owner")
 def claim_establishment_spot():
-    from services.spots import claim_tourist_spot_for_owner, owner_has_spot
+    from services.spots import claim_tourist_spot_for_owner
 
     user = get_current_dashboard_user()
     owner_id = str(user.get("id") or "")
-    if owner_has_spot(owner_id):
-        flash("You already have a linked establishment.", "info")
-        return redirect(url_for("dashboard.site_updates"))
 
     lgu_id = resolve_dashboard_lgu_id(user)
     if not lgu_id:

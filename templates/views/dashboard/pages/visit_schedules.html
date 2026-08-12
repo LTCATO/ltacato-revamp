@@ -9,9 +9,6 @@
 <button type="button" class="btn dashboard-btn-primary" data-bs-toggle="modal" data-bs-target="#manualLogModal">
   <i class="bx bx-plus"></i> Add manual log
 </button>
-<button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#generateReportModal">
-  <i class="bx bx-send"></i> Generate report
-</button>
 {% endset %}
 {% include "include/dashboard/module_header.html" %}
 
@@ -219,7 +216,7 @@
         <div class="modal-body">
           <div class="row g-3">
             <div class="col-md-6">
-              <label class="form-label">Establishment</label>
+              <label class="form-label">Establishment <span class="text-danger">*</span></label>
               <select name="tourist_spot_id" class="form-select" required>
                 {% for s in spots %}
                 <option value="{{ s.id }}">{{ s.name }}</option>
@@ -240,15 +237,15 @@
             </div>
             <div class="col-md-4">
               <label class="form-label">Party size</label>
-              <input type="number" name="party_size" class="form-control" min="1" value="1" />
+              <input type="number" name="party_size" id="manualLogPartySize" class="form-control" min="1" value="1" />
             </div>
             <div class="col-md-4">
               <label class="form-label">Visit date <span class="text-danger">*</span></label>
-              <input type="date" name="visit_date" class="form-control" required />
+              <input type="date" name="visit_date" id="manualLogDate" class="form-control" required />
             </div>
             <div class="col-md-4">
               <label class="form-label">Visit time</label>
-              <input type="time" name="visit_time" class="form-control" value="09:00" />
+              <input type="time" name="visit_time" id="manualLogTime" class="form-control" />
             </div>
             <div class="col-md-4">
               <label class="form-label">Visitor category</label>
@@ -262,22 +259,31 @@
               <input type="number" name="overnight_nights" class="form-control" min="0" value="0" />
             </div>
             <div class="col-md-4">
-              <label class="form-label">Origin</label>
-              <select name="origin" class="form-select">
-                <option value="">— Not specified —</option>
+              <label class="form-label">Origin <span class="text-danger">*</span></label>
+              <select name="origin" class="form-select" required>
+                <option value="" disabled selected>Select origin</option>
                 <option value="this_city">This city/municipality</option>
                 <option value="other_city">Other city/municipality</option>
                 <option value="other_province">Other province</option>
                 <option value="foreign">Foreign</option>
               </select>
             </div>
-            <div class="col-md-6">
-              <label class="form-label">Male count</label>
-              <input type="number" name="male_count" class="form-control" min="0" />
+            <div class="col-md-6 d-none" id="manualLogGenderWrap">
+              <label class="form-label d-block">Visitor is <span class="text-danger">*</span></label>
+              <div class="btn-group w-100" role="group">
+                <input type="radio" class="btn-check" name="gender_single" id="manualLogGenderMale" value="male" autocomplete="off" />
+                <label class="btn btn-outline-secondary" for="manualLogGenderMale">Male</label>
+                <input type="radio" class="btn-check" name="gender_single" id="manualLogGenderFemale" value="female" autocomplete="off" />
+                <label class="btn btn-outline-secondary" for="manualLogGenderFemale">Female</label>
+              </div>
             </div>
-            <div class="col-md-6">
-              <label class="form-label">Female count</label>
-              <input type="number" name="female_count" class="form-control" min="0" />
+            <div class="col-md-3" id="manualLogMaleWrap">
+              <label class="form-label">Male count <span class="text-danger">*</span></label>
+              <input type="number" name="male_count" id="manualLogMaleCount" class="form-control" min="0" required />
+            </div>
+            <div class="col-md-3" id="manualLogFemaleWrap">
+              <label class="form-label">Female count <span class="text-danger">*</span></label>
+              <input type="number" name="female_count" id="manualLogFemaleCount" class="form-control" min="0" required />
             </div>
             <div class="col-12">
               <label class="form-label">Notes</label>
@@ -288,59 +294,6 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
           <button type="submit" class="btn dashboard-btn-primary">Save log</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-<!-- Generate report modal -->
-<div class="modal fade" id="generateReportModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <form method="post" action="{{ url_for('dashboard.generate_arrival_report') }}">
-        <div class="modal-header">
-          <h5 class="modal-title">Generate arrival report</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <p class="small text-muted">Counts are aggregated automatically from your completed visit logs in the selected date range.</p>
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label">Establishment</label>
-              <select name="tourist_spot_id" class="form-select" required>
-                {% for s in spots %}
-                <option value="{{ s.id }}">{{ s.name }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Visitor category</label>
-              <select name="visitor_category" class="form-select">
-                <option value="day_tour">Day tour</option>
-                <option value="overnight">Overnight</option>
-              </select>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Report type</label>
-              <select name="report_type" id="reportTypeSelect" class="form-select">
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-              </select>
-            </div>
-            <div class="col-md-6" id="reportDateToWrap">
-              <label class="form-label">To date</label>
-              <input type="date" name="date_to" class="form-control" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">From date <span class="text-danger">*</span></label>
-              <input type="date" name="date_from" class="form-control" required />
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn dashboard-btn-primary">Generate &amp; submit</button>
         </div>
       </form>
     </div>
@@ -415,12 +368,62 @@
     });
   });
 
-  const reportTypeSelect = document.getElementById("reportTypeSelect");
-  const reportDateToWrap = document.getElementById("reportDateToWrap");
-  if (reportTypeSelect && reportDateToWrap) {
-    const sync = () => reportDateToWrap.classList.toggle("d-none", reportTypeSelect.value === "daily");
-    reportTypeSelect.addEventListener("change", sync);
-    sync();
+  // Default the manual log's date/time to right now on open — still editable
+  // in case the owner is logging a walk-in after the fact or makes a mistake.
+  const manualLogModal = document.getElementById("manualLogModal");
+  if (manualLogModal) {
+    manualLogModal.addEventListener("show.bs.modal", () => {
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const dateInput = document.getElementById("manualLogDate");
+      const timeInput = document.getElementById("manualLogTime");
+      if (dateInput) {
+        dateInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      }
+      if (timeInput) {
+        timeInput.value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      }
+      syncManualLogGenderMode();
+    });
+  }
+
+  // Party size of 1 -> ask "male or female" instead of two count fields.
+  const manualLogPartySize = document.getElementById("manualLogPartySize");
+  const manualLogGenderWrap = document.getElementById("manualLogGenderWrap");
+  const manualLogMaleWrap = document.getElementById("manualLogMaleWrap");
+  const manualLogFemaleWrap = document.getElementById("manualLogFemaleWrap");
+  const manualLogMaleCount = document.getElementById("manualLogMaleCount");
+  const manualLogFemaleCount = document.getElementById("manualLogFemaleCount");
+  const manualLogGenderMale = document.getElementById("manualLogGenderMale");
+  const manualLogGenderFemale = document.getElementById("manualLogGenderFemale");
+
+  function syncManualLogGenderMode() {
+    if (!manualLogPartySize) return;
+    const isSingle = (parseInt(manualLogPartySize.value, 10) || 1) === 1;
+    manualLogGenderWrap.classList.toggle("d-none", !isSingle);
+    manualLogMaleWrap.classList.toggle("d-none", isSingle);
+    manualLogFemaleWrap.classList.toggle("d-none", isSingle);
+    manualLogMaleCount.required = !isSingle;
+    manualLogFemaleCount.required = !isSingle;
+    manualLogGenderMale.required = isSingle;
+    manualLogGenderFemale.required = isSingle;
+  }
+
+  function applyManualLogGenderSelection() {
+    if (manualLogGenderMale.checked) {
+      manualLogMaleCount.value = 1;
+      manualLogFemaleCount.value = 0;
+    } else if (manualLogGenderFemale.checked) {
+      manualLogMaleCount.value = 0;
+      manualLogFemaleCount.value = 1;
+    }
+  }
+
+  if (manualLogPartySize) {
+    manualLogPartySize.addEventListener("input", syncManualLogGenderMode);
+    manualLogGenderMale.addEventListener("change", applyManualLogGenderSelection);
+    manualLogGenderFemale.addEventListener("change", applyManualLogGenderSelection);
+    syncManualLogGenderMode();
   }
 </script>
 {% endblock %}

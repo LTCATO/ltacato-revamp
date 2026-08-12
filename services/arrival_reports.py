@@ -10,7 +10,7 @@ LGU admins see only submitted records when compiling monthly totals for LTCATO.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any
 
 from services.supabase_client import get_supabase
@@ -137,7 +137,13 @@ def spot_ids_for_lgu(lgu_id: int) -> set[int]:
     return {int(s["id"]) for s in spots if s.get("id") is not None}
 
 
+_UPSERT_CONFLICT_KEY = "tourist_spot_id,visitor_category,report_type,report_date"
+
+
 def create_arrival_report(payload: dict[str, Any]) -> dict[str, Any]:
+    """Insert or, if a report already exists for the same spot/category/type/
+    date, update it in place — regenerating a report must never create a
+    duplicate row (relies on the arrival_reports_unique_period constraint)."""
     allowed = {
         "tourist_spot_id",
         "lgu_id",
@@ -157,12 +163,29 @@ def create_arrival_report(payload: dict[str, Any]) -> dict[str, Any]:
     for key in _COUNT_KEYS:
         row[key] = int(row.get(key) or 0)
     row["overnight_nights"] = int(row.get("overnight_nights") or 0)
+    row["updated_at"] = datetime.now(timezone.utc).isoformat()
     try:
-        response = get_supabase().table("arrival_reports").insert(row).execute()
+        response = (
+            get_supabase()
+            .table("arrival_reports")
+            .upsert(row, on_conflict=_UPSERT_CONFLICT_KEY)
+            .execute()
+        )
     except Exception as exc:
-        if "status" in str(exc):
-            # Column doesn't exist yet — insert without it
+        exc_str = str(exc)
+        if "status" in exc_str or "updated_at" in exc_str:
+            # Column doesn't exist yet (pre-migration) — retry without it
             row.pop("status", None)
+            row.pop("updated_at", None)
+            response = (
+                get_supabase()
+                .table("arrival_reports")
+                .upsert(row, on_conflict=_UPSERT_CONFLICT_KEY)
+                .execute()
+            )
+        elif "no unique or exclusion constraint" in exc_str.lower() or "42p10" in exc_str.lower():
+            # arrival_reports_unique_period constraint doesn't exist yet
+            # (pre-migration) — fall back to a plain insert.
             response = get_supabase().table("arrival_reports").insert(row).execute()
         else:
             raise
