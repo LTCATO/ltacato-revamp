@@ -65,10 +65,40 @@ content %}
                 <button
                     class="nav-link"
                     data-bs-toggle="pill"
+                    data-bs-target="#tab-visits"
+                    type="button"
+                >
+                    <i class="ph ph-calendar-check"></i> My visits {% if
+                    my_visits %}
+                    <span class="profile-tab-count">{{ my_visits|length }}</span>
+                    {% endif %}
+                </button>
+            </li>
+            <li class="nav-item">
+                <button
+                    class="nav-link"
+                    data-bs-toggle="pill"
                     data-bs-target="#tab-settings"
                     type="button"
                 >
                     <i class="ph ph-gear"></i> Settings
+                </button>
+            </li>
+            <li class="nav-item">
+                <button
+                    class="nav-link"
+                    data-bs-toggle="pill"
+                    data-bs-target="#tab-insights"
+                    type="button"
+                >
+                    <i class="ph ph-brain"></i> Travel insights
+                    {% if dss and dss.recommendations %}
+                    {% set urgent = dss.recommendations | selectattr('priority', 'equalto', 'urgent') | list %}
+                    {% set high = dss.recommendations | selectattr('priority', 'equalto', 'high') | list %}
+                    {% if urgent or high %}
+                    <span class="profile-tab-count profile-tab-count--alert">{{ (urgent + high) | length }}</span>
+                    {% endif %}
+                    {% endif %}
                 </button>
             </li>
         </ul>
@@ -252,6 +282,60 @@ content %}
                 {% endif %}
             </div>
 
+            <!-- TAB: My visits -->
+            <div class="tab-pane fade" id="tab-visits" role="tabpanel">
+                {% if my_visits %}
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>Spot</th>
+                                <th>Date / time</th>
+                                <th>Party size</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for v in my_visits %}
+                            {% set vspot = v.tourist_spots or {} %}
+                            <tr>
+                                <td>
+                                    {% if vspot.id %}
+                                    <a href="{{ url_for('spots.spot_detail', spot_id=vspot.id) }}"
+                                        >{{ vspot.name or 'Spot' }}</a
+                                    >
+                                    {% else %} {{ vspot.name or 'Spot' }} {%
+                                    endif %}
+                                </td>
+                                <td>
+                                    {{ v.visit_date }}
+                                    <span class="text-muted small">{{ v.visit_time }}</span>
+                                </td>
+                                <td>{{ v.party_size }}</td>
+                                <td>
+                                    {% set vs = (v.status or '')|lower %}
+                                    <span
+                                        class="badge {{ 'text-bg-success' if vs == 'confirmed' else 'text-bg-warning' if vs == 'pending' else 'text-bg-danger' if vs == 'declined' else 'text-bg-secondary' }}"
+                                        >{{ v.status|replace('_', ' ')|title }}</span
+                                    >
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="spots-empty">
+                    <i class="ph ph-calendar-check"></i>
+                    <h3>No scheduled visits yet</h3>
+                    <p>Requests you make from a spot page will show up here.</p>
+                    <a href="{{ url_for('spots.spots_list') }}" class="btn ltcato-btn-pill"
+                        >Browse spots</a
+                    >
+                </div>
+                {% endif %}
+            </div>
+
             <!-- TAB 3: Settings -->
             <div class="tab-pane fade" id="tab-settings" role="tabpanel">
                 <div class="row g-4">
@@ -263,6 +347,7 @@ content %}
                             <form
                                 method="post"
                                 action="{{ url_for('profile.tourist_profile') }}"
+                                enctype="multipart/form-data"
                             >
                                 <input
                                     type="hidden"
@@ -290,23 +375,33 @@ content %}
                                         {% endif %}
                                     </div>
                                     <div class="flex-grow-1">
-                                        <label
-                                            class="form-label"
-                                            for="profile_image"
-                                            >Profile image URL</label
-                                        >
-                                        <input
-                                            type="url"
-                                            class="form-control"
-                                            id="profile_image"
-                                            name="profile_image"
-                                            value="{{ form_data.profile_image }}"
-                                            placeholder="https://…"
-                                        />
-                                        <p class="small text-muted mb-0">
-                                            Paste a public image link
-                                            (optional).
-                                        </p>
+                                        <label class="form-label fw-semibold">Profile photo</label>
+                                        <div class="mb-2">
+                                            <label class="form-label small text-muted mb-1" for="profile_image_file">Upload from device</label>
+                                            <input
+                                                type="file"
+                                                class="form-control form-control-sm"
+                                                id="profile_image_file"
+                                                name="profile_image_file"
+                                                accept="image/jpeg,image/png,image/webp,image/gif"
+                                            />
+                                            <p class="small text-muted mb-0">JPG, PNG, WebP or GIF — max 10 MB.</p>
+                                        </div>
+                                        <div>
+                                            <label
+                                                class="form-label small text-muted mb-1"
+                                                for="profile_image"
+                                                >Or paste an image URL</label
+                                            >
+                                            <input
+                                                type="url"
+                                                class="form-control form-control-sm"
+                                                id="profile_image"
+                                                name="profile_image"
+                                                value="{{ form_data.profile_image }}"
+                                                placeholder="https://…"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="row g-3 mb-3">
@@ -381,21 +476,126 @@ content %}
                     </div>
                 </div>
             </div>
+
+            <!-- TAB 4: Travel Insights (Decision Support) -->
+            <div class="tab-pane fade" id="tab-insights" role="tabpanel">
+                <div class="row g-4">
+                    <!-- Recommendations column -->
+                    <div class="col-lg-8">
+                        <h3 class="h6 planner-form__title mb-3">
+                            <i class="ph ph-lightbulb"></i> Personalised recommendations
+                        </h3>
+                        {% if dss and dss.recommendations %}
+                        <div class="d-flex flex-column gap-3">
+                            {% for rec in dss.recommendations %}
+                            <div class="alert alert-{{ rec.color }} d-flex align-items-start gap-3 mb-0 py-3">
+                                <i class="{{ rec.icon }} fs-4 flex-shrink-0 mt-1"></i>
+                                <div class="flex-grow-1">
+                                    <strong>{{ rec.title }}</strong>
+                                    <p class="mb-1 small">{{ rec.text }}</p>
+                                    {% if rec.action and rec.action_url %}
+                                    <a href="{{ rec.action_url }}" class="btn btn-sm btn-outline-{{ rec.color }}">
+                                        {{ rec.action }}
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="text-muted small">No recommendations available yet.</p>
+                        {% endif %}
+
+                        <!-- Upcoming events near saved spots -->
+                        {% if dss and dss.upcoming_events %}
+                        <h3 class="h6 planner-form__title mt-4 mb-3">
+                            <i class="ph ph-calendar-star"></i> Upcoming events near your spots
+                        </h3>
+                        <div class="row g-3">
+                            {% for ev in dss.upcoming_events %}
+                            <div class="col-sm-6">
+                                <a href="{{ url_for('events.event_detail', event_id=ev.id) }}" class="profile-saved-card">
+                                    <div class="profile-saved-card__img">
+                                        {% if ev.cover_image %}
+                                        <img src="{{ ev.cover_image | normalize_image_url }}" alt="{{ ev.title }}" loading="lazy" />
+                                        {% else %}
+                                        <div class="profile-saved-card__img-empty"><i class="ph ph-calendar-blank"></i></div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="profile-saved-card__body">
+                                        <strong>{{ ev.title | truncate_text(35) }}</strong>
+                                        <span>{{ ev.start_date or 'TBA' }}{% if ev.lgus %} · {{ ev.lgus.name }}{% endif %}</span>
+                                    </div>
+                                </a>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Sidebar: weather + top spots -->
+                    <div class="col-lg-4">
+                        <!-- Weather for saved areas -->
+                        {% if dss and dss.weather_by_lgu %}
+                        <div class="planner-form mb-4">
+                            <h3 class="h6 planner-form__title">
+                                <i class="ph ph-cloud-sun"></i> Weather in your areas
+                            </h3>
+                            <ul class="list-unstyled mb-0">
+                                {% for w in dss.weather_by_lgu %}
+                                <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                                    <span class="small fw-semibold">{{ (w.lgus or {}).get('name', 'Unknown') }}</span>
+                                    <span class="small text-muted">
+                                        {{ w.weather_main or '—' }}
+                                        {% if w.temperature_celsius %}· {{ w.temperature_celsius }}°C{% endif %}
+                                    </span>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+
+                        <!-- Top spots in saved areas -->
+                        {% if dss and dss.top_spots %}
+                        <div class="planner-form">
+                            <h3 class="h6 planner-form__title">
+                                <i class="ph ph-star"></i> Top-rated spots nearby
+                            </h3>
+                            <ul class="planner-smart-list mb-0">
+                                {% for spot in dss.top_spots %}
+                                <li>
+                                    <a href="{{ url_for('spots.spot_detail', spot_id=spot.id) }}" class="text-decoration-none">
+                                        <i class="ph ph-map-pin"></i>
+                                        <span>{{ spot.name }}
+                                            {% if spot.rating %}<span class="text-muted small">· ★ {{ spot.rating }}</span>{% endif %}
+                                        </span>
+                                    </a>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 </section>
 {% endblock %} {% block script %}
 <script>
     (function () {
-      var input = document.getElementById("profile_image");
-      if (!input) return;
-      input.addEventListener("input", function () {
-        var url = input.value.trim();
+      // Live preview for URL input
+      var urlInput = document.getElementById("profile_image");
+      var fileInput = document.getElementById("profile_image_file");
+
+      function setPreview(src) {
+        var preview = document.querySelector(".profile-avatar-preview");
+        if (!preview) return;
         var img = document.getElementById("avatar-preview-img");
-        var ph = document.getElementById("avatar-preview-placeholder");
-        if (url) {
+        var ph  = document.getElementById("avatar-preview-placeholder");
+        if (src) {
           if (!img) {
-            var preview = document.querySelector(".profile-avatar-preview");
             img = document.createElement("img");
             img.id = "avatar-preview-img";
             img.className = "profile-avatar-preview__img";
@@ -403,10 +603,33 @@ content %}
             preview.innerHTML = "";
             preview.appendChild(img);
           }
-          img.src = url;
+          img.src = src;
           if (ph) ph.style.display = "none";
         }
-      });
+      }
+
+      if (urlInput) {
+        urlInput.addEventListener("input", function () {
+          var url = urlInput.value.trim();
+          if (url) setPreview(url);
+        });
+      }
+
+      // File input: show local preview and clear URL field
+      if (fileInput) {
+        fileInput.addEventListener("change", function () {
+          var file = fileInput.files && fileInput.files[0];
+          if (!file) return;
+          var reader = new FileReader();
+          reader.onload = function (e) {
+            setPreview(e.target.result);
+            // Clear URL field so the file takes priority
+            if (urlInput) urlInput.value = "";
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
       // Open settings tab if there's a flash message (profile save feedback)
       {% if get_flashed_messages() %}
       var settingsBtn = document.querySelector('[data-bs-target="#tab-settings"]');

@@ -126,13 +126,14 @@ def get_workflow_cards(role: str) -> list[dict[str, Any]]:
             {"title": "Chatbot", "text": "Maintain FAQ entries for the AI assistant.", "icon": "bx-bot", "endpoint": "dashboard.chatbot"},
         ],
         "lgu_admin": [
-            {"title": "Tourist spots", "text": "Create owner accounts; owners register their spots.", "icon": "bx-map", "endpoint": "dashboard.tourist_spots"},
-            {"title": "Arrival data", "text": "Receive daily/weekly; send monthly to LTCATO.", "icon": "bx-upload", "endpoint": "dashboard.arrivals"},
-            {"title": "Feedback", "text": "Comments from tourists on your spots.", "icon": "bx-message-square-dots", "endpoint": "dashboard.feedback"},
             {"title": "Analytics", "text": "Dashboard for your LGU and establishments.", "icon": "bx-bar-chart-alt-2", "endpoint": "dashboard.analytics"},
+            {"title": "Decision support", "text": "Spot insights and feedback scoped to your municipality.", "icon": "bx-brain", "endpoint": "dashboard.decision_support"},
+            {"title": "Tourist spots", "text": "Create owner accounts; owners register their spots.", "icon": "bx-map", "endpoint": "dashboard.tourist_spots"},
+            {"title": "Feedback", "text": "Comments from tourists on your spots.", "icon": "bx-message-square-dots", "endpoint": "dashboard.feedback"},
         ],
         "establishment_owner": [
             {"title": "Arrival data", "text": "Pass daily or weekly counts to your LGU.", "icon": "bx-edit", "endpoint": "dashboard.arrivals"},
+            {"title": "Decision support", "text": "Feedback insights and ratings for your establishment.", "icon": "bx-brain", "endpoint": "dashboard.decision_support"},
             {"title": "Site updates", "text": "Photos, hours, and experience details.", "icon": "bx-store", "endpoint": "dashboard.site_updates"},
             {"title": "Analytics", "text": "Visitors and ratings for your property.", "icon": "bx-bar-chart-alt-2", "endpoint": "dashboard.analytics"},
         ],

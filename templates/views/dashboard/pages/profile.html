@@ -1,0 +1,198 @@
+{% extends "dashboard-base.html" %}
+{% from "include/dashboard/macros.html" import status_badge %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_header %}<h1>{{ page_title }}</h1><p>{{ page_description }}</p>{% endblock %}
+
+{% block content %}
+{% set header_actions %}{% endset %}
+{% include "include/dashboard/module_header.html" %}
+
+<div class="row g-4">
+
+  {# ── Personal details card ─────────────────────────────────────────────── #}
+  <div class="col-lg-6">
+    <div class="dashboard-card h-100">
+      <div class="dashboard-card__header">
+        <h3 class="dashboard-card__title mb-0">
+          <i class="bx bx-user me-1"></i> Personal details
+        </h3>
+        <p class="text-muted small mb-0">Update your name and position.</p>
+      </div>
+      <div class="p-4">
+        <form method="post" action="{{ url_for('dashboard.manage_profile') }}">
+          <input type="hidden" name="action" value="profile" />
+
+          {# Read-only info #}
+          <div class="mb-3">
+            <label class="form-label text-muted small">Email address</label>
+            <input type="text" class="form-control" value="{{ user.email }}" disabled />
+            <div class="form-text">Email cannot be changed here. Contact your administrator.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label text-muted small">Role</label>
+            <input type="text" class="form-control" value="{{ user.role_label }}" disabled />
+          </div>
+
+          {% if user.organization %}
+          <div class="mb-3">
+            <label class="form-label text-muted small">Organization / LGU</label>
+            <input type="text" class="form-control" value="{{ user.organization }}" disabled />
+          </div>
+          {% endif %}
+
+          <hr class="my-3" />
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">First name <span class="text-danger">*</span></label>
+              <input type="text" name="first_name" class="form-control"
+                value="{{ profile.first_name or '' }}" required minlength="2" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Last name <span class="text-danger">*</span></label>
+              <input type="text" name="last_name" class="form-control"
+                value="{{ profile.last_name or '' }}" required minlength="2" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Middle name</label>
+              <input type="text" name="middle_name" class="form-control"
+                value="{{ profile.middle_name or '' }}" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Position / title</label>
+              <input type="text" name="position" class="form-control"
+                value="{{ profile.position or '' }}"
+                placeholder="e.g. Tourism Officer" />
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <button type="submit" class="btn dashboard-btn-primary">
+              <i class="bx bx-save me-1"></i> Save changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {# ── Change password card ──────────────────────────────────────────────── #}
+  <div class="col-lg-6">
+    <div class="dashboard-card h-100">
+      <div class="dashboard-card__header">
+        <h3 class="dashboard-card__title mb-0">
+          <i class="bx bx-lock-alt me-1"></i> Change password
+        </h3>
+        <p class="text-muted small mb-0">Choose a strong password of at least 8 characters.</p>
+      </div>
+      <div class="p-4">
+        <form method="post" action="{{ url_for('dashboard.manage_profile') }}" id="passwordForm">
+          <input type="hidden" name="action" value="password" />
+
+          <div class="mb-3">
+            <label class="form-label">Current password <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <input type="password" name="current_password" id="currentPw"
+                class="form-control" required autocomplete="current-password" />
+              <button type="button" class="btn btn-outline-secondary toggle-pw" data-target="currentPw">
+                <i class="bx bx-show"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">New password <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <input type="password" name="new_password" id="newPw"
+                class="form-control" required minlength="8" autocomplete="new-password" />
+              <button type="button" class="btn btn-outline-secondary toggle-pw" data-target="newPw">
+                <i class="bx bx-show"></i>
+              </button>
+            </div>
+            <div class="form-text">Minimum 8 characters.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Confirm new password <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <input type="password" name="confirm_password" id="confirmPw"
+                class="form-control" required minlength="8" autocomplete="new-password" />
+              <button type="button" class="btn btn-outline-secondary toggle-pw" data-target="confirmPw">
+                <i class="bx bx-show"></i>
+              </button>
+            </div>
+            <div id="pwMatchMsg" class="form-text"></div>
+          </div>
+
+          <div class="mt-4">
+            <button type="submit" class="btn btn-outline-primary" id="changePwBtn">
+              <i class="bx bx-lock-open-alt me-1"></i> Change password
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+(function () {
+  // Toggle password visibility
+  document.querySelectorAll('.toggle-pw').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var targetId = btn.getAttribute('data-target');
+      var input = document.getElementById(targetId);
+      if (!input) return;
+      var isText = input.type === 'text';
+      input.type = isText ? 'password' : 'text';
+      btn.querySelector('i').className = isText ? 'bx bx-show' : 'bx bx-hide';
+    });
+  });
+
+  // Live password match check
+  var newPw = document.getElementById('newPw');
+  var confirmPw = document.getElementById('confirmPw');
+  var matchMsg = document.getElementById('pwMatchMsg');
+  var submitBtn = document.getElementById('changePwBtn');
+
+  function checkMatch() {
+    if (!confirmPw.value) {
+      matchMsg.textContent = '';
+      matchMsg.className = 'form-text';
+      return;
+    }
+    if (newPw.value === confirmPw.value) {
+      matchMsg.textContent = 'Passwords match.';
+      matchMsg.className = 'form-text text-success';
+      submitBtn.disabled = false;
+    } else {
+      matchMsg.textContent = 'Passwords do not match.';
+      matchMsg.className = 'form-text text-danger';
+      submitBtn.disabled = true;
+    }
+  }
+
+  if (newPw && confirmPw) {
+    newPw.addEventListener('input', checkMatch);
+    confirmPw.addEventListener('input', checkMatch);
+  }
+
+  // Prevent submit if passwords don't match
+  var form = document.getElementById('passwordForm');
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      if (newPw.value !== confirmPw.value) {
+        e.preventDefault();
+        matchMsg.textContent = 'Passwords do not match.';
+        matchMsg.className = 'form-text text-danger';
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}

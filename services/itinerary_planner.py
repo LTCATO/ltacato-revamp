@@ -121,7 +121,7 @@ def _gemini_tips(plan_summary: str) -> list[str]:
         import google.generativeai as genai
 
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-3.1-flash-lite")
         prompt = (
             "You are Lara, Laguna Philippines tourism assistant. "
             "Given this trip plan summary, return exactly 4 short practical tips "

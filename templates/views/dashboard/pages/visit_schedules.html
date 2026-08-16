@@ -1,0 +1,429 @@
+{% extends "dashboard-base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_header %}<h1>{{ page_title }}</h1><p>{{ page_description }}</p>{% endblock %}
+
+{% block content %}
+{% set logs_tab_active = q or date_from or date_to or request.args.get('tab') == 'logs' %}
+{% set header_actions %}
+<button type="button" class="btn dashboard-btn-primary" data-bs-toggle="modal" data-bs-target="#manualLogModal">
+  <i class="bx bx-plus"></i> Add manual log
+</button>
+{% endset %}
+{% include "include/dashboard/module_header.html" %}
+
+<ul class="nav nav-pills mb-4" role="tablist">
+  <li class="nav-item">
+    <button class="nav-link{{ '' if logs_tab_active else ' active' }}" id="requestsTabBtn" data-bs-toggle="pill" data-bs-target="#requestsTab" type="button">
+      <i class="bx bx-calendar-check"></i> Requests
+      {% set pending_count = visits | selectattr('status', 'equalto', 'pending') | list | length %}
+      {% if pending_count %}<span class="badge bg-warning text-dark ms-1">{{ pending_count }}</span>{% endif %}
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link{{ ' active' if logs_tab_active else '' }}" id="logsTabBtn" data-bs-toggle="pill" data-bs-target="#logsTab" type="button">
+      <i class="bx bx-history"></i> Logs
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content">
+  <!-- TAB: Requests (online Schedule Visit submissions) -->
+  <div class="tab-pane fade{{ '' if logs_tab_active else ' show active' }}" id="requestsTab" role="tabpanel">
+    <div class="dashboard-card">
+      <div class="table-responsive">
+        <table class="table dashboard-table mb-0">
+          <thead>
+            <tr>
+              <th>Visitor</th>
+              <th>Contact</th>
+              <th>Date / time</th>
+              <th>Party size</th>
+              <th>Notes</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for v in visits %}
+            {% set spot = v.tourist_spots or {} %}
+            <tr>
+              <td>
+                {{ v.visitor_name }}
+                {% if spot.name %}<br /><span class="text-muted small">{{ spot.name }}</span>{% endif %}
+              </td>
+              <td>
+                {{ v.visitor_email }}
+                {% if v.visitor_phone %}<br /><span class="text-muted small">{{ v.visitor_phone }}</span>{% endif %}
+              </td>
+              <td>{{ v.visit_date }} <span class="text-muted small">{{ v.visit_time }}</span></td>
+              <td>{{ v.party_size }}</td>
+              <td class="small text-muted">{{ v.notes or '—' }}</td>
+              <td>
+                {% set s = (v.status or '')|lower %}
+                <span class="dashboard-badge dashboard-badge--{{ 'success' if s == 'confirmed' else 'warning' if s == 'pending' else 'danger' if s == 'declined' else 'muted' }}">
+                  {{ v.status|replace('_', ' ')|title }}
+                </span>
+              </td>
+              <td class="text-end">
+                {% if v.status == 'pending' %}
+                <form method="post" action="{{ url_for('dashboard.update_visit_status', visit_id=v.id, new_status='confirmed') }}" class="d-inline">
+                  <button type="submit" class="btn btn-sm btn-outline-success" title="Confirm">
+                    <i class="bx bx-check"></i> Confirm
+                  </button>
+                </form>
+                <form method="post" action="{{ url_for('dashboard.update_visit_status', visit_id=v.id, new_status='declined') }}" class="d-inline">
+                  <button type="submit" class="btn btn-sm btn-outline-danger" title="Decline">
+                    <i class="bx bx-x"></i> Decline
+                  </button>
+                </form>
+                {% elif v.status == 'confirmed' %}
+                <form method="post" action="{{ url_for('dashboard.check_in_visit', visit_id=v.id) }}" class="d-inline">
+                  <button type="submit" class="btn btn-sm btn-outline-primary" title="Mark arrived">
+                    <i class="bx bx-check-double"></i> Mark arrived
+                  </button>
+                </form>
+                <form method="post" action="{{ url_for('dashboard.update_visit_status', visit_id=v.id, new_status='cancelled') }}" class="d-inline">
+                  <button type="submit" class="btn btn-sm btn-outline-secondary" title="Cancel">
+                    <i class="bx bx-block"></i> Cancel
+                  </button>
+                </form>
+                {% elif v.status == 'completed' and v.arrived_at and not v.is_manual %}
+                <form method="post" action="{{ url_for('dashboard.undo_check_in', visit_id=v.id) }}" class="d-inline">
+                  <button type="submit" class="btn btn-sm btn-outline-warning" title="Undo check-in">
+                    <i class="bx bx-undo"></i> Undo
+                  </button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-center text-muted py-3">No visit requests yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Logs (full visit history, online + manual walk-ins) -->
+  <div class="tab-pane fade{{ ' show active' if logs_tab_active else '' }}" id="logsTab" role="tabpanel">
+    <div class="dashboard-card mb-4">
+      <form method="get" class="row g-2 align-items-end p-3">
+        <input type="hidden" name="tab" value="logs" />
+        <div class="col-md-4">
+          <label class="form-label small mb-1">Search visitor (name or email)</label>
+          <input type="text" name="q" class="form-control" value="{{ q }}" placeholder="e.g. Juan Dela Cruz" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small mb-1">From</label>
+          <input type="date" name="date_from" class="form-control" value="{{ date_from }}" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small mb-1">To</label>
+          <input type="date" name="date_to" class="form-control" value="{{ date_to }}" />
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-outline-secondary w-100"><i class="bx bx-filter-alt"></i> Filter</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="dashboard-card">
+      <div class="table-responsive">
+        <table class="table dashboard-table mb-0">
+          <thead>
+            <tr>
+              <th>Visitor</th>
+              <th>Contact</th>
+              <th>Date / time</th>
+              <th>Category</th>
+              <th>Origin</th>
+              <th>M / F</th>
+              <th>Party size</th>
+              <th>Status</th>
+              <th>Source</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for v in logs %}
+            {% set spot = v.tourist_spots or {} %}
+            <tr>
+              <td>
+                {{ v.visitor_name }}
+                {% if spot.name %}<br /><span class="text-muted small">{{ spot.name }}</span>{% endif %}
+              </td>
+              <td>
+                {{ v.visitor_email or '—' }}
+                {% if v.visitor_phone %}<br /><span class="text-muted small">{{ v.visitor_phone }}</span>{% endif %}
+              </td>
+              <td>{{ v.visit_date }} <span class="text-muted small">{{ v.visit_time }}</span></td>
+              <td>
+                {{ 'Overnight' if v.visitor_category == 'overnight' else 'Day tour' }}
+                {% if v.visitor_category == 'overnight' %}<span class="text-muted small">({{ v.overnight_nights }}n)</span>{% endif %}
+              </td>
+              <td class="small text-muted">{{ v.origin|replace('_', ' ')|title if v.origin else '—' }}</td>
+              <td class="small">{{ v.male_count if v.male_count is not none else '—' }} / {{ v.female_count if v.female_count is not none else '—' }}</td>
+              <td>{{ v.party_size }}</td>
+              <td>
+                {% set s = (v.status or '')|lower %}
+                <span class="dashboard-badge dashboard-badge--{{ 'success' if s == 'confirmed' or s == 'completed' else 'warning' if s == 'pending' else 'danger' if s == 'declined' or s == 'cancelled' else 'muted' }}">
+                  {{ v.status|replace('_', ' ')|title }}
+                </span>
+              </td>
+              <td>
+                <span class="dashboard-badge dashboard-badge--{{ 'muted' if v.is_manual else 'success' }}">
+                  {{ 'Manual' if v.is_manual else 'Online' }}
+                </span>
+              </td>
+              <td class="text-end">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  title="Edit demographics"
+                  data-edit-demographics
+                  data-visit-id="{{ v.id }}"
+                  data-visitor-category="{{ v.visitor_category }}"
+                  data-overnight-nights="{{ v.overnight_nights }}"
+                  data-origin="{{ v.origin or '' }}"
+                  data-male-count="{{ v.male_count if v.male_count is not none else '' }}"
+                  data-female-count="{{ v.female_count if v.female_count is not none else '' }}"
+                >
+                  <i class="bx bx-edit"></i>
+                </button>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="10" class="text-center text-muted py-3">No visit logs yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add manual log modal -->
+<div class="modal fade" id="manualLogModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('dashboard.add_manual_log') }}">
+        <div class="modal-header">
+          <h5 class="modal-title">Add manual log (walk-in)</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Establishment <span class="text-danger">*</span></label>
+              <select name="tourist_spot_id" class="form-select" required>
+                {% for s in spots %}
+                <option value="{{ s.id }}">{{ s.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Visitor name <span class="text-danger">*</span></label>
+              <input name="visitor_name" class="form-control" required />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Email (optional)</label>
+              <input type="email" name="visitor_email" class="form-control" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Phone (optional)</label>
+              <input type="tel" name="visitor_phone" class="form-control" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Party size</label>
+              <input type="number" name="party_size" id="manualLogPartySize" class="form-control" min="1" value="1" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Visit date <span class="text-danger">*</span></label>
+              <input type="date" name="visit_date" id="manualLogDate" class="form-control" required />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Visit time</label>
+              <input type="time" name="visit_time" id="manualLogTime" class="form-control" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Visitor category</label>
+              <select name="visitor_category" class="form-select">
+                <option value="day_tour">Day tour</option>
+                <option value="overnight">Overnight</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Nights (if overnight)</label>
+              <input type="number" name="overnight_nights" class="form-control" min="0" value="0" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Origin <span class="text-danger">*</span></label>
+              <select name="origin" class="form-select" required>
+                <option value="" disabled selected>Select origin</option>
+                <option value="this_city">This city/municipality</option>
+                <option value="other_city">Other city/municipality</option>
+                <option value="other_province">Other province</option>
+                <option value="foreign">Foreign</option>
+              </select>
+            </div>
+            <div class="col-md-6 d-none" id="manualLogGenderWrap">
+              <label class="form-label d-block">Visitor is <span class="text-danger">*</span></label>
+              <div class="btn-group w-100" role="group">
+                <input type="radio" class="btn-check" name="gender_single" id="manualLogGenderMale" value="male" autocomplete="off" />
+                <label class="btn btn-outline-secondary" for="manualLogGenderMale">Male</label>
+                <input type="radio" class="btn-check" name="gender_single" id="manualLogGenderFemale" value="female" autocomplete="off" />
+                <label class="btn btn-outline-secondary" for="manualLogGenderFemale">Female</label>
+              </div>
+            </div>
+            <div class="col-md-3" id="manualLogMaleWrap">
+              <label class="form-label">Male count <span class="text-danger">*</span></label>
+              <input type="number" name="male_count" id="manualLogMaleCount" class="form-control" min="0" required />
+            </div>
+            <div class="col-md-3" id="manualLogFemaleWrap">
+              <label class="form-label">Female count <span class="text-danger">*</span></label>
+              <input type="number" name="female_count" id="manualLogFemaleCount" class="form-control" min="0" required />
+            </div>
+            <div class="col-12">
+              <label class="form-label">Notes</label>
+              <textarea name="notes" class="form-control" rows="2"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn dashboard-btn-primary">Save log</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Shared edit-demographics modal -->
+<div class="modal fade" id="editDemographicsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" id="editDemographicsForm" action="{{ url_for('dashboard.update_visit_demographics', visit_id=0) }}">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit demographics</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Visitor category</label>
+              <select name="visitor_category" id="editVisitorCategory" class="form-select">
+                <option value="day_tour">Day tour</option>
+                <option value="overnight">Overnight</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Nights (if overnight)</label>
+              <input type="number" name="overnight_nights" id="editOvernightNights" class="form-control" min="0" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Origin</label>
+              <select name="origin" id="editOrigin" class="form-select">
+                <option value="">— Not specified —</option>
+                <option value="this_city">This city/municipality</option>
+                <option value="other_city">Other city/municipality</option>
+                <option value="other_province">Other province</option>
+                <option value="foreign">Foreign</option>
+              </select>
+            </div>
+            <div class="col-md-6"></div>
+            <div class="col-md-6">
+              <label class="form-label">Male count</label>
+              <input type="number" name="male_count" id="editMaleCount" class="form-control" min="0" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Female count</label>
+              <input type="number" name="female_count" id="editFemaleCount" class="form-control" min="0" />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn dashboard-btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+  document.querySelectorAll("[data-edit-demographics]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const form = document.getElementById("editDemographicsForm");
+      form.action = form.action.replace(/\/\d+\/demographics$/, `/${btn.dataset.visitId}/demographics`);
+      document.getElementById("editVisitorCategory").value = btn.dataset.visitorCategory || "day_tour";
+      document.getElementById("editOvernightNights").value = btn.dataset.overnightNights || 0;
+      document.getElementById("editOrigin").value = btn.dataset.origin || "";
+      document.getElementById("editMaleCount").value = btn.dataset.maleCount || "";
+      document.getElementById("editFemaleCount").value = btn.dataset.femaleCount || "";
+      new bootstrap.Modal(document.getElementById("editDemographicsModal")).show();
+    });
+  });
+
+  // Default the manual log's date/time to right now on open — still editable
+  // in case the owner is logging a walk-in after the fact or makes a mistake.
+  const manualLogModal = document.getElementById("manualLogModal");
+  if (manualLogModal) {
+    manualLogModal.addEventListener("show.bs.modal", () => {
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const dateInput = document.getElementById("manualLogDate");
+      const timeInput = document.getElementById("manualLogTime");
+      if (dateInput) {
+        dateInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      }
+      if (timeInput) {
+        timeInput.value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      }
+      syncManualLogGenderMode();
+    });
+  }
+
+  // Party size of 1 -> ask "male or female" instead of two count fields.
+  const manualLogPartySize = document.getElementById("manualLogPartySize");
+  const manualLogGenderWrap = document.getElementById("manualLogGenderWrap");
+  const manualLogMaleWrap = document.getElementById("manualLogMaleWrap");
+  const manualLogFemaleWrap = document.getElementById("manualLogFemaleWrap");
+  const manualLogMaleCount = document.getElementById("manualLogMaleCount");
+  const manualLogFemaleCount = document.getElementById("manualLogFemaleCount");
+  const manualLogGenderMale = document.getElementById("manualLogGenderMale");
+  const manualLogGenderFemale = document.getElementById("manualLogGenderFemale");
+
+  function syncManualLogGenderMode() {
+    if (!manualLogPartySize) return;
+    const isSingle = (parseInt(manualLogPartySize.value, 10) || 1) === 1;
+    manualLogGenderWrap.classList.toggle("d-none", !isSingle);
+    manualLogMaleWrap.classList.toggle("d-none", isSingle);
+    manualLogFemaleWrap.classList.toggle("d-none", isSingle);
+    manualLogMaleCount.required = !isSingle;
+    manualLogFemaleCount.required = !isSingle;
+    manualLogGenderMale.required = isSingle;
+    manualLogGenderFemale.required = isSingle;
+  }
+
+  function applyManualLogGenderSelection() {
+    if (manualLogGenderMale.checked) {
+      manualLogMaleCount.value = 1;
+      manualLogFemaleCount.value = 0;
+    } else if (manualLogGenderFemale.checked) {
+      manualLogMaleCount.value = 0;
+      manualLogFemaleCount.value = 1;
+    }
+  }
+
+  if (manualLogPartySize) {
+    manualLogPartySize.addEventListener("input", syncManualLogGenderMode);
+    manualLogGenderMale.addEventListener("change", applyManualLogGenderSelection);
+    manualLogGenderFemale.addEventListener("change", applyManualLogGenderSelection);
+    syncManualLogGenderMode();
+  }
+</script>
+{% endblock %}

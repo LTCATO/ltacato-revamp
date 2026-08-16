@@ -11,35 +11,17 @@ from services.dashboard_auth import (
 from services.supabase_client import get_supabase
 
 
-@dashboard_bp.route("/actions/event/<int:event_id>/approve", methods=["POST"])
-@dashboard_login_required
-@role_required("super_admin")
-def approve_event(event_id: int):
-    get_supabase().table("events").update({"approval_status": "approved"}).eq(
-        "id", event_id
-    ).execute()
-    flash("Event approved and can appear on the public site.", "success")
-    return redirect(url_for("dashboard.promotions"))
-
-
-@dashboard_bp.route("/actions/event/<int:event_id>/reject", methods=["POST"])
-@dashboard_login_required
-@role_required("super_admin")
-def reject_event(event_id: int):
-    get_supabase().table("events").update({"approval_status": "rejected"}).eq(
-        "id", event_id
-    ).execute()
-    flash("Event rejected.", "info")
-    return redirect(url_for("dashboard.promotions"))
-
-
 @dashboard_bp.route("/actions/chatbot/<int:entry_id>/approve", methods=["POST"])
 @dashboard_login_required
 @role_required("super_admin")
 def approve_chatbot(entry_id: int):
+    from services.chatbot_context import invalidate as invalidate_chat_cache
+
+    user = get_current_dashboard_user()
     get_supabase().table("chatbot_knowledge").update(
-        {"approval_status": "approved"}
+        {"approval_status": "approved", "approved_by": str(user["id"])}
     ).eq("id", entry_id).execute()
+    invalidate_chat_cache("faq")
     flash("FAQ entry approved for the chatbot.", "success")
     return redirect(url_for("dashboard.chatbot"))
 
@@ -48,10 +30,122 @@ def approve_chatbot(entry_id: int):
 @dashboard_login_required
 @role_required("super_admin")
 def reject_chatbot(entry_id: int):
+    from services.chatbot_context import invalidate as invalidate_chat_cache
+
     get_supabase().table("chatbot_knowledge").update(
         {"approval_status": "rejected"}
     ).eq("id", entry_id).execute()
+    invalidate_chat_cache("faq")
     flash("FAQ entry rejected.", "info")
+    return redirect(url_for("dashboard.chatbot"))
+
+
+@dashboard_bp.route("/actions/chatbot/add", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def add_chatbot_entry():
+    from services.chatbot_knowledge import create_knowledge
+
+    user = get_current_dashboard_user()
+    question = request.form.get("question", "").strip()
+    answer = request.form.get("answer", "").strip()
+    category = request.form.get("category", "").strip()
+
+    # Both super_admin and ltcato_staff auto-approve — they have equivalent trust
+    ok, err = create_knowledge(
+        question=question,
+        answer=answer,
+        category=category,
+        created_by=str(user["id"]),
+        auto_approve=True,
+    )
+    if ok:
+        from services.chatbot_context import invalidate as invalidate_chat_cache
+
+        invalidate_chat_cache("faq")
+        flash("FAQ entry added and is now active in LARA's knowledge base.", "success")
+    else:
+        flash(err or "Could not add FAQ entry.", "danger")
+    return redirect(url_for("dashboard.chatbot"))
+
+
+@dashboard_bp.route("/actions/chatbot/<int:entry_id>/edit", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def edit_chatbot_entry(entry_id: int):
+    from services.chatbot_knowledge import update_knowledge
+
+    user = get_current_dashboard_user()
+    question = request.form.get("question", "").strip()
+    answer = request.form.get("answer", "").strip()
+    category = request.form.get("category", "").strip()
+
+    # Both roles are trusted — keep entry approved after edit
+    ok, err = update_knowledge(
+        entry_id,
+        question=question,
+        answer=answer,
+        category=category,
+        approved_by=str(user["id"]),
+    )
+    if ok:
+        from services.chatbot_context import invalidate as invalidate_chat_cache
+
+        invalidate_chat_cache("faq")
+        flash("FAQ entry updated.", "success")
+    else:
+        flash(err or "Could not update FAQ entry.", "danger")
+    return redirect(url_for("dashboard.chatbot"))
+
+
+@dashboard_bp.route("/actions/chatbot/<int:entry_id>/delete", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def delete_chatbot_entry(entry_id: int):
+    from services.chatbot_knowledge import delete_knowledge
+
+    ok, err = delete_knowledge(entry_id)
+    if ok:
+        flash("FAQ entry deleted.", "info")
+    else:
+        flash(err or "Could not delete FAQ entry.", "danger")
+    return redirect(url_for("dashboard.chatbot"))
+
+
+@dashboard_bp.route("/actions/chatbot/unanswered/<int:entry_id>/promote", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def promote_unanswered_query(entry_id: int):
+    from services.chatbot_unanswered import promote_to_knowledge
+
+    user = get_current_dashboard_user()
+    answer = request.form.get("answer", "").strip()
+    category = request.form.get("category", "").strip()
+
+    ok, err = promote_to_knowledge(
+        entry_id, answer=answer, category=category, created_by=str(user["id"])
+    )
+    if ok:
+        from services.chatbot_context import invalidate as invalidate_chat_cache
+
+        invalidate_chat_cache("faq")
+        flash("Logged question promoted to FAQ and is now active in LARA's knowledge base.", "success")
+    else:
+        flash(err or "Could not promote logged question.", "danger")
+    return redirect(url_for("dashboard.chatbot"))
+
+
+@dashboard_bp.route("/actions/chatbot/unanswered/<int:entry_id>/dismiss", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def dismiss_unanswered_query(entry_id: int):
+    from services.chatbot_unanswered import dismiss_unanswered_query as _dismiss
+
+    ok, err = _dismiss(entry_id)
+    if ok:
+        flash("Logged question dismissed.", "info")
+    else:
+        flash(err or "Could not dismiss logged question.", "danger")
     return redirect(url_for("dashboard.chatbot"))
 
 
@@ -59,9 +153,12 @@ def reject_chatbot(entry_id: int):
 @dashboard_login_required
 @role_required("ltcato_staff")
 def approve_spot_ltcato(spot_id: int):
+    from services.chatbot_context import invalidate as invalidate_chat_cache
+
     get_supabase().table("tourist_spots").update({"approval_status": "approved"}).eq(
         "id", spot_id
     ).execute()
+    invalidate_chat_cache("spots")
     flash("Tourist spot approved for the public directory.", "success")
     return redirect(url_for("dashboard.lgu_management"))
 
@@ -70,9 +167,12 @@ def approve_spot_ltcato(spot_id: int):
 @dashboard_login_required
 @role_required("ltcato_staff")
 def reject_spot(spot_id: int):
+    from services.chatbot_context import invalidate as invalidate_chat_cache
+
     get_supabase().table("tourist_spots").update({"approval_status": "rejected"}).eq(
         "id", spot_id
     ).execute()
+    invalidate_chat_cache("spots")
     flash("Tourist spot rejected.", "info")
     return redirect(url_for("dashboard.lgu_management"))
 
@@ -89,18 +189,277 @@ def form_save_stub():
     return redirect(request.referrer or url_for("dashboard.index"))
 
 
+@dashboard_bp.route("/actions/arrival-record/<int:record_id>/delete", methods=["POST"])
+@dashboard_login_required
+@role_required("establishment_owner")
+def delete_arrival_record(record_id: int):
+    """Delete a draft arrival record (establishment owner only)."""
+    from services.arrival_reports import delete_arrival_report
+
+    user = get_current_dashboard_user()
+    try:
+        delete_arrival_report(record_id, owner_id=str(user.get("id")))
+        flash("Draft record deleted.", "info")
+    except PermissionError:
+        flash("You can only delete your own records.", "danger")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    except Exception as exc:
+        flash(f"Could not delete record: {exc}", "danger")
+    return redirect(url_for("dashboard.arrivals"))
+
+
+@dashboard_bp.route("/actions/visit-schedule/<int:visit_id>/<new_status>", methods=["POST"])
+@dashboard_login_required
+@role_required("establishment_owner")
+def update_visit_status(visit_id: int, new_status: str):
+    """Confirm/decline/complete/cancel a visit request (establishment owner only)."""
+    from services.visit_schedules import update_visit_status as _update_visit_status
+
+    user = get_current_dashboard_user()
+    try:
+        _update_visit_status(visit_id, new_status, owner_id=str(user.get("id")))
+        flash(f"Visit request marked as {new_status}.", "success")
+    except PermissionError:
+        flash("You can only manage visits for your own establishment.", "danger")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    except Exception as exc:
+        flash(f"Could not update visit: {exc}", "danger")
+    return redirect(url_for("dashboard.visit_schedules"))
+
+
+@dashboard_bp.route("/actions/visit-schedule/<int:visit_id>/check-in", methods=["POST"])
+@dashboard_login_required
+@role_required("establishment_owner")
+def check_in_visit(visit_id: int):
+    """One-click 'Mark arrived' — stamps arrived_at and completes the visit."""
+    from services.visit_schedules import check_in_visit as _check_in_visit
+
+    user = get_current_dashboard_user()
+    try:
+        _check_in_visit(visit_id, owner_id=str(user.get("id")))
+        flash("Visit marked as arrived.", "success")
+    except PermissionError:
+        flash("You can only manage visits for your own establishment.", "danger")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    except Exception as exc:
+        flash(f"Could not check in visit: {exc}", "danger")
+    return redirect(url_for("dashboard.visit_schedules"))
+
+
+@dashboard_bp.route("/actions/visit-schedule/<int:visit_id>/undo-check-in", methods=["POST"])
+@dashboard_login_required
+@role_required("establishment_owner")
+def undo_check_in(visit_id: int):
+    """Revert an accidental 'Mark arrived' click back to confirmed."""
+    from services.visit_schedules import undo_check_in as _undo_check_in
+
+    user = get_current_dashboard_user()
+    try:
+        _undo_check_in(visit_id, owner_id=str(user.get("id")))
+        flash("Check-in undone.", "info")
+    except PermissionError:
+        flash("You can only manage visits for your own establishment.", "danger")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    except Exception as exc:
+        flash(f"Could not undo check-in: {exc}", "danger")
+    return redirect(url_for("dashboard.visit_schedules"))
+
+
+@dashboard_bp.route("/actions/visit-schedule/manual-log", methods=["POST"])
+@dashboard_login_required
+@role_required("establishment_owner")
+def add_manual_log():
+    """Record a walk-in visitor who didn't schedule online."""
+    from services.visit_schedules import create_manual_log
+
+    user = get_current_dashboard_user()
+    try:
+        create_manual_log(
+            {
+                "tourist_spot_id": request.form.get("tourist_spot_id", type=int),
+                "visitor_name": request.form.get("visitor_name", ""),
+                "visitor_email": (request.form.get("visitor_email") or "").strip() or None,
+                "visitor_phone": (request.form.get("visitor_phone") or "").strip() or None,
+                "party_size": request.form.get("party_size", type=int) or 1,
+                "visit_date": request.form.get("visit_date"),
+                "visit_time": request.form.get("visit_time") or "00:00",
+                "visitor_category": request.form.get("visitor_category") or "day_tour",
+                "overnight_nights": request.form.get("overnight_nights", type=int) or 0,
+                "origin": request.form.get("origin") or None,
+                "male_count": request.form.get("male_count", type=int),
+                "female_count": request.form.get("female_count", type=int),
+                "notes": (request.form.get("notes") or "").strip() or None,
+            },
+            owner_id=str(user.get("id")),
+        )
+        flash("Manual log added.", "success")
+    except PermissionError:
+        flash("You can only log visits for your own establishment.", "danger")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    except Exception as exc:
+        flash(f"Could not add manual log: {exc}", "danger")
+    return redirect(url_for("dashboard.visit_schedules", tab="logs"))
+
+
+@dashboard_bp.route("/actions/visit-schedule/<int:visit_id>/demographics", methods=["POST"])
+@dashboard_login_required
+@role_required("establishment_owner")
+def update_visit_demographics(visit_id: int):
+    """Backfill/edit the origin + male/female breakdown for a log row."""
+    from services.visit_schedules import update_visit_demographics as _update_demographics
+
+    user = get_current_dashboard_user()
+    try:
+        _update_demographics(
+            visit_id,
+            owner_id=str(user.get("id")),
+            visitor_category=request.form.get("visitor_category"),
+            overnight_nights=request.form.get("overnight_nights", type=int),
+            origin=request.form.get("origin") or None,
+            male_count=request.form.get("male_count", type=int),
+            female_count=request.form.get("female_count", type=int),
+        )
+        flash("Log updated.", "success")
+    except PermissionError:
+        flash("You can only manage visits for your own establishment.", "danger")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    except Exception as exc:
+        flash(f"Could not update log: {exc}", "danger")
+    return redirect(url_for("dashboard.visit_schedules", tab="logs"))
+
+
+@dashboard_bp.route("/actions/arrival-report/generate", methods=["POST"])
+@dashboard_login_required
+@role_required("establishment_owner")
+def generate_arrival_report():
+    """Generate and submit an LTCATO arrival report aggregated from real visit logs."""
+    from services.visit_schedules import generate_and_submit_arrival_report
+
+    user = get_current_dashboard_user()
+    report_type = request.form.get("report_type") or "daily"
+    visitor_category = request.form.get("visitor_category") or "day_tour"
+    date_from = request.form.get("date_from") or ""
+    date_to = request.form.get("date_to") or date_from
+    if report_type == "daily":
+        date_to = date_from
+
+    try:
+        _report, unclassified_count = generate_and_submit_arrival_report(
+            owner_id=str(user.get("id")),
+            spot_id=request.form.get("tourist_spot_id", type=int),
+            visitor_category=visitor_category,
+            report_type=report_type,
+            date_from=date_from,
+            date_to=date_to,
+        )
+        flash("Arrival report generated and submitted to your LGU.", "success")
+        if unclassified_count:
+            flash(
+                f"{unclassified_count} visitor(s) in this range have no residence recorded "
+                "and are excluded from the LTCATO breakdown — still counted in your Logs. "
+                "Edit their demographics on the Logs page to include them.",
+                "warning",
+            )
+    except PermissionError:
+        flash("You can only generate reports for your own establishment.", "danger")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    except Exception as exc:
+        flash(f"Could not generate report: {exc}", "danger")
+    return redirect(url_for("dashboard.arrivals"))
+
+
+@dashboard_bp.route("/actions/arrival-records/compile", methods=["POST"])
+@dashboard_login_required
+@role_required("establishment_owner")
+def compile_arrival_records():
+    """
+    Compile (submit) all draft records for a given spot + category + date
+    to the LGU Tourism Office. The report_type (daily/weekly) is chosen here
+    and applied to all matching drafts.
+    """
+    from services.arrival_reports import submit_draft_records
+    from services.spots import list_spots_for_dashboard
+
+    user = get_current_dashboard_user()
+    owner_id = str(user.get("id"))
+
+    spot_id_raw = request.form.get("tourist_spot_id", "").strip()
+    visitor_category = request.form.get("visitor_category", "").strip()
+    report_type = request.form.get("report_type", "").strip()
+    compile_date = request.form.get("compile_date", "").strip()
+
+    if not spot_id_raw.isdigit():
+        flash("Invalid tourist spot.", "danger")
+        return redirect(url_for("dashboard.arrivals"))
+    if visitor_category not in ("day_tour", "overnight"):
+        flash("Invalid visitor category.", "danger")
+        return redirect(url_for("dashboard.arrivals"))
+    if report_type not in ("daily", "weekly"):
+        flash("Invalid report type.", "danger")
+        return redirect(url_for("dashboard.arrivals"))
+    if not compile_date:
+        flash("Select a date to compile.", "danger")
+        return redirect(url_for("dashboard.arrivals"))
+
+    spot_id = int(spot_id_raw)
+    owned = list_spots_for_dashboard(owner_id=owner_id, limit=20)
+    owned_ids = {int(s["id"]) for s in owned if s.get("id") is not None}
+    if spot_id not in owned_ids:
+        flash("You can only compile records for your own establishment.", "danger")
+        return redirect(url_for("dashboard.arrivals"))
+
+    try:
+        count = submit_draft_records(
+            owner_id=owner_id,
+            spot_id=spot_id,
+            visitor_category=visitor_category,
+            report_type=report_type,
+            compile_date=compile_date,
+        )
+        if count:
+            category_label = "day tour" if visitor_category == "day_tour" else "overnight"
+            flash(
+                f"{count} {category_label} draft(s) for {compile_date} compiled as "
+                f"'{report_type}' and submitted to your LGU Tourism Office.",
+                "success",
+            )
+        else:
+            flash(
+                f"No draft records found for {compile_date} matching the selected filters.",
+                "warning",
+            )
+    except Exception as exc:
+        flash(f"Could not compile records: {exc}", "danger")
+    return redirect(url_for("dashboard.arrivals"))
+
 @dashboard_bp.route("/actions/event/save", methods=["POST"])
 @dashboard_login_required
-@role_required("ltcato_staff")
+@role_required("super_admin", "ltcato_staff", "lgu_admin")
 def save_event():
     from services.events import create_event_from_request
 
     user = get_current_dashboard_user()
+    forced_lgu_id = resolve_dashboard_lgu_id(user) if user["role"] == "lgu_admin" else None
+    approval_status = "pending" if user["role"] == "lgu_admin" else "approved"
     try:
         create_event_from_request(
-            request.form, request.files, created_by=str(user.get("id") or "")
+            request.form,
+            request.files,
+            created_by=str(user.get("id") or ""),
+            forced_lgu_id=forced_lgu_id,
+            approval_status=approval_status,
         )
-        flash("Event published successfully.", "success")
+        if approval_status == "pending":
+            flash("Event submitted and is pending LTCATO approval.", "success")
+        else:
+            flash("Event published successfully.", "success")
     except ValueError as exc:
         flash(str(exc), "danger")
     except Exception as exc:
@@ -113,77 +472,156 @@ def save_event():
     return redirect(url_for("dashboard.promotions"))
 
 
+@dashboard_bp.route("/actions/event/<int:event_id>/approve", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def approve_event(event_id: int):
+    from services.chatbot_context import invalidate as invalidate_chat_cache
+
+    get_supabase().table("events").update({"approval_status": "approved"}).eq(
+        "id", event_id
+    ).execute()
+    invalidate_chat_cache("events")
+    flash("Event approved and published.", "success")
+    return redirect(url_for("dashboard.promotions"))
+
+
+@dashboard_bp.route("/actions/event/<int:event_id>/reject", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def reject_event(event_id: int):
+    from services.chatbot_context import invalidate as invalidate_chat_cache
+
+    get_supabase().table("events").update({"approval_status": "rejected"}).eq(
+        "id", event_id
+    ).execute()
+    invalidate_chat_cache("events")
+    flash("Event rejected.", "info")
+    return redirect(url_for("dashboard.promotions"))
+
+
+@dashboard_bp.route("/actions/event/<int:event_id>/request-featured", methods=["POST"])
+@dashboard_login_required
+@role_required("lgu_admin", "super_admin", "ltcato_staff")
+def request_event_featured(event_id: int):
+    from services.events import request_event_featured as _request_featured
+
+    user = get_current_dashboard_user()
+    lgu_id = resolve_dashboard_lgu_id(user) if user["role"] == "lgu_admin" else None
+    try:
+        _request_featured(
+            event_id,
+            requested_by=str(user.get("id")),
+            lgu_id=lgu_id,
+            payment_reference=(request.form.get("payment_reference") or "").strip() or None,
+        )
+        flash("Featured request submitted for LTCATO review.", "success")
+    except PermissionError:
+        flash("You can only request Featured for your own LGU's events.", "danger")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    return redirect(url_for("dashboard.promotions"))
+
+
+@dashboard_bp.route("/actions/event/<int:event_id>/featured/<decision>", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def review_event_featured(event_id: int, decision: str):
+    from services.events import review_event_featured as _review_featured
+
+    user = get_current_dashboard_user()
+    if decision not in ("approve", "reject"):
+        flash("Invalid decision.", "danger")
+        return redirect(url_for("dashboard.promotions"))
+    try:
+        _review_featured(event_id, approve=(decision == "approve"), reviewed_by=str(user.get("id")))
+        from services.chatbot_context import invalidate as invalidate_chat_cache
+
+        invalidate_chat_cache("events")
+        flash(f"Featured request {decision}d.", "success")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    return redirect(url_for("dashboard.promotions"))
+
+
+@dashboard_bp.route("/actions/event/<int:event_id>/notify-visitors", methods=["POST"])
+@dashboard_login_required
+@role_required("lgu_admin", "ltcato_staff", "super_admin")
+def notify_event_visitors(event_id: int):
+    """Email tourists who've completed a visit to a spot in this event's LGU."""
+    from services.email_service import send_email
+    from services.visit_schedules import list_previous_visitor_emails_for_lgu
+
+    user = get_current_dashboard_user()
+    event_res = (
+        get_supabase().table("events").select("id, title, lgu_id").eq("id", event_id).execute()
+    )
+    rows = event_res.data or []
+    if not rows:
+        flash("Event not found.", "danger")
+        return redirect(url_for("dashboard.promotions"))
+    event = rows[0]
+    lgu_id = event.get("lgu_id")
+    if not lgu_id:
+        flash("This event isn't tied to a specific LGU, so there's no visitor list to notify.", "warning")
+        return redirect(url_for("dashboard.promotions"))
+    if user["role"] == "lgu_admin" and int(lgu_id) != int(resolve_dashboard_lgu_id(user) or -1):
+        flash("You can only notify visitors for events in your own LGU.", "danger")
+        return redirect(url_for("dashboard.promotions"))
+
+    emails = list_previous_visitor_emails_for_lgu(lgu_id, limit=300)
+    subject = f"New event: {event['title']}"
+    body = (
+        f"<p>A new event, <strong>{event['title']}</strong>, has just been posted "
+        "for a destination you've previously visited. Check it out on the LTCATO site!</p>"
+    )
+    sent = sum(1 for email in emails if send_email(email, subject, body))
+    flash(f"Notified {sent} of {len(emails)} previous visitor(s).", "success")
+    return redirect(url_for("dashboard.promotions"))
+
+
 def _save_arrival_report():
-    from services.arrival_reports import create_arrival_report, spot_ids_for_lgu
+    from services.arrival_reports import create_arrival_report
     from services.spots import list_spots_for_dashboard
 
     user = get_current_dashboard_user()
     role = user["role"]
+
+    # Only establishment owners save draft records via this form
+    if role != "establishment_owner":
+        flash("Your role cannot save arrival records this way.", "danger")
+        return redirect(url_for("dashboard.arrivals"))
+
     visitor_category = request.form.get("visitor_category", "day_tour")
     if visitor_category not in ("day_tour", "overnight"):
         flash("Invalid visitor category.", "danger")
         return redirect(url_for("dashboard.arrivals"))
 
-    report_type = request.form.get("report_type", "").strip()
-    report_date = request.form.get("report_date", "").strip()
-    if not report_type or not report_date:
-        flash("Report type and date are required.", "danger")
-        return redirect(url_for("dashboard.arrivals"))
+    # Date is always today — this acts as a logbook, no manual date entry
+    from datetime import date as _date
+    report_date = _date.today().isoformat()
 
-    allowed_types: tuple[str, ...]
-    if role == "establishment_owner":
-        allowed_types = ("daily", "weekly")
-    elif role == "lgu_admin":
-        allowed_types = ("monthly",)
-    else:
-        flash("Your role cannot submit arrival reports.", "danger")
-        return redirect(url_for("dashboard.arrivals"))
-
-    if report_type not in allowed_types:
-        flash(f"Invalid report type for your role.", "danger")
-        return redirect(url_for("dashboard.arrivals"))
+    # report_type is not chosen at save time — default to "daily"
+    # The actual type (daily/weekly) is chosen at compile time
+    report_type = "daily"
 
     lgu_id = resolve_dashboard_lgu_id(user)
     spot_id_raw = request.form.get("tourist_spot_id")
     tourist_spot_id = int(spot_id_raw) if spot_id_raw else None
 
-    if role == "establishment_owner":
-        owned = list_spots_for_dashboard(owner_id=user.get("id"), limit=20)
-        owned_ids = {int(s["id"]) for s in owned if s.get("id") is not None}
-        if not tourist_spot_id or tourist_spot_id not in owned_ids:
-            flash("Select a valid establishment for this report.", "danger")
-            return redirect(url_for("dashboard.arrivals"))
-        spot = next((s for s in owned if int(s["id"]) == tourist_spot_id), None)
-        lgu_id = spot.get("lgu_id") if spot else lgu_id
-    elif role == "lgu_admin":
-        if not lgu_id:
-            form_lgu = request.form.get("lgu_id", "").strip()
-            if form_lgu.isdigit():
-                lgu_id = int(form_lgu)
-                assign_profile_lgu_id(str(user.get("id")), lgu_id)
-            else:
-                flash(
-                    "Your account is not linked to an LGU yet. Select your city/municipality "
-                    "in the form, or ask LTCATO staff to set lgu_id on your profile.",
-                    "danger",
-                )
-                return redirect(url_for("dashboard.arrivals"))
-        allowed_spots = spot_ids_for_lgu(int(lgu_id))
-        if not tourist_spot_id or tourist_spot_id not in allowed_spots:
-            flash("Select a tourist spot that belongs to your LGU.", "danger")
-            return redirect(url_for("dashboard.arrivals"))
-    else:
+    owned = list_spots_for_dashboard(owner_id=user.get("id"), limit=20)
+    owned_ids = {int(s["id"]) for s in owned if s.get("id") is not None}
+    if not tourist_spot_id or tourist_spot_id not in owned_ids:
+        flash("Select a valid establishment for this record.", "danger")
         return redirect(url_for("dashboard.arrivals"))
+    spot = next((s for s in owned if int(s["id"]) == tourist_spot_id), None)
+    lgu_id = spot.get("lgu_id") if spot else lgu_id
 
     count_fields = (
-        "this_city_male",
-        "this_city_female",
-        "other_city_male",
-        "other_city_female",
-        "other_province_male",
-        "other_province_female",
-        "foreign_male",
-        "foreign_female",
+        "this_city_male", "this_city_female",
+        "other_city_male", "other_city_female",
+        "other_province_male", "other_province_female",
+        "foreign_male", "foreign_female",
     )
     payload: dict = {
         "tourist_spot_id": tourist_spot_id,
@@ -193,6 +631,7 @@ def _save_arrival_report():
         "report_date": report_date,
         "visitor_category": visitor_category,
         "overnight_nights": int(request.form.get("overnight_nights") or 0),
+        "status": "draft",
     }
     for field in count_fields:
         payload[field] = int(request.form.get(field) or 0)
@@ -202,7 +641,6 @@ def _save_arrival_report():
         return redirect(url_for("dashboard.arrivals"))
     if visitor_category == "day_tour":
         from services.arrival_reports import report_total_visitors
-
         if report_total_visitors(payload) <= 0:
             flash("Enter at least one day-tour visitor count.", "danger")
             return redirect(url_for("dashboard.arrivals"))
@@ -210,9 +648,13 @@ def _save_arrival_report():
     try:
         create_arrival_report(payload)
         label = "Overnight" if visitor_category == "overnight" else "Day tour"
-        flash(f"{label} {report_type} report saved.", "success")
+        flash(
+            f"{label} record saved as draft for {report_date}. "
+            "Review your drafts and use Compile & Submit when ready to send to your LGU.",
+            "success",
+        )
     except Exception as exc:
-        flash(f"Could not save report: {exc}", "danger")
+        flash(f"Could not save record: {exc}", "danger")
     return redirect(url_for("dashboard.arrivals"))
 
 
@@ -406,17 +848,10 @@ def create_owner_account():
 @dashboard_login_required
 @role_required("establishment_owner")
 def register_establishment_spot():
-    from services.spots import (
-        create_tourist_spot_for_owner,
-        list_spots_for_dashboard,
-        owner_has_spot,
-    )
+    from services.spots import create_tourist_spot_for_owner
 
     user = get_current_dashboard_user()
     owner_id = str(user.get("id") or "")
-    if owner_has_spot(owner_id):
-        flash("You already have a registered establishment.", "info")
-        return redirect(url_for("dashboard.site_updates"))
 
     lgu_id = resolve_dashboard_lgu_id(user)
     if not lgu_id:
@@ -469,13 +904,10 @@ def register_establishment_spot():
 @dashboard_login_required
 @role_required("establishment_owner")
 def claim_establishment_spot():
-    from services.spots import claim_tourist_spot_for_owner, owner_has_spot
+    from services.spots import claim_tourist_spot_for_owner
 
     user = get_current_dashboard_user()
     owner_id = str(user.get("id") or "")
-    if owner_has_spot(owner_id):
-        flash("You already have a linked establishment.", "info")
-        return redirect(url_for("dashboard.site_updates"))
 
     lgu_id = resolve_dashboard_lgu_id(user)
     if not lgu_id:
@@ -544,94 +976,6 @@ def _save_site_update():
 # ---------------------------------------------------------------------------
 
 
-@dashboard_bp.route("/actions/scrape/weather", methods=["POST"])
-@dashboard_login_required
-@role_required("super_admin", "ltcato_staff")
-def scrape_weather():
-    try:
-        from services.scrapers.weather_scraper import scrape_weather_for_lgus
-
-        result = scrape_weather_for_lgus()
-        if result.get("ok"):
-            msg = f"Weather updated: {result['inserted']} LGU records inserted."
-            if result.get("errors"):
-                msg += f" ({len(result['errors'])} errors)"
-            flash(msg, "success")
-        else:
-            flash(f"Weather scrape failed: {result.get('error')}", "danger")
-    except Exception as exc:
-        flash(f"Weather scrape error: {exc}", "danger")
-    from services.decision_support_service import invalidate_cache
-
-    invalidate_cache()
-    return redirect(url_for("dashboard.decision_support"))
-
-
-@dashboard_bp.route("/actions/scrape/news", methods=["POST"])
-@dashboard_login_required
-@role_required("super_admin", "ltcato_staff")
-def scrape_news():
-    try:
-        from services.scrapers.news_scraper import scrape_news as _scrape
-
-        result = _scrape()
-        if result.get("ok"):
-            msg = f"News updated: {result['inserted']} new articles scraped."
-            if result.get("errors"):
-                msg += f" ({len(result['errors'])} errors ignored)"
-            flash(msg, "success")
-        else:
-            flash(f"News scrape failed: {result.get('error')}", "danger")
-    except Exception as exc:
-        flash(f"News scrape error: {exc}", "danger")
-    from services.decision_support_service import invalidate_cache
-
-    invalidate_cache()
-    return redirect(url_for("dashboard.decision_support"))
-
-
-@dashboard_bp.route("/actions/scrape/trends", methods=["POST"])
-@dashboard_login_required
-@role_required("super_admin", "ltcato_staff")
-def scrape_trends():
-    try:
-        from services.scrapers.trends_scraper import scrape_trends as _scrape
-
-        result = _scrape()
-        if result.get("ok"):
-            errors = result.get("errors", [])
-            if result["inserted"] > 0:
-                msg = f"Trends updated: {result['inserted']} keyword records inserted."
-                if errors:
-                    msg += f" ({len(errors)} minor errors)"
-                flash(msg, "success")
-            elif errors:
-                # Check if it's a rate-limit error
-                first_err = errors[0] if errors else ""
-                if "429" in first_err or "rate" in first_err.lower():
-                    flash(
-                        "Google Trends rate-limited (429). Wait 1–2 hours then try again. "
-                        "This is a Google restriction, not a system error.",
-                        "warning",
-                    )
-                else:
-                    flash(
-                        f"Trends: 0 inserted. First error: {first_err[:120]}", "warning"
-                    )
-            else:
-                flash(
-                    "Trends: 0 records inserted (no data returned from Google).", "info"
-                )
-        else:
-            flash(f"Trends scrape failed: {result.get('error')}", "danger")
-    except Exception as exc:
-        flash(f"Trends scrape error: {exc}", "danger")
-    from services.decision_support_service import invalidate_cache
-
-    invalidate_cache()
-    return redirect(url_for("dashboard.decision_support"))
-
-
 @dashboard_bp.route("/actions/scrape/reviews", methods=["POST"])
 @dashboard_login_required
 @role_required("super_admin", "ltcato_staff")
@@ -659,6 +1003,8 @@ def scrape_reviews():
         )
         if errors:
             msg += f" ({len(errors)} scrape errors)"
+        if not r2.get("ok"):
+            msg += f" Note: {r2.get('error')}"
         flash(msg, "success")
     except Exception as exc:
         flash(f"Reviews scrape error: {exc}", "danger")

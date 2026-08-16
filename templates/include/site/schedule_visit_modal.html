@@ -1,0 +1,149 @@
+<div
+    class="modal fade"
+    id="scheduleVisitModal"
+    tabindex="-1"
+    aria-labelledby="scheduleVisitModalLabel"
+    aria-hidden="true"
+>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="scheduleVisitForm" data-spot-id="{{ spot.id }}">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="scheduleVisitModalLabel">
+                        Schedule a visit
+                    </h5>
+                    <button
+                        type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Close"
+                    ></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label"
+                                >Full name <span class="text-danger">*</span></label
+                            >
+                            <input
+                                name="visitor_name"
+                                class="form-control"
+                                required
+                                value="{{ current_tourist.name if current_tourist else '' }}"
+                            />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"
+                                >Email
+                                <span class="text-muted fw-normal">(optional)</span></label
+                            >
+                            <input
+                                type="email"
+                                name="visitor_email"
+                                class="form-control"
+                                value="{{ current_tourist.email if current_tourist else '' }}"
+                            />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Phone number</label>
+                            <input
+                                type="tel"
+                                name="visitor_phone"
+                                class="form-control"
+                            />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"
+                                >Party size <span class="text-danger">*</span></label
+                            >
+                            <input
+                                type="number"
+                                name="party_size"
+                                class="form-control"
+                                min="1"
+                                value="1"
+                                required
+                            />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"
+                                >Visit type <span class="text-danger">*</span></label
+                            >
+                            <select
+                                name="visitor_category"
+                                id="scheduleVisitCategory"
+                                class="form-select"
+                            >
+                                <option value="day_tour" selected>Day tour</option>
+                                <option value="overnight">Overnight</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"
+                                >Visit date <span class="text-danger">*</span></label
+                            >
+                            <input
+                                type="date"
+                                name="visit_date"
+                                id="scheduleVisitDate"
+                                class="form-control"
+                                required
+                            />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"
+                                >Visit time <span class="text-danger">*</span></label
+                            >
+                            <input
+                                type="time"
+                                name="visit_time"
+                                class="form-control"
+                                required
+                            />
+                        </div>
+                        <div class="col-md-6 d-none" id="scheduleVisitNightsWrap">
+                            <label class="form-label"
+                                >Number of nights <span class="text-danger">*</span></label
+                            >
+                            <input
+                                type="number"
+                                name="overnight_nights"
+                                id="scheduleVisitNights"
+                                class="form-control"
+                                min="1"
+                                value="1"
+                            />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label"
+                                >Anything the establishment should know?
+                                <span class="text-muted fw-normal">(optional)</span></label
+                            >
+                            <textarea
+                                name="notes"
+                                class="form-control"
+                                rows="2"
+                            ></textarea>
+                        </div>
+                    </div>
+                    <div
+                        id="scheduleVisitMsg"
+                        class="alert alert-danger d-none mt-3"
+                    ></div>
+                </div>
+                <div class="modal-footer">
+                    <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        data-bs-dismiss="modal"
+                    >
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn ltcato-btn-pill">
+                        Request visit
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

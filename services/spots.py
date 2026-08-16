@@ -13,7 +13,8 @@ REJECTED_STATUS = "rejected"
 
 SPOT_LIST_FIELDS = (
     "id, name, code, description, hook_title, hook_text, address, main_image_url, "
-    "rating, reviews_count, lgu_id, approval_status, is_featured, "
+    "rating, reviews_count, lgu_id, approval_status, is_featured, best_time_to_visit, "
+    "latitude, longitude, "
     "attraction_categories(id, name, code), lgus(id, name)"
 )
 
@@ -172,6 +173,26 @@ def list_spots_for_dashboard(
     return response.data or []
 
 
+def _invalidate_chat_spot_cache() -> None:
+    try:
+        from services.chatbot_context import invalidate as _invalidate
+
+        _invalidate("spots")
+    except Exception:
+        pass
+
+
+def list_owner_spot_ids(owner_id: str) -> list[int]:
+    response = (
+        get_supabase()
+        .table("tourist_spots")
+        .select("id")
+        .eq("owner_id", owner_id)
+        .execute()
+    )
+    return [row["id"] for row in (response.data or [])]
+
+
 def owner_has_spot(owner_id: str) -> bool:
     response = (
         get_supabase()
@@ -213,6 +234,7 @@ def create_tourist_spot_for_owner(
     data = response.data or []
     if not data:
         raise RuntimeError("Failed to register tourist spot.")
+    _invalidate_chat_spot_cache()
     return data[0]
 
 
@@ -250,6 +272,7 @@ def claim_tourist_spot_for_owner(
         raise RuntimeError(
             "Could not claim establishment. It may have been claimed by someone else."
         )
+    _invalidate_chat_spot_cache()
     return update_res.data[0]
 
 
@@ -279,6 +302,7 @@ def update_tourist_spot_for_owner(
         .eq("owner_id", owner_id)
         .execute()
     )
+    _invalidate_chat_spot_cache()
 
 
 def get_spot(spot_id: int, *, public_only: bool = True) -> dict[str, Any] | None:

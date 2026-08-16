@@ -6,11 +6,6 @@
 
 {% block content %}
 {% set header_actions %}
-{% if spot %}
-<button type="button" class="btn dashboard-btn-primary" data-bs-toggle="modal" data-bs-target="#siteModal">
-  <i class="bx bx-edit"></i> Update listing
-</button>
-{% else %}
 {% if claimable_spots %}
 <button type="button" class="btn btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#claimSpotModal">
   <i class="bx bx-link"></i> Claim existing spot
@@ -19,63 +14,64 @@
 <button type="button" class="btn dashboard-btn-primary" data-bs-toggle="modal" data-bs-target="#registerSpotModal">
   <i class="bx bx-plus"></i> Register new
 </button>
-{% endif %}
 {% endset %}
 {% include "include/dashboard/module_header.html" %}
 
-{% if spot %}
+{% if spots %}
 <div class="row g-4 mb-4">
-  <div class="col-lg-8">
-    <div class="dashboard-card">
-      <h3 class="dashboard-card__title">{{ spot.name }}</h3>
-      <p class="text-muted">{{ spot.description|truncate_text(300) if spot.description else 'No description yet.' }}</p>
+  {% for spot in spots %}
+  <div class="col-lg-6">
+    <div class="dashboard-card h-100">
+      <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+        <h3 class="dashboard-card__title mb-0">{{ spot.name }}</h3>
+        <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" data-bs-toggle="modal" data-bs-target="#siteModal-{{ spot.id }}">
+          <i class="bx bx-edit"></i> Update listing
+        </button>
+      </div>
+      <p class="text-muted small">{{ spot.description|truncate_text(200) if spot.description else 'No description yet.' }}</p>
       <ul class="dashboard-kpi-list">
         <li><span>Address</span><strong>{{ spot.address or '—' }}</strong></li>
         <li><span>Hours</span><strong>{{ spot.opening_hours or '—' }}</strong></li>
         <li><span>Status</span><strong>{{ status_badge(spot.approval_status) }}</strong></li>
         <li><span>Rating</span><strong>{{ spot.rating or 0 }} / 5</strong></li>
       </ul>
-    </div>
-  </div>
-  <div class="col-lg-4">
-    <div class="dashboard-card">
       {% if spot.main_image_url %}
-      <img src="{{ spot.main_image_url|normalize_image_url }}" alt="{{ spot.name }}" class="img-fluid rounded mb-3" />
-      {% else %}
-      <p class="text-muted small">No main image uploaded.</p>
+      <img src="{{ spot.main_image_url|normalize_image_url }}" alt="{{ spot.name }}" class="img-fluid rounded" />
       {% endif %}
     </div>
   </div>
-</div>
 
-<div class="modal fade" id="siteModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <form method="post" action="{{ url_for('dashboard.form_save_stub') }}">
-        <input type="hidden" name="form_type" value="site_update" />
-        <input type="hidden" name="spot_id" value="{{ spot.id }}" />
-        <div class="modal-header">
-          <h5 class="modal-title">Update establishment</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body row g-3">
-          <div class="col-12"><label class="form-label">Description</label><textarea name="description" class="form-control" rows="4">{{ spot.description or '' }}</textarea></div>
-          <div class="col-md-6"><label class="form-label">Opening hours</label><input name="opening_hours" class="form-control" value="{{ spot.opening_hours or '' }}" /></div>
-          <div class="col-md-6"><label class="form-label">Best time to visit</label><input name="best_time_to_visit" class="form-control" value="{{ spot.best_time_to_visit or '' }}" /></div>
-          <div class="col-12"><label class="form-label">Hook title</label><input name="hook_title" class="form-control" value="{{ spot.hook_title or '' }}" /></div>
-          <div class="col-12"><label class="form-label">Hook text</label><textarea name="hook_text" class="form-control" rows="2">{{ spot.hook_text or '' }}</textarea></div>
-          <div class="col-12"><label class="form-label">Entrance fees</label><textarea name="entrance_fees" class="form-control" rows="2">{{ spot.entrance_fees or '' }}</textarea></div>
-          <div class="col-12"><label class="form-label">What to bring</label><textarea name="what_to_bring" class="form-control" rows="2">{{ spot.what_to_bring or '' }}</textarea></div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn dashboard-btn-primary">Save updates</button>
-        </div>
-      </form>
+  <div class="modal fade" id="siteModal-{{ spot.id }}" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <form method="post" action="{{ url_for('dashboard.form_save_stub') }}">
+          <input type="hidden" name="form_type" value="site_update" />
+          <input type="hidden" name="spot_id" value="{{ spot.id }}" />
+          <div class="modal-header">
+            <h5 class="modal-title">Update {{ spot.name }}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body row g-3">
+            <div class="col-12"><label class="form-label">Description</label><textarea name="description" class="form-control" rows="4">{{ spot.description or '' }}</textarea></div>
+            <div class="col-md-6"><label class="form-label">Opening hours</label><input name="opening_hours" class="form-control" value="{{ spot.opening_hours or '' }}" /></div>
+            <div class="col-md-6"><label class="form-label">Best time to visit</label><input name="best_time_to_visit" class="form-control" value="{{ spot.best_time_to_visit or '' }}" /></div>
+            <div class="col-12"><label class="form-label">Hook title</label><input name="hook_title" class="form-control" value="{{ spot.hook_title or '' }}" /></div>
+            <div class="col-12"><label class="form-label">Hook text</label><textarea name="hook_text" class="form-control" rows="2">{{ spot.hook_text or '' }}</textarea></div>
+            <div class="col-12"><label class="form-label">Entrance fees</label><textarea name="entrance_fees" class="form-control" rows="2">{{ spot.entrance_fees or '' }}</textarea></div>
+            <div class="col-12"><label class="form-label">What to bring</label><textarea name="what_to_bring" class="form-control" rows="2">{{ spot.what_to_bring or '' }}</textarea></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn dashboard-btn-primary">Save updates</button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
+  {% endfor %}
 </div>
-{% else %}
+{% endif %}
+
 {% if claimable_spots %}
 <div class="dashboard-card mb-4">
   <h3 class="dashboard-card__title h5">Claim an existing listing</h3>
@@ -114,6 +110,7 @@
 </div>
 {% endif %}
 
+{% if not spots %}
 <div class="dashboard-card">
   <p class="text-muted mb-3">
     {% if claimable_spots %}
@@ -124,6 +121,12 @@
   </p>
   <p class="text-muted small mb-0">Use <strong>Claim existing spot</strong> or <strong>Register new</strong> above.</p>
 </div>
+{% else %}
+<div class="alert alert-info mb-0">
+  Own another property? Use <strong>Register new</strong>{% if claimable_spots %} or <strong>Claim existing spot</strong>{% endif %}
+  above to add it — new registrations are submitted for LGU and LTCATO approval before they go live.
+</div>
+{% endif %}
 
 <div class="modal fade" id="registerSpotModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
@@ -187,7 +190,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <p class="text-muted small">Select your property from listings already registered under your LGU.</p>
+        <p class="text-muted small">Select a property from listings already registered under your LGU.</p>
         <div class="list-group">
           {% for s in claimable_spots %}
           <div class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -210,11 +213,10 @@
   </div>
 </div>
 {% endif %}
-{% endif %}
 {% endblock %}
 
 {% block script %}
-{% if not spot and categories %}
+{% if categories %}
 <script>
 (function () {
   const subcategoriesByCategory = {{ subcategories_by_category | tojson }};

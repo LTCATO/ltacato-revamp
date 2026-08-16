@@ -21,6 +21,10 @@ def _form_value(key: str, default: str = "") -> str:
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if get_current_tourist():
+        next_url = request.args.get("next") or ""
+        # Only follow relative paths to prevent open-redirect attacks
+        if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+            return redirect(next_url)
         return redirect(url_for("public.home"))
 
     form_data = {"email": "", "remember": False}
@@ -39,8 +43,10 @@ def login():
             if ok:
                 session.permanent = remember
                 flash("Welcome back! You are signed in as a tourist.", "success")
-                next_url = request.args.get("next") or url_for("public.home")
-                return redirect(next_url)
+                next_url = request.args.get("next") or ""
+                if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+                    return redirect(next_url)
+                return redirect(url_for("public.home"))
             flash(auth_error or "Sign in failed.", "danger")
 
     return render_template(

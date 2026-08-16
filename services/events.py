@@ -5,7 +5,7 @@ Events / promotions from Supabase.
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from services.supabase_client import get_supabase
@@ -59,10 +59,9 @@ def list_events(
 ) -> list[dict[str, Any]]:
     query = get_supabase().table("events").select(EVENT_SELECT)
     if public_approved_only:
-        # Show all events that haven't been explicitly rejected.
-        # LTCATO staff are the only publishers and events are auto-approved
-        # on save, so filtering to 'rejected' exclusion is enough.
-        query = query.neq("approval_status", "rejected")
+        # LGU-submitted events start 'pending' and must not appear publicly
+        # until an LTCATO staffer approves them.
+        query = query.eq("approval_status", "approved")
     elif approval_status:
         query = query.eq("approval_status", approval_status)
     if lgu_id:
@@ -83,7 +82,7 @@ def get_event(event_id: int, *, public_only: bool = False) -> dict[str, Any] | N
     try:
         query = get_supabase().table("events").select(EVENT_SELECT).eq("id", event_id)
         if public_only:
-            query = query.neq("approval_status", "rejected")
+            query = query.eq("approval_status", "approved")
         response = query.single().execute()
         event = response.data
         if event and public_only and (event.get("visibility") or "public") == "private":
@@ -123,9 +122,11 @@ def list_event_exhibitors(event_id: int) -> list[dict[str, Any]]:
 
 
 def _filter_active_public_events(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Keep upcoming/ongoing events, ordered soonest first."""
+    """Keep upcoming/ongoing events, currently-featured first, then soonest first."""
     active = [e for e in rows if _compute_event_status(e) in ("upcoming", "ongoing")]
-    active.sort(key=lambda e: (e.get("start_date") or "9999-12-31"))
+    active.sort(
+        key=lambda e: (not is_event_currently_featured(e), e.get("start_date") or "9999-12-31")
+    )
     return active
 
 
@@ -158,19 +159,20 @@ def list_events_public(
     )
     if status:
         events = [e for e in events if _compute_event_status(e) == status]
-    if not q:
-        return events
-    term = q.strip().lower()
-    return [
-        e
-        for e in events
-        if term in (e.get("title") or "").lower()
-        or term in (e.get("short_description") or e.get("description") or "").lower()
-        or term in (e.get("full_description") or "").lower()
-        or term in ((e.get("lgus") or {}).get("name") or "").lower()
-        or term in (e.get("venue_name") or e.get("venue") or "").lower()
-        or term in (e.get("tagline") or "").lower()
-    ]
+    if q:
+        term = q.strip().lower()
+        events = [
+            e
+            for e in events
+            if term in (e.get("title") or "").lower()
+            or term in (e.get("short_description") or e.get("description") or "").lower()
+            or term in (e.get("full_description") or "").lower()
+            or term in ((e.get("lgus") or {}).get("name") or "").lower()
+            or term in (e.get("venue_name") or e.get("venue") or "").lower()
+            or term in (e.get("tagline") or "").lower()
+        ]
+    events.sort(key=lambda e: not is_event_currently_featured(e))
+    return events
 
 
 def get_event_lgu_name(event: dict[str, Any]) -> str:
@@ -200,6 +202,25 @@ def _compute_event_status(event: dict[str, Any]) -> str:
     if start and (not end or start <= today <= end):
         return "ongoing"
     return "upcoming"
+
+
+def is_event_currently_featured(event: dict[str, Any]) -> bool:
+    """Featured is a computed window, not a permanent flag: it only shows
+    from the event's start date through 5 days after it ends, and only
+    once a Featured request has been approved."""
+    if (event.get("featured_status") or "none") != "approved":
+        return False
+    start_raw = event.get("start_date")
+    if not start_raw:
+        return False
+    try:
+        start = date.fromisoformat(str(start_raw)[:10])
+        end_raw = event.get("end_date") or start_raw
+        end = date.fromisoformat(str(end_raw)[:10])
+    except ValueError:
+        return False
+    today = date.today()
+    return start <= today <= end + timedelta(days=5)
 
 
 def _parse_event_date(date_str: str | None) -> tuple[str, str]:
@@ -266,6 +287,7 @@ def enrich_event_for_display(event: dict[str, Any]) -> dict[str, Any]:
         "date_day": day,
         "time": event.get("venue_name") or event.get("venue") or "Venue TBA",
         "status": status,
+        "is_featured_now": is_event_currently_featured(event),
         "attendee_count": event.get("interested_count")
         or event.get("attendance_count")
         or 0,
@@ -295,8 +317,19 @@ def get_related_events(event: dict[str, Any], limit: int = 3) -> list[dict[str, 
     return related[:limit]
 
 
-def build_event_payload_from_form(form, files) -> dict[str, Any]:
-    """Map Flask request form/files to events row."""
+def build_event_payload_from_form(
+    form, files, *, forced_lgu_id: int | None = None, approval_status: str = "approved"
+) -> dict[str, Any]:
+    """Map Flask request form/files to events row.
+
+    forced_lgu_id overrides whatever the form submitted — used when an
+    lgu_admin creates an event, so they can't set another LGU's id via a
+    tampered form field.
+
+    approval_status controls whether the event goes live immediately
+    ("approved", the default — LTCATO-created events) or needs review
+    ("pending" — LGU-created events).
+    """
     title = _strip(form.get("title")) or ""
     if not title:
         raise ValueError("Event title is required.")
@@ -309,8 +342,11 @@ def build_event_payload_from_form(form, files) -> dict[str, Any]:
     if visibility not in VISIBILITIES:
         visibility = "public"
 
-    lgu_raw = _strip(form.get("lgu_id"))
-    lgu_id = int(lgu_raw) if lgu_raw and lgu_raw.isdigit() else None
+    if forced_lgu_id is not None:
+        lgu_id = forced_lgu_id
+    else:
+        lgu_raw = _strip(form.get("lgu_id"))
+        lgu_id = int(lgu_raw) if lgu_raw and lgu_raw.isdigit() else None
 
     short = _strip(form.get("short_description"))
     full_html = _strip(form.get("full_description"))
@@ -354,7 +390,7 @@ def build_event_payload_from_form(form, files) -> dict[str, Any]:
         "pavilion_products": _strip(form.get("pavilion_products")),
         "featured_destination": _strip(form.get("featured_destination")),
         "representative": _strip(form.get("representative")),
-        "approval_status": "approved",
+        "approval_status": approval_status if approval_status in ("pending", "approved", "rejected") else "approved",
     }
 
     from services.storage import upload_gallery_files, upload_optional_file
@@ -421,8 +457,17 @@ def build_event_payload_from_form(form, files) -> dict[str, Any]:
     return payload
 
 
-def create_event_from_request(form, files, *, created_by: str | None) -> dict[str, Any]:
-    payload = build_event_payload_from_form(form, files)
+def create_event_from_request(
+    form,
+    files,
+    *,
+    created_by: str | None,
+    forced_lgu_id: int | None = None,
+    approval_status: str = "approved",
+) -> dict[str, Any]:
+    payload = build_event_payload_from_form(
+        form, files, forced_lgu_id=forced_lgu_id, approval_status=approval_status
+    )
     if created_by:
         payload["created_by"] = created_by
 
@@ -500,3 +545,52 @@ def _save_exhibitors_from_form(event_id: int, form) -> None:
 
     if rows:
         get_supabase().table("event_exhibitors").insert(rows).execute()
+
+
+def request_event_featured(
+    event_id: int,
+    *,
+    requested_by: str,
+    lgu_id: int | None = None,
+    payment_reference: str | None = None,
+) -> None:
+    """LGU (or LTCATO staff, payment-free) requests an approved event be
+    made Featured. Goes to featured_status='requested' pending LTCATO review."""
+    response = (
+        get_supabase()
+        .table("events")
+        .select("id, approval_status, lgu_id, featured_status")
+        .eq("id", event_id)
+        .execute()
+    )
+    rows = response.data or []
+    if not rows:
+        raise ValueError("Event not found.")
+    event = rows[0]
+
+    if lgu_id is not None and int(event.get("lgu_id") or -1) != int(lgu_id):
+        raise PermissionError("You can only request Featured for your own LGU's events.")
+    if event.get("approval_status") != "approved":
+        raise ValueError("Only approved events can request Featured.")
+    if event.get("featured_status") == "requested":
+        raise ValueError("A featured request is already pending review.")
+
+    get_supabase().table("events").update(
+        {
+            "featured_status": "requested",
+            "featured_payment_reference": payment_reference,
+            "featured_requested_at": datetime.now(timezone.utc).isoformat(),
+            "featured_reviewed_at": None,
+            "featured_reviewed_by": None,
+        }
+    ).eq("id", event_id).execute()
+
+
+def review_event_featured(event_id: int, *, approve: bool, reviewed_by: str) -> None:
+    get_supabase().table("events").update(
+        {
+            "featured_status": "approved" if approve else "rejected",
+            "featured_reviewed_at": datetime.now(timezone.utc).isoformat(),
+            "featured_reviewed_by": reviewed_by,
+        }
+    ).eq("id", event_id).execute()

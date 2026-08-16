@@ -11,11 +11,13 @@ from services.profiles import (
 )
 from services.spot_engagement import get_user_saved_spots
 from services.tourist_auth import get_current_tourist
+from services.tourist_decision_support import get_tourist_decision_support
 from services.tourist_passport import (
     get_or_create_passport,
     list_passport_stamps,
     stamp_spot,
 )
+from services.visit_schedules import list_visits_for_tourist
 from utils.jinja_helpers import normalize_image_url
 from utils.tourist_helpers import tourist_login_required
 
@@ -51,6 +53,14 @@ def tourist_profile():
     except Exception:
         pass
 
+    dss = get_tourist_decision_support(tourist["id"])
+
+    my_visits = []
+    try:
+        my_visits = list_visits_for_tourist(tourist["id"], tourist["email"])
+    except Exception:
+        pass
+
     form_data = {
         "first_name": profile.get("first_name") or "",
         "middle_name": profile.get("middle_name") or "",
@@ -74,7 +84,23 @@ def tourist_profile():
         first_name = (request.form.get("first_name") or "").strip()
         last_name = (request.form.get("last_name") or "").strip()
         middle_name = (request.form.get("middle_name") or "").strip()
-        profile_image = (request.form.get("profile_image") or "").strip() or None
+
+        # Handle profile image: file upload takes priority over URL field
+        profile_image: str | None = None
+        uploaded_file = request.files.get("profile_image_file")
+        if uploaded_file and uploaded_file.filename and uploaded_file.filename.strip():
+            try:
+                from services.storage import upload_image
+                profile_image = upload_image(
+                    uploaded_file.stream,
+                    uploaded_file.filename,
+                    folder="profiles",
+                )
+            except Exception as exc:
+                flash(f"Image upload failed: {exc}", "danger")
+                profile_image = (request.form.get("profile_image") or "").strip() or None
+        else:
+            profile_image = (request.form.get("profile_image") or "").strip() or None
 
         ok, err = update_tourist_profile(
             tourist["id"],
@@ -113,4 +139,6 @@ def tourist_profile():
         trips=trips,
         saved_spots=saved_spots,
         saved_events=saved_events,
+        dss=dss,
+        my_visits=my_visits,
     )
