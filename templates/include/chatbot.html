@@ -889,6 +889,21 @@
                     ? hrs + "h " + mins + "m"
                     : mins + " min";
 
+                var fareStat = "";
+                if (route.public_fare_php != null) {
+                    fareStat =
+                        '<div class="lara-route-stat"><div class="lara-route-stat-value">' +
+                        "₱" + esc(route.public_fare_php) +
+                        '</div><div class="lara-route-stat-label">Est. fare</div></div>';
+                }
+
+                var note = route.approximate
+                    ? "Approximate straight-line estimate — actual distance and time vary with the real road route and traffic."
+                    : "Live road route — actual travel time may still vary with traffic.";
+                if (route.fuel_cost_php != null) {
+                    note += " Driving fuel cost: ~₱" + esc(route.fuel_cost_php) + " one-way.";
+                }
+
                 var wrap = document.createElement("div");
                 wrap.className = "lara-route";
                 wrap.innerHTML =
@@ -909,8 +924,9 @@
                     '<div class="lara-route-stat"><div class="lara-route-stat-value">' +
                     esc(etaText) +
                     '</div><div class="lara-route-stat-label">Est. drive time</div></div>' +
+                    fareStat +
                     "</div>" +
-                    '<div class="lara-route-note">Approximate — actual travel time varies with traffic and route.</div>';
+                    '<div class="lara-route-note">' + esc(note) + '</div>';
                 return wrap;
             }
 
