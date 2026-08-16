@@ -66,7 +66,7 @@ You are extremely welcoming, polite, enthusiastic, and knowledgeable about Lagun
 {shared_rules}
 7. The MUNICIPALITY is the primary location identifier — not the address.
 8. If someone asks about a spot NOT in the DATA below, respond: "I can't find it in my database."
-9. If the user asks for directions/distance/travel time and a ROUTE ESTIMATE section is present below, share its distance and time exactly as labeled there (either a real road route, or an approximate straight-line estimate — match whichever the section says) — never invent turn-by-turn directions. If no ROUTE ESTIMATE is present but they're asking about a specific spot, ask which municipality/city they're coming from so it can be computed.
+9. If the user asks for directions/distance/travel time/travel cost/fare/expense and a ROUTE ESTIMATE section is present below, share its distance, time, AND the estimated cost line exactly as labeled there (either a real road route or an approximate straight-line estimate — match whichever the section says) — never invent turn-by-turn directions or make up different numbers. If no ROUTE ESTIMATE is present but they're asking about a specific spot, ask which municipality/city they're coming from so it can be computed.
 10. You only have access to tourism info (spots, events, municipalities, FAQ) — politely decline requests for arrival statistics, admin data, or other accounts' information.
 
 {db_context}""",
@@ -206,18 +206,25 @@ def _fmt_route(route: dict[str, Any]) -> str:
     muni = f" ({route['destination_municipality']})" if route.get("destination_municipality") else ""
     hours, minutes = divmod(route.get("eta_minutes", 0), 60)
     eta_text = f"{hours} hr {minutes} min" if hours else f"{minutes} min"
+    cost_line = (
+        f"Estimated one-way cost: ~PHP {route.get('public_fare_php')} by public transport "
+        f"(bus/van), or ~PHP {route.get('fuel_cost_php')} in fuel if driving "
+        "(rough estimate, not a live search — actual fares and fuel prices vary)."
+    )
     if route.get("approximate"):
         return (
             "=== ROUTE ESTIMATE (computed, approximate) ===\n"
             f"From {route.get('origin_name', '')} to {dest}{muni}: "
             f"approx. {route.get('distance_km')} km, ~{eta_text} drive "
-            "(straight-line based estimate — actual time varies with traffic and road route)."
+            "(straight-line based estimate — actual time varies with traffic and road route).\n"
+            f"{cost_line}"
         )
     return (
         "=== ROUTE ESTIMATE (live road route) ===\n"
         f"From {route.get('origin_name', '')} to {dest}{muni}: "
         f"{route.get('distance_km')} km, ~{eta_text} drive by road "
-        "(real driving distance/time — actual time may still vary with traffic conditions)."
+        "(real driving distance/time — actual time may still vary with traffic conditions).\n"
+        f"{cost_line}"
     )
 
 
@@ -330,17 +337,21 @@ _ORIGIN_PROMPT_PHRASES = ("coming from", "you're from", "you are from", "where a
 
 
 def _awaiting_route_origin(history: list[dict]) -> bool:
-    """True if LARA's own last reply looks like it just asked the user
+    """True if LARA's most recent reply looks like it just asked the user
     where they're traveling from (the route-clarification question from
     tourist prompt rule 9) — the only case where an otherwise-unrelated
-    follow-up message should still be checked for a route answer."""
-    if not history:
-        return False
-    last = history[-1]
-    if (last.get("role") or "").lower() not in ("model", "assistant", "lara"):
-        return False
-    text = (last.get("content") or "").lower()
-    return any(phrase in text for phrase in _ORIGIN_PROMPT_PHRASES)
+    follow-up message should still be checked for a route answer.
+
+    Scans backward for the most recent model/assistant turn rather than
+    only checking history[-1] — the frontend pushes the current user
+    message onto `history` before sending, so the last entry is always the
+    user's own current message, not LARA's prior reply."""
+    for turn in reversed(history or []):
+        role = (turn.get("role") or "").lower()
+        if role in ("model", "assistant", "lara"):
+            text = (turn.get("content") or "").lower()
+            return any(phrase in text for phrase in _ORIGIN_PROMPT_PHRASES)
+    return False
 
 
 def _detect_miss(
@@ -382,6 +393,21 @@ def chat(
     if not message:
         return {"success": False, "error": "Message cannot be empty."}
 
+    # The frontend pushes the user's current message onto `history` before
+    # sending it, so the last entry is always a duplicate of `message`, not
+    # a prior turn. Strip it here so every downstream use of `history`
+    # (route resolution, origin-clarification detection, and the Gemini
+    # history passed to start_chat) consistently means "prior turns only" —
+    # otherwise the current message gets sent to Gemini twice (once via
+    # start_chat's history, once via send_message).
+    history = list(history or [])
+    if (
+        history
+        and (history[-1].get("role") or "").lower() == "user"
+        and (history[-1].get("content") or "").strip() == message
+    ):
+        history = history[:-1]
+
     role = scope.get("role") if scope.get("role") in _SYSTEM_PROMPTS else "tourist"
 
     cache_key = _cache_key(message, scope)
@@ -391,7 +417,7 @@ def chat(
 
     try:
         intents = classify_intent(message)
-        context = build_context(intents, scope)
+        context = build_context(intents, scope, message)
     except Exception:
         intents = []
         context = {}
@@ -488,10 +514,16 @@ def chat(
             "chart": chart,
             "route": route,
         }
-        # Route answers depend on conversation history (origin may have been
-        # given in an earlier turn), not just the current message text, so
-        # they aren't safe to cache under a message-only key.
-        if not is_route_query:
+        # Only cache standalone (first-message / no prior context) queries.
+        # The cache key is message text only, but plenty of real follow-ups
+        # ("tell me more about it", "how much does it cost") depend entirely
+        # on that specific conversation's history for their correct answer —
+        # caching those risks serving a completely wrong answer to an
+        # unrelated conversation that happens to type the same short
+        # follow-up. A context-free message's answer is safe to reuse
+        # regardless of some other caller's history, so only the write side
+        # needs this guard.
+        if not is_route_query and not history:
             _RESPONSE_CACHE.set(cache_key, result)
 
         miss_intent = _detect_miss(intents, context, route, is_route_query, reply_text)

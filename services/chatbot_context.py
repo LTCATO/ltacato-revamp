@@ -15,6 +15,7 @@ a cached answer.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from services.chatbot_analytics_helpers import compute_growth_pct
@@ -31,7 +32,7 @@ from services.chatbot_knowledge import list_knowledge
 from services.dashboard_analytics import get_analytics_overview, get_establishment_analytics
 from services.events import _compute_event_status, list_events
 from services.lgus import list_lgus
-from services.spots import list_spots, list_spots_for_dashboard
+from services.spots import get_spot, list_spots, list_spots_for_dashboard
 from services.ttl_cache import TTLCache
 
 _NON_TOURIST_ROLES = {"lgu_admin", "ltcato_staff", "super_admin", "establishment_owner"}
@@ -94,6 +95,47 @@ def _get_spots(scope: dict[str, Any]) -> list[dict[str, Any]]:
 
     _spots_cache.set(key, result)
     return result
+
+
+def _find_named_spot_id(message: str) -> int | None:
+    """Match a specific tourist spot named in the message against the full
+    approved-spot directory (not just the top-rated page _get_spots
+    normally returns) — so LARA can find ANY real spot asked about by name,
+    even a low-rated or rarely-visited one that would never make the
+    default top-12-by-rating list.
+
+    Matches on the longest prefix of each spot's name found in the message
+    (down to a 2-word minimum), not just the full name — so "Siway River"
+    still resolves "Siway River Bio Park" without users having to type the
+    exact full listing name. Across spots, the longest matched prefix wins,
+    so a short shared first word doesn't out-rank a more specific match."""
+    if not message:
+        return None
+    text = message.lower()
+    best_id: int | None = None
+    best_len = 0
+    for s in get_spot_directory():
+        name = (s.get("name") or "").strip()
+        if not name:
+            continue
+        words = name.split()
+        min_words = min(2, len(words))
+        for n in range(len(words), min_words - 1, -1):
+            prefix = " ".join(words[:n]).lower()
+            if re.search(r"\b" + re.escape(prefix) + r"\b", text):
+                if len(prefix) > best_len:
+                    best_id = s["id"]
+                    best_len = len(prefix)
+                break
+    return best_id
+
+
+def _fetch_spot_by_id(spot_id: int) -> dict[str, Any] | None:
+    try:
+        spot = get_spot(spot_id, public_only=True)
+    except Exception:
+        spot = None
+    return _spot_card_fields(spot) if spot else None
 
 
 def _event_card_fields(event: dict[str, Any]) -> dict[str, Any]:
@@ -328,7 +370,7 @@ def _get_decision_support(scope: dict[str, Any]) -> dict[str, Any] | None:
         return None
 
 
-def build_context(intents: list[str], scope: dict[str, Any]) -> dict[str, Any]:
+def build_context(intents: list[str], scope: dict[str, Any], message: str = "") -> dict[str, Any]:
     context: dict[str, Any] = {}
 
     if INTENT_SPOTS in intents:
@@ -354,5 +396,16 @@ def build_context(intents: list[str], scope: dict[str, Any]) -> dict[str, Any]:
         context["spots"] = _get_spots(scope)[:6]
         context["events"] = _get_events(scope)[:4]
         context["faq"] = _get_faq()[:5]
+
+    # A specific spot named in the message is always worth surfacing, even
+    # if it's outside the default top-rated list (e.g. low-rated or rarely
+    # visited) or the message didn't classify as a "spots" intent at all.
+    named_id = _find_named_spot_id(message)
+    if named_id:
+        spots = context.get("spots") or []
+        if not any(s.get("id") == named_id for s in spots):
+            extra = _fetch_spot_by_id(named_id)
+            if extra:
+                context["spots"] = [extra] + spots
 
     return context
