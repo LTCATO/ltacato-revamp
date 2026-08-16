@@ -34,6 +34,19 @@
         border-radius: 50%;
         background: #22c55e;
         border: 2px solid #fff;
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
+        animation: laraPulse 2.2s ease-out infinite;
+    }
+    @keyframes laraPulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55);
+        }
+        70% {
+            box-shadow: 0 0 0 7px rgba(34, 197, 94, 0);
+        }
+        100% {
+            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+        }
     }
     #lara-panel {
         position: fixed;
@@ -41,25 +54,74 @@
         right: 1.5rem;
         z-index: 9998;
         width: 360px;
+        height: 480px;
+        min-width: 320px;
+        min-height: 400px;
         max-width: calc(100vw - 2rem);
+        max-height: calc(100vh - 8rem);
         background: #fff;
         border-radius: 16px;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+        display: flex;
         flex-direction: column;
         overflow: hidden;
         font-family: Poppins, sans-serif;
-        display: none;
+        opacity: 0;
+        transform: translateY(14px) scale(0.96);
+        pointer-events: none;
+        transform-origin: bottom right;
+        transition:
+            opacity 0.18s ease,
+            transform 0.18s ease;
     }
     #lara-panel.lara-open {
-        display: flex;
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        pointer-events: auto;
+    }
+    #lara-panel.lara-minimized {
+        height: auto !important;
+        min-height: 0;
+    }
+    #lara-panel.lara-maximized {
+        width: min(90vw, 480px) !important;
+        height: min(85vh, 720px) !important;
+    }
+    #lara-panel.lara-minimized .lara-msgs,
+    #lara-panel.lara-minimized .lara-cards-wrap,
+    #lara-panel.lara-minimized .lara-chips,
+    #lara-panel.lara-minimized .lara-foot,
+    #lara-panel.lara-minimized .lara-resize-handle {
+        display: none !important;
+    }
+    .lara-resize-handle {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 18px;
+        height: 18px;
+        cursor: nwse-resize;
+        z-index: 2;
+    }
+    .lara-resize-handle::before {
+        content: "";
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        width: 8px;
+        height: 8px;
+        border-top: 2px solid rgba(127, 29, 29, 0.35);
+        border-left: 2px solid rgba(127, 29, 29, 0.35);
     }
     .lara-head {
+        position: relative;
         background: linear-gradient(135deg, #7f1d1d, #9b2c2c);
         color: #fff;
         padding: 0.85rem 1rem;
         display: flex;
         align-items: center;
         gap: 0.7rem;
+        flex-shrink: 0;
     }
     .lara-avatar {
         width: 36px;
@@ -79,14 +141,27 @@
         font-size: 0.68rem;
         opacity: 0.85;
     }
-    .lara-close-btn {
+    .lara-head-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        margin-left: auto;
+    }
+    .lara-close-btn,
+    .lara-min-btn,
+    .lara-max-btn {
         background: none;
         border: none;
         color: #fff;
         cursor: pointer;
-        font-size: 1.2rem;
+        font-size: 1.1rem;
         padding: 0;
-        margin-left: auto;
+        opacity: 0.9;
+    }
+    .lara-close-btn:hover,
+    .lara-min-btn:hover,
+    .lara-max-btn:hover {
+        opacity: 1;
     }
     .lara-msgs {
         overflow-y: auto;
@@ -94,8 +169,8 @@
         display: flex;
         flex-direction: column;
         gap: 0.6rem;
-        max-height: 340px;
-        min-height: 160px;
+        flex: 1 1 auto;
+        min-height: 100px;
         background: #faf7f5;
     }
     .lara-msg {
@@ -186,6 +261,259 @@
         color: #fff;
         border-color: #7f1d1d;
     }
+    .lara-cards {
+        display: flex;
+        gap: 0.55rem;
+        overflow-x: auto;
+        padding: 0.2rem 0.1rem 0.4rem;
+        max-width: 100%;
+    }
+    .lara-card {
+        flex: 0 0 auto;
+        width: 140px;
+        border: 1px solid #f0ebe8;
+        border-radius: 10px;
+        overflow: hidden;
+        background: #fff;
+        text-decoration: none;
+        color: inherit;
+        display: block;
+    }
+    .lara-card:hover {
+        border-color: #9b2c2c;
+    }
+    .lara-card-img {
+        width: 100%;
+        height: 80px;
+        object-fit: cover;
+        background: #f0ebe8;
+        display: block;
+    }
+    .lara-card-body {
+        padding: 0.4rem 0.5rem;
+    }
+    .lara-card-title {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #292524;
+        line-height: 1.25;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .lara-card-sub {
+        font-size: 0.64rem;
+        color: #78716c;
+        margin-top: 0.15rem;
+    }
+    .lara-card-rating {
+        font-size: 0.64rem;
+        color: #b45309;
+        margin-top: 0.15rem;
+    }
+    .lara-table-wrap {
+        overflow-x: auto;
+        max-width: 100%;
+    }
+    .lara-table {
+        border-collapse: collapse;
+        font-size: 0.7rem;
+        width: 100%;
+    }
+    .lara-table caption {
+        text-align: left;
+        font-weight: 700;
+        font-size: 0.72rem;
+        margin-bottom: 0.3rem;
+        color: #7f1d1d;
+    }
+    .lara-table th,
+    .lara-table td {
+        padding: 0.3rem 0.5rem;
+        border-bottom: 1px solid #f0ebe8;
+        text-align: left;
+        white-space: nowrap;
+    }
+    .lara-chart {
+        font-size: 0.68rem;
+    }
+    .lara-chart-title {
+        font-weight: 700;
+        color: #7f1d1d;
+        margin-bottom: 0.35rem;
+    }
+    .lara-chart-row {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-bottom: 0.2rem;
+    }
+    .lara-chart-label {
+        width: 52px;
+        flex-shrink: 0;
+        color: #78716c;
+    }
+    .lara-chart-bar-track {
+        flex: 1;
+        background: #f0ebe8;
+        border-radius: 4px;
+        overflow: hidden;
+        height: 12px;
+    }
+    .lara-chart-bar-fill {
+        height: 100%;
+        background: linear-gradient(135deg, #7f1d1d, #9b2c2c);
+        border-radius: 4px;
+    }
+    .lara-chart-value {
+        width: 36px;
+        flex-shrink: 0;
+        text-align: right;
+        color: #292524;
+    }
+
+    /* ── Engagement: entrance animation, typing dots, route card ── */
+    @keyframes laraMsgIn {
+        from {
+            opacity: 0;
+            transform: translateY(6px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    .lara-msg,
+    .lara-cards-wrap {
+        animation: laraMsgIn 0.22s ease;
+    }
+    .lara-card {
+        transition:
+            transform 0.15s ease,
+            box-shadow 0.15s ease,
+            border-color 0.15s ease;
+    }
+    .lara-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 14px rgba(127, 29, 29, 0.18);
+    }
+    .lara-typing-dots {
+        display: inline-flex;
+        gap: 4px;
+        align-items: center;
+        padding: 0.1rem 0;
+    }
+    .lara-typing-dots span {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #9b2c2c;
+        opacity: 0.5;
+        animation: laraDotBounce 1s infinite ease-in-out;
+    }
+    .lara-typing-dots span:nth-child(2) {
+        animation-delay: 0.15s;
+    }
+    .lara-typing-dots span:nth-child(3) {
+        animation-delay: 0.3s;
+    }
+    @keyframes laraDotBounce {
+        0%,
+        80%,
+        100% {
+            transform: scale(0.6);
+            opacity: 0.4;
+        }
+        40% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+    .lara-route {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        min-width: 200px;
+    }
+    .lara-route-map {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.7rem 0.6rem 0.9rem;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #faf7f5, #f0ebe8);
+    }
+    .lara-route-pin {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.6);
+    }
+    .lara-route-pin.lara-origin {
+        background: #7f1d1d;
+    }
+    .lara-route-pin.lara-dest {
+        background: #16a34a;
+    }
+    .lara-route-line {
+        flex: 1;
+        position: relative;
+        height: 2px;
+        background-image: linear-gradient(
+            to right,
+            #9b2c2c 0 6px,
+            transparent 6px 12px
+        );
+        background-size: 12px 2px;
+        background-repeat: repeat-x;
+    }
+    .lara-route-line::after {
+        content: "🚗";
+        position: absolute;
+        top: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 0.75rem;
+    }
+    .lara-route-labels {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.66rem;
+        color: #57534e;
+        margin-top: 0.35rem;
+        gap: 0.5rem;
+    }
+    .lara-route-labels span:last-child {
+        text-align: right;
+    }
+    .lara-route-stats {
+        display: flex;
+        gap: 0.5rem;
+    }
+    .lara-route-stat {
+        flex: 1;
+        text-align: center;
+        background: #fff;
+        border: 1px solid #f0ebe8;
+        border-radius: 8px;
+        padding: 0.35rem;
+    }
+    .lara-route-stat-value {
+        font-weight: 700;
+        color: #7f1d1d;
+        font-size: 0.85rem;
+    }
+    .lara-route-stat-label {
+        font-size: 0.6rem;
+        color: #78716c;
+    }
+    .lara-route-note {
+        font-size: 0.6rem;
+        color: #a8a29e;
+        font-style: italic;
+    }
 </style>
 
 <!-- Use data attributes for Jinja2 values — avoids inline JS rendering issues -->
@@ -200,6 +528,7 @@
 </button>
 
 <div id="lara-panel" aria-label="LARA AI Tourism Assistant">
+    <div class="lara-resize-handle" id="lara-resize" aria-hidden="true"></div>
     <div class="lara-head">
         <div class="lara-avatar"><i class="bx bx-bot"></i></div>
         <div>
@@ -208,9 +537,17 @@
                 Laguna AI Tourism Assistant
             </div>
         </div>
-        <button class="lara-close-btn" id="lara-close" aria-label="Close">
-            <i class="bx bx-x"></i>
-        </button>
+        <div class="lara-head-actions">
+            <button class="lara-min-btn" id="lara-minimize" aria-label="Minimize">
+                <i class="bx bx-minus"></i>
+            </button>
+            <button class="lara-max-btn" id="lara-maximize" aria-label="Maximize">
+                <i class="bx bx-expand-alt"></i>
+            </button>
+            <button class="lara-close-btn" id="lara-close" aria-label="Close">
+                <i class="bx bx-x"></i>
+            </button>
+        </div>
     </div>
     <div class="lara-msgs" id="lara-msgs">
         <div class="lara-msg lara-from-lara">
@@ -262,10 +599,10 @@
 
             if (!btn || !panel) return; // safety guard
 
-            // Read role/lgu safely from data attributes (set by Jinja2 in HTML, not JS)
+            // Read role from a data attribute (set by Jinja2, used only for
+            // the widget's display label/suggested chips — the backend
+            // resolves the real, enforced role from the session itself).
             var ROLE = btn.getAttribute("data-role") || "tourist";
-            var LGU = btn.getAttribute("data-lgu") || "";
-            var LGU_ID = LGU ? parseInt(LGU, 10) : null;
 
             var ROLE_LABELS = {
                 tourist: "Laguna AI Tourism Guide",
@@ -316,6 +653,94 @@
                 .getElementById("lara-close")
                 .addEventListener("click", closeChat);
 
+            // ── Resize / minimize / maximize, persisted in localStorage ──
+            var PREFS_KEY = "lara_panel_prefs";
+            var MIN_W = 320,
+                MIN_H = 400;
+            var minBtn = document.getElementById("lara-minimize");
+            var maxBtn = document.getElementById("lara-maximize");
+            var resizeHandle = document.getElementById("lara-resize");
+
+            function loadPrefs() {
+                try {
+                    return JSON.parse(
+                        localStorage.getItem(PREFS_KEY) || "{}",
+                    );
+                } catch (e) {
+                    return {};
+                }
+            }
+            function savePrefs(p) {
+                try {
+                    localStorage.setItem(PREFS_KEY, JSON.stringify(p));
+                } catch (e) {
+                    /* ignore (private mode, quota, etc.) */
+                }
+            }
+
+            var prefs = loadPrefs();
+            if (prefs.width && prefs.height && !prefs.maximized) {
+                panel.style.width = prefs.width + "px";
+                panel.style.height = prefs.height + "px";
+            }
+            if (prefs.maximized) panel.classList.add("lara-maximized");
+            if (prefs.minimized) panel.classList.add("lara-minimized");
+
+            if (resizeHandle) {
+                resizeHandle.addEventListener("mousedown", function (e) {
+                    if (panel.classList.contains("lara-maximized")) return;
+                    e.preventDefault();
+                    var startX = e.clientX,
+                        startY = e.clientY;
+                    var startW = panel.offsetWidth,
+                        startH = panel.offsetHeight;
+                    var maxW = window.innerWidth - 32;
+                    var maxH = window.innerHeight - 128;
+
+                    function onMove(ev) {
+                        var newW = Math.min(
+                            maxW,
+                            Math.max(MIN_W, startW + (startX - ev.clientX)),
+                        );
+                        var newH = Math.min(
+                            maxH,
+                            Math.max(MIN_H, startH + (startY - ev.clientY)),
+                        );
+                        panel.style.width = newW + "px";
+                        panel.style.height = newH + "px";
+                    }
+                    function onUp() {
+                        document.removeEventListener("mousemove", onMove);
+                        document.removeEventListener("mouseup", onUp);
+                        var p = loadPrefs();
+                        p.width = panel.offsetWidth;
+                        p.height = panel.offsetHeight;
+                        savePrefs(p);
+                    }
+                    document.addEventListener("mousemove", onMove);
+                    document.addEventListener("mouseup", onUp);
+                });
+            }
+
+            if (minBtn) {
+                minBtn.addEventListener("click", function () {
+                    panel.classList.toggle("lara-minimized");
+                    var p = loadPrefs();
+                    p.minimized = panel.classList.contains("lara-minimized");
+                    savePrefs(p);
+                });
+            }
+            if (maxBtn) {
+                maxBtn.addEventListener("click", function () {
+                    panel.classList.remove("lara-minimized");
+                    panel.classList.toggle("lara-maximized");
+                    var p = loadPrefs();
+                    p.minimized = false;
+                    p.maximized = panel.classList.contains("lara-maximized");
+                    savePrefs(p);
+                });
+            }
+
             chips.addEventListener("click", function (e) {
                 var chip = e.target.closest(".lara-chip");
                 if (chip) {
@@ -339,7 +764,8 @@
                 var d = document.createElement("div");
                 d.className = "lara-msg lara-from-lara lara-typing";
                 d.id = "lara-typing";
-                d.textContent = "LARA is thinking…";
+                d.innerHTML =
+                    '<span class="lara-typing-dots"><span></span><span></span><span></span></span>';
                 msgs.appendChild(d);
                 msgs.scrollTop = msgs.scrollHeight;
             }
@@ -351,6 +777,177 @@
                 return t
                     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
                     .replace(/\n/g, "<br>");
+            }
+
+            function esc(s) {
+                var d = document.createElement("div");
+                d.textContent = s == null ? "" : String(s);
+                return d.innerHTML;
+            }
+
+            function buildCardsEl(cards) {
+                if (!cards || !cards.length) return null;
+                var wrap = document.createElement("div");
+                wrap.className = "lara-cards-wrap";
+                var row = document.createElement("div");
+                row.className = "lara-cards";
+                cards.forEach(function (c) {
+                    var a = document.createElement("a");
+                    a.className = "lara-card";
+                    a.href = c.url || "#";
+                    var img = document.createElement("img");
+                    img.className = "lara-card-img";
+                    img.loading = "lazy";
+                    img.src =
+                        c.image ||
+                        "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3C/svg%3E";
+                    img.alt = c.name || "";
+                    a.appendChild(img);
+                    var body = document.createElement("div");
+                    body.className = "lara-card-body";
+                    body.innerHTML =
+                        '<div class="lara-card-title">' +
+                        esc(c.name) +
+                        "</div>" +
+                        (c.subtitle
+                            ? '<div class="lara-card-sub">' +
+                              esc(c.subtitle) +
+                              "</div>"
+                            : "") +
+                        (c.rating
+                            ? '<div class="lara-card-rating">★ ' +
+                              esc(c.rating) +
+                              "</div>"
+                            : "");
+                    a.appendChild(body);
+                    row.appendChild(a);
+                });
+                wrap.appendChild(row);
+                return wrap;
+            }
+
+            function buildTableEl(table) {
+                if (!table || !table.rows || !table.rows.length) return null;
+                var wrap = document.createElement("div");
+                wrap.className = "lara-table-wrap";
+                var html = '<table class="lara-table">';
+                if (table.title)
+                    html += "<caption>" + esc(table.title) + "</caption>";
+                html += "<thead><tr>";
+                (table.columns || []).forEach(function (col) {
+                    html += "<th>" + esc(col) + "</th>";
+                });
+                html += "</tr></thead><tbody>";
+                table.rows.forEach(function (row) {
+                    html += "<tr>";
+                    row.forEach(function (cell) {
+                        html += "<td>" + esc(cell) + "</td>";
+                    });
+                    html += "</tr>";
+                });
+                html += "</tbody></table>";
+                wrap.innerHTML = html;
+                return wrap;
+            }
+
+            function buildChartEl(chart) {
+                if (!chart || !chart.values || !chart.values.length)
+                    return null;
+                var wrap = document.createElement("div");
+                wrap.className = "lara-chart";
+                var max = Math.max.apply(null, chart.values.concat([1]));
+                var html = "";
+                if (chart.title)
+                    html +=
+                        '<div class="lara-chart-title">' +
+                        esc(chart.title) +
+                        "</div>";
+                chart.labels.forEach(function (label, i) {
+                    var val = chart.values[i] || 0;
+                    var pct = Math.round((val / max) * 100);
+                    html +=
+                        '<div class="lara-chart-row">' +
+                        '<div class="lara-chart-label">' +
+                        esc(label) +
+                        "</div>" +
+                        '<div class="lara-chart-bar-track"><div class="lara-chart-bar-fill" style="width:' +
+                        pct +
+                        '%"></div></div>' +
+                        '<div class="lara-chart-value">' +
+                        esc(val) +
+                        "</div></div>";
+                });
+                wrap.innerHTML = html;
+                return wrap;
+            }
+
+            function buildRouteEl(route) {
+                if (!route) return null;
+                var hrs = Math.floor(route.eta_minutes / 60);
+                var mins = route.eta_minutes % 60;
+                var etaText = hrs
+                    ? hrs + "h " + mins + "m"
+                    : mins + " min";
+
+                var wrap = document.createElement("div");
+                wrap.className = "lara-route";
+                wrap.innerHTML =
+                    '<div class="lara-route-map">' +
+                    '<span class="lara-route-pin lara-origin"></span>' +
+                    '<span class="lara-route-line"></span>' +
+                    '<span class="lara-route-pin lara-dest"></span>' +
+                    "</div>" +
+                    '<div class="lara-route-labels"><span>' +
+                    esc(route.origin_name) +
+                    "</span><span>" +
+                    esc(route.destination_name) +
+                    "</span></div>" +
+                    '<div class="lara-route-stats">' +
+                    '<div class="lara-route-stat"><div class="lara-route-stat-value">' +
+                    esc(route.distance_km) +
+                    ' km</div><div class="lara-route-stat-label">Distance</div></div>' +
+                    '<div class="lara-route-stat"><div class="lara-route-stat-value">' +
+                    esc(etaText) +
+                    '</div><div class="lara-route-stat-label">Est. drive time</div></div>' +
+                    "</div>" +
+                    '<div class="lara-route-note">Approximate — actual travel time varies with traffic and route.</div>';
+                return wrap;
+            }
+
+            function renderReply(data) {
+                var rd = document.createElement("div");
+                rd.className = "lara-msg lara-from-lara";
+                rd.innerHTML = fmtReply(data.reply);
+                msgs.appendChild(rd);
+
+                var routeEl = buildRouteEl(data.route);
+                if (routeEl) {
+                    var routeMsg = document.createElement("div");
+                    routeMsg.className = "lara-msg lara-from-lara";
+                    routeMsg.appendChild(routeEl);
+                    msgs.appendChild(routeMsg);
+                }
+
+                var cardsEl = routeEl ? null : buildCardsEl(data.cards);
+                if (cardsEl) msgs.appendChild(cardsEl);
+
+                var chartEl = buildChartEl(data.chart);
+                if (chartEl) {
+                    var chartMsg = document.createElement("div");
+                    chartMsg.className = "lara-msg lara-from-lara";
+                    chartMsg.appendChild(chartEl);
+                    msgs.appendChild(chartMsg);
+                }
+
+                var tableEl = buildTableEl(data.table);
+                if (tableEl) {
+                    var tableMsg = document.createElement("div");
+                    tableMsg.className = "lara-msg lara-from-lara";
+                    tableMsg.appendChild(tableEl);
+                    msgs.appendChild(tableMsg);
+                }
+
+                msgs.scrollTop = msgs.scrollHeight;
             }
 
             function doSend() {
@@ -370,8 +967,6 @@
                     body: JSON.stringify({
                         message: msg,
                         history: history.slice(-10),
-                        role: ROLE,
-                        lgu_id: LGU_ID,
                     }),
                 })
                     .then(function (r) {
@@ -380,11 +975,7 @@
                     .then(function (data) {
                         hideTyping();
                         if (data.success && data.reply) {
-                            var rd = document.createElement("div");
-                            rd.className = "lara-msg lara-from-lara";
-                            rd.innerHTML = fmtReply(data.reply);
-                            msgs.appendChild(rd);
-                            msgs.scrollTop = msgs.scrollHeight;
+                            renderReply(data);
                             history.push({
                                 role: "model",
                                 content: data.reply,

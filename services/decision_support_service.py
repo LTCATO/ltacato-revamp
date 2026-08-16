@@ -17,7 +17,6 @@ from services.scrapers.insights_generator import (
     get_event_insights,
     get_spot_insights,
 )
-from services.scrapers.news_scraper import get_latest_news
 from services.scrapers.reviews_scraper import (
     get_event_feedbacks_for_display,
     get_online_reviews_for_display,
@@ -30,8 +29,6 @@ from services.scrapers.sentiment_analyzer import (
     get_external_review_sentiment_summary,
     get_feedback_sentiment_summary,
 )
-from services.scrapers.trends_scraper import get_latest_trends
-from services.scrapers.weather_scraper import get_latest_weather, get_weather_alert
 from services.supabase_client import get_supabase
 
 # ── Module-level cache (10-minute TTL) ────────────────────────────────────
@@ -227,10 +224,6 @@ def _get_sentiment_for_spot_ids(spot_ids: set) -> dict[str, Any]:
 
 def _build_data(lgu_id: int | None = None) -> dict[str, Any]:
     """Build the full decision support data dict (called at most once per 10 min)."""
-    weather = get_latest_weather(lgu_id)
-    news = get_latest_news(limit=50)  # more for pagination
-    trends = get_latest_trends(limit=10)
-
     event_feedbacks = get_event_feedbacks_for_display(limit=50)
     spot_feedbacks = get_spot_feedbacks_for_display(limit=50)
     online_reviews = get_online_reviews_for_display(limit=50)
@@ -241,8 +234,6 @@ def _build_data(lgu_id: int | None = None) -> dict[str, Any]:
 
     spot_insights = get_spot_insights()
     event_insights = get_event_insights()
-
-    weather_alert = get_weather_alert(weather)
 
     spot_combined_sentiment = {
         "total": fb_sentiment["total"] + ext_sentiment["total"],
@@ -273,16 +264,9 @@ def _build_data(lgu_id: int | None = None) -> dict[str, Any]:
         fb_sentiment=fb_sentiment,
         ext_sentiment=ext_sentiment,
         event_sentiment=event_sentiment,
-        weather_alert=weather_alert,
-        trends=trends,
-        news=news,
     )
 
     return {
-        "weather": weather,
-        "weather_alert": weather_alert,
-        "news": news,
-        "trends": trends,
         "event_feedbacks": event_feedbacks,
         "spot_feedbacks": spot_feedbacks,
         "online_reviews": online_reviews,
@@ -294,9 +278,6 @@ def _build_data(lgu_id: int | None = None) -> dict[str, Any]:
         "event_insights": event_insights,
         "recommendations": recommendations,
         "scraper_status": {
-            "weather_ok": bool(weather),
-            "news_ok": bool(news),
-            "trends_ok": bool(trends),
             "reviews_ok": bool(online_reviews),
         },
     }
@@ -326,10 +307,10 @@ def invalidate_cache() -> None:
 def get_lgu_decision_support_data(lgu_id: int) -> dict[str, Any]:
     """
     Decision support data scoped to a single LGU (for lgu_admin role).
-    Pulls province-wide scraped signals (weather, news, trends) but filters
-    all feedback, sentiment, and insights to the LGU's own spots and events.
+    Filters all feedback, sentiment, and insights to the LGU's own spots
+    and events.
     """
-    # Province-wide signals (cheap — already cached by the global build)
+    # Cheap — already cached by the global build (used here for scraper_status only).
     province = get_decision_support_data(lgu_id=lgu_id)
 
     lgu_name = _get_lgu_name(lgu_id)
@@ -369,27 +350,16 @@ def get_lgu_decision_support_data(lgu_id: int) -> dict[str, Any]:
     event_feedbacks = _get_event_feedbacks_for_lgu(lgu_id)
     online_reviews = _get_online_reviews_for_lgu(lgu_id)
 
-    # Weather for this LGU only
-    weather = [w for w in (province.get("weather") or []) if w.get("lgu_id") == lgu_id]
-    weather_alert = get_weather_alert(weather) if weather else None
-
     recommendations = _build_recommendations(
         fb_sentiment=fb_sentiment,
         ext_sentiment=ext_sentiment,
         event_sentiment=event_sentiment,
-        weather_alert=weather_alert,
-        trends=province.get("trends") or [],
-        news=province.get("news") or [],
     )
 
     return {
         "scope": "lgu",
         "lgu_id": lgu_id,
         "lgu_name": lgu_name,
-        "weather": weather,
-        "weather_alert": weather_alert,
-        "news": province.get("news") or [],
-        "trends": province.get("trends") or [],
         "event_feedbacks": event_feedbacks,
         "spot_feedbacks": spot_feedbacks,
         "online_reviews": online_reviews,
@@ -441,18 +411,11 @@ def get_owner_decision_support_data(owner_id: str) -> dict[str, Any]:
         fb_sentiment=fb_sentiment,
         ext_sentiment=ext_sentiment,
         event_sentiment=event_sentiment,
-        weather_alert=None,
-        trends=[],
-        news=[],
     )
 
     return {
         "scope": "owner",
         "spot_ids": list(spot_ids),
-        "weather": [],
-        "weather_alert": None,
-        "news": [],
-        "trends": [],
         "event_feedbacks": [],
         "spot_feedbacks": spot_feedbacks,
         "online_reviews": online_reviews,
@@ -467,22 +430,8 @@ def get_owner_decision_support_data(owner_id: str) -> dict[str, Any]:
     }
 
 
-def _build_recommendations(
-    fb_sentiment, ext_sentiment, event_sentiment, weather_alert, trends, news
-) -> list[dict]:
+def _build_recommendations(fb_sentiment, ext_sentiment, event_sentiment) -> list[dict]:
     recs: list[dict] = []
-    if weather_alert:
-        recs.append(
-            {
-                "priority": "urgent",
-                "icon": "bx-cloud-rain",
-                "color": "danger",
-                "title": "Adverse weather detected",
-                "text": f"Conditions: {weather_alert}. Issue travel advisories.",
-                "action": "View Weather",
-                "action_url": "#weather",
-            }
-        )
     if fb_sentiment.get("negative_pct", 0) > 30:
         recs.append(
             {
@@ -520,32 +469,6 @@ def _build_recommendations(
                 "text": f"{ext_sentiment['negative_pct']}% of scraped online reviews are negative.",
                 "action": "View Online Reviews",
                 "action_url": "#online-reviews",
-            }
-        )
-    top_trend = next((t for t in trends if (t.get("interest_value") or 0) >= 30), None)
-    if top_trend:
-        recs.append(
-            {
-                "priority": "normal",
-                "icon": "bx-trending-up",
-                "color": "info",
-                "title": f'Search interest: "{top_trend["keyword"]}"',
-                "text": f"Google Trends: {top_trend['interest_value']}/100. Promote related spots now.",
-                "action": "View Trends",
-                "action_url": "#trends",
-            }
-        )
-    neg_news = [n for n in news if n.get("sentiment") == "negative"]
-    if len(neg_news) >= 3:
-        recs.append(
-            {
-                "priority": "normal",
-                "icon": "bx-news",
-                "color": "secondary",
-                "title": "Negative tourism news",
-                "text": f"{len(neg_news)} recent articles are negative. Check headlines.",
-                "action": "View News",
-                "action_url": "#news",
             }
         )
     if fb_sentiment.get("positive_pct", 0) >= 70:
@@ -597,8 +520,5 @@ def get_scraper_last_run() -> dict[str, str | None]:
         return None
 
     return {
-        "weather": _latest("scraped_weather"),
-        "news": _latest("scraped_news"),
-        "trends": _latest("scraped_trends"),
         "reviews": _latest("external_reviews"),
     }
