@@ -15,10 +15,13 @@ from services.supabase_client import get_supabase
 @dashboard_login_required
 @role_required("super_admin")
 def approve_chatbot(entry_id: int):
+    from services.chatbot_context import invalidate as invalidate_chat_cache
+
     user = get_current_dashboard_user()
     get_supabase().table("chatbot_knowledge").update(
         {"approval_status": "approved", "approved_by": str(user["id"])}
     ).eq("id", entry_id).execute()
+    invalidate_chat_cache("faq")
     flash("FAQ entry approved for the chatbot.", "success")
     return redirect(url_for("dashboard.chatbot"))
 
@@ -27,9 +30,12 @@ def approve_chatbot(entry_id: int):
 @dashboard_login_required
 @role_required("super_admin")
 def reject_chatbot(entry_id: int):
+    from services.chatbot_context import invalidate as invalidate_chat_cache
+
     get_supabase().table("chatbot_knowledge").update(
         {"approval_status": "rejected"}
     ).eq("id", entry_id).execute()
+    invalidate_chat_cache("faq")
     flash("FAQ entry rejected.", "info")
     return redirect(url_for("dashboard.chatbot"))
 
@@ -54,6 +60,9 @@ def add_chatbot_entry():
         auto_approve=True,
     )
     if ok:
+        from services.chatbot_context import invalidate as invalidate_chat_cache
+
+        invalidate_chat_cache("faq")
         flash("FAQ entry added and is now active in LARA's knowledge base.", "success")
     else:
         flash(err or "Could not add FAQ entry.", "danger")
@@ -80,6 +89,9 @@ def edit_chatbot_entry(entry_id: int):
         approved_by=str(user["id"]),
     )
     if ok:
+        from services.chatbot_context import invalidate as invalidate_chat_cache
+
+        invalidate_chat_cache("faq")
         flash("FAQ entry updated.", "success")
     else:
         flash(err or "Could not update FAQ entry.", "danger")
@@ -100,13 +112,53 @@ def delete_chatbot_entry(entry_id: int):
     return redirect(url_for("dashboard.chatbot"))
 
 
+@dashboard_bp.route("/actions/chatbot/unanswered/<int:entry_id>/promote", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def promote_unanswered_query(entry_id: int):
+    from services.chatbot_unanswered import promote_to_knowledge
+
+    user = get_current_dashboard_user()
+    answer = request.form.get("answer", "").strip()
+    category = request.form.get("category", "").strip()
+
+    ok, err = promote_to_knowledge(
+        entry_id, answer=answer, category=category, created_by=str(user["id"])
+    )
+    if ok:
+        from services.chatbot_context import invalidate as invalidate_chat_cache
+
+        invalidate_chat_cache("faq")
+        flash("Logged question promoted to FAQ and is now active in LARA's knowledge base.", "success")
+    else:
+        flash(err or "Could not promote logged question.", "danger")
+    return redirect(url_for("dashboard.chatbot"))
+
+
+@dashboard_bp.route("/actions/chatbot/unanswered/<int:entry_id>/dismiss", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def dismiss_unanswered_query(entry_id: int):
+    from services.chatbot_unanswered import dismiss_unanswered_query as _dismiss
+
+    ok, err = _dismiss(entry_id)
+    if ok:
+        flash("Logged question dismissed.", "info")
+    else:
+        flash(err or "Could not dismiss logged question.", "danger")
+    return redirect(url_for("dashboard.chatbot"))
+
+
 @dashboard_bp.route("/actions/spot/<int:spot_id>/approve-ltcato", methods=["POST"])
 @dashboard_login_required
 @role_required("ltcato_staff")
 def approve_spot_ltcato(spot_id: int):
+    from services.chatbot_context import invalidate as invalidate_chat_cache
+
     get_supabase().table("tourist_spots").update({"approval_status": "approved"}).eq(
         "id", spot_id
     ).execute()
+    invalidate_chat_cache("spots")
     flash("Tourist spot approved for the public directory.", "success")
     return redirect(url_for("dashboard.lgu_management"))
 
@@ -115,9 +167,12 @@ def approve_spot_ltcato(spot_id: int):
 @dashboard_login_required
 @role_required("ltcato_staff")
 def reject_spot(spot_id: int):
+    from services.chatbot_context import invalidate as invalidate_chat_cache
+
     get_supabase().table("tourist_spots").update({"approval_status": "rejected"}).eq(
         "id", spot_id
     ).execute()
+    invalidate_chat_cache("spots")
     flash("Tourist spot rejected.", "info")
     return redirect(url_for("dashboard.lgu_management"))
 
@@ -421,9 +476,12 @@ def save_event():
 @dashboard_login_required
 @role_required("super_admin", "ltcato_staff")
 def approve_event(event_id: int):
+    from services.chatbot_context import invalidate as invalidate_chat_cache
+
     get_supabase().table("events").update({"approval_status": "approved"}).eq(
         "id", event_id
     ).execute()
+    invalidate_chat_cache("events")
     flash("Event approved and published.", "success")
     return redirect(url_for("dashboard.promotions"))
 
@@ -432,9 +490,12 @@ def approve_event(event_id: int):
 @dashboard_login_required
 @role_required("super_admin", "ltcato_staff")
 def reject_event(event_id: int):
+    from services.chatbot_context import invalidate as invalidate_chat_cache
+
     get_supabase().table("events").update({"approval_status": "rejected"}).eq(
         "id", event_id
     ).execute()
+    invalidate_chat_cache("events")
     flash("Event rejected.", "info")
     return redirect(url_for("dashboard.promotions"))
 
@@ -474,6 +535,9 @@ def review_event_featured(event_id: int, decision: str):
         return redirect(url_for("dashboard.promotions"))
     try:
         _review_featured(event_id, approve=(decision == "approve"), reviewed_by=str(user.get("id")))
+        from services.chatbot_context import invalidate as invalidate_chat_cache
+
+        invalidate_chat_cache("events")
         flash(f"Featured request {decision}d.", "success")
     except ValueError as exc:
         flash(str(exc), "danger")
@@ -912,94 +976,6 @@ def _save_site_update():
 # ---------------------------------------------------------------------------
 
 
-@dashboard_bp.route("/actions/scrape/weather", methods=["POST"])
-@dashboard_login_required
-@role_required("super_admin", "ltcato_staff")
-def scrape_weather():
-    try:
-        from services.scrapers.weather_scraper import scrape_weather_for_lgus
-
-        result = scrape_weather_for_lgus()
-        if result.get("ok"):
-            msg = f"Weather updated: {result['inserted']} LGU records inserted."
-            if result.get("errors"):
-                msg += f" ({len(result['errors'])} errors)"
-            flash(msg, "success")
-        else:
-            flash(f"Weather scrape failed: {result.get('error')}", "danger")
-    except Exception as exc:
-        flash(f"Weather scrape error: {exc}", "danger")
-    from services.decision_support_service import invalidate_cache
-
-    invalidate_cache()
-    return redirect(url_for("dashboard.decision_support"))
-
-
-@dashboard_bp.route("/actions/scrape/news", methods=["POST"])
-@dashboard_login_required
-@role_required("super_admin", "ltcato_staff")
-def scrape_news():
-    try:
-        from services.scrapers.news_scraper import scrape_news as _scrape
-
-        result = _scrape()
-        if result.get("ok"):
-            msg = f"News updated: {result['inserted']} new articles scraped."
-            if result.get("errors"):
-                msg += f" ({len(result['errors'])} errors ignored)"
-            flash(msg, "success")
-        else:
-            flash(f"News scrape failed: {result.get('error')}", "danger")
-    except Exception as exc:
-        flash(f"News scrape error: {exc}", "danger")
-    from services.decision_support_service import invalidate_cache
-
-    invalidate_cache()
-    return redirect(url_for("dashboard.decision_support"))
-
-
-@dashboard_bp.route("/actions/scrape/trends", methods=["POST"])
-@dashboard_login_required
-@role_required("super_admin", "ltcato_staff")
-def scrape_trends():
-    try:
-        from services.scrapers.trends_scraper import scrape_trends as _scrape
-
-        result = _scrape()
-        if result.get("ok"):
-            errors = result.get("errors", [])
-            if result["inserted"] > 0:
-                msg = f"Trends updated: {result['inserted']} keyword records inserted."
-                if errors:
-                    msg += f" ({len(errors)} minor errors)"
-                flash(msg, "success")
-            elif errors:
-                # Check if it's a rate-limit error
-                first_err = errors[0] if errors else ""
-                if "429" in first_err or "rate" in first_err.lower():
-                    flash(
-                        "Google Trends rate-limited (429). Wait 1–2 hours then try again. "
-                        "This is a Google restriction, not a system error.",
-                        "warning",
-                    )
-                else:
-                    flash(
-                        f"Trends: 0 inserted. First error: {first_err[:120]}", "warning"
-                    )
-            else:
-                flash(
-                    "Trends: 0 records inserted (no data returned from Google).", "info"
-                )
-        else:
-            flash(f"Trends scrape failed: {result.get('error')}", "danger")
-    except Exception as exc:
-        flash(f"Trends scrape error: {exc}", "danger")
-    from services.decision_support_service import invalidate_cache
-
-    invalidate_cache()
-    return redirect(url_for("dashboard.decision_support"))
-
-
 @dashboard_bp.route("/actions/scrape/reviews", methods=["POST"])
 @dashboard_login_required
 @role_required("super_admin", "ltcato_staff")
@@ -1027,6 +1003,8 @@ def scrape_reviews():
         )
         if errors:
             msg += f" ({len(errors)} scrape errors)"
+        if not r2.get("ok"):
+            msg += f" Note: {r2.get('error')}"
         flash(msg, "success")
     except Exception as exc:
         flash(f"Reviews scrape error: {exc}", "danger")

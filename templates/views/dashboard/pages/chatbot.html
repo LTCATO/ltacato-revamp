@@ -95,11 +95,67 @@
   </div>
 </div>
 
-{# ── Add FAQ modal ─────────────────────────────────────────────────────────── #}
+{# ── Recurring unanswered questions ────────────────────────────────────────── #}
+<div class="dashboard-card mt-4">
+  <div class="dashboard-card__header">
+    <h3 class="dashboard-card__title mb-0">Recurring unanswered questions</h3>
+    <p class="text-muted small mb-0">
+      Questions LARA couldn't answer (spot/event/route/FAQ not found), sorted by how often they've been asked.
+      Promote a recurring one straight into the FAQ above.
+    </p>
+  </div>
+  <div class="table-responsive">
+    <table class="table dashboard-table mb-0">
+      <thead>
+        <tr>
+          <th>Question</th>
+          <th style="width:110px">Type</th>
+          <th style="width:100px">Times asked</th>
+          <th style="width:120px">Last asked</th>
+          <th style="width:150px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in unanswered %}
+        <tr>
+          <td><strong>{{ u.query_text }}</strong></td>
+          <td class="small text-muted">{{ u.intent or '—' }}</td>
+          <td class="small">{{ u.miss_count }}</td>
+          <td class="small text-muted">{{ (u.last_seen_at or '')[:10] or '—' }}</td>
+          <td class="dashboard-table__actions">
+            <button type="button" class="btn btn-sm dashboard-btn-primary"
+              data-bs-toggle="modal" data-bs-target="#addFaqModal"
+              data-promote-id="{{ u.id }}"
+              data-question="{{ u.query_text | e }}"
+              title="Promote to FAQ">
+              <i class="bx bx-up-arrow-circle"></i> Promote
+            </button>
+            <form method="post"
+              action="{{ url_for('dashboard.dismiss_unanswered_query', entry_id=u.id) }}"
+              class="d-inline">
+              <button type="submit" class="btn btn-sm btn-outline-secondary" title="Dismiss">
+                <i class="bx bx-x"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" class="text-center text-muted py-4">
+            No unanswered questions logged yet.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Add / Promote FAQ modal ───────────────────────────────────────────────── #}
 <div class="modal fade dashboard-modal" id="addFaqModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content">
-      <form method="post" action="{{ url_for('dashboard.add_chatbot_entry') }}">
+      <form method="post" id="addFaqForm" action="{{ url_for('dashboard.add_chatbot_entry') }}" data-default-action="{{ url_for('dashboard.add_chatbot_entry') }}">
         <div class="modal-header">
           <h5 class="modal-title"><i class="bx bx-plus me-1"></i> Add FAQ entry</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -109,19 +165,23 @@
             <i class="bx bx-check-circle me-1"></i>
             Your entry will be <strong>immediately active</strong> in LARA's knowledge base.
           </div>
+          <div class="alert alert-info small mb-3" id="addPromoteNote" style="display:none">
+            <i class="bx bx-up-arrow-circle me-1"></i>
+            Promoting a logged question — the question text below can't be edited here.
+          </div>
           <div class="mb-3">
             <label class="form-label">Category</label>
-            <input type="text" name="category" class="form-control"
+            <input type="text" name="category" id="addCategory" class="form-control"
               placeholder="e.g. Transportation, Accommodation, Events" />
           </div>
           <div class="mb-3">
             <label class="form-label">Question <span class="text-danger">*</span></label>
-            <input type="text" name="question" class="form-control" required
+            <input type="text" name="question" id="addQuestion" class="form-control" required
               placeholder="e.g. How do I get to Pagsanjan Falls?" />
           </div>
           <div class="mb-3">
             <label class="form-label">Answer <span class="text-danger">*</span></label>
-            <textarea name="answer" class="form-control" rows="5" required
+            <textarea name="answer" id="addAnswer" class="form-control" rows="5" required
               placeholder="Provide a clear, concise answer for LARA to use..."></textarea>
           </div>
         </div>
@@ -198,6 +258,40 @@
     if (qEl) qEl.value = question;
     if (aEl) aEl.value = answer;
     if (cEl) cEl.value = category;
+  });
+})();
+
+(function () {
+  var addModal = document.getElementById('addFaqModal');
+  if (!addModal) return;
+
+  addModal.addEventListener('show.bs.modal', function (event) {
+    var btn = event.relatedTarget;
+    var form = document.getElementById('addFaqForm');
+    var qEl = document.getElementById('addQuestion');
+    var aEl = document.getElementById('addAnswer');
+    var cEl = document.getElementById('addCategory');
+    var noteEl = document.getElementById('addPromoteNote');
+    var promoteId = btn ? btn.getAttribute('data-promote-id') : null;
+
+    if (aEl) aEl.value = '';
+    if (cEl) cEl.value = '';
+
+    if (promoteId) {
+      if (form) form.action = '/dashboard/actions/chatbot/unanswered/' + promoteId + '/promote';
+      if (qEl) {
+        qEl.value = btn.getAttribute('data-question') || '';
+        qEl.readOnly = true;
+      }
+      if (noteEl) noteEl.style.display = '';
+    } else {
+      if (form) form.action = form.getAttribute('data-default-action');
+      if (qEl) {
+        qEl.value = '';
+        qEl.readOnly = false;
+      }
+      if (noteEl) noteEl.style.display = 'none';
+    }
   });
 })();
 </script>

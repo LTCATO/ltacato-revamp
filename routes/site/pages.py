@@ -41,35 +41,43 @@ def governor():
 
 @public_bp.route("/api/lara/chat", methods=["POST"])
 def lara_chat():
-    """LARA AI chatbot endpoint — role-aware, Gemini-powered."""
+    """LARA AI chatbot endpoint — role-aware, intent-scoped, Gemini-powered."""
     from flask import jsonify
     from flask import request as _req
 
     try:
         data = _req.get_json(silent=True) or {}
-        message = data.get("message", "").strip()
+        message = (data.get("message") or "").strip()
         history = data.get("history", [])
-        role = data.get("role", "tourist")
-        lgu_id = data.get("lgu_id")
 
-        # Use logged-in user's role if available
-        try:
-            from services.dashboard_auth import get_current_dashboard_user
-            from services.tourist_auth import get_current_tourist
-
-            db_user = get_current_dashboard_user()
-            if db_user:
-                role = db_user.get("role", "tourist")
-                lgu_id = db_user.get("lgu_id") or lgu_id
-        except Exception:
-            pass
-
+        # Permission scope is resolved entirely server-side from the
+        # session — role/lgu_id are never taken from the request body.
+        from services.chatbot_rate_limit import check_rate_limit
+        from services.chatbot_scope import resolve_chat_scope
         from services.chatbot_service import chat
 
-        result = chat(message=message, history=history, role=role, lgu_id=lgu_id)
+        scope = resolve_chat_scope()
+
+        client_ip = (_req.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+                     or _req.remote_addr)
+        if not check_rate_limit(scope, client_ip):
+            return jsonify(
+                {
+                    "success": False,
+                    "error": (
+                        "You're sending messages too quickly — please wait a "
+                        "few minutes before asking LARA more questions."
+                    ),
+                    "rate_limited": True,
+                }
+            ), 429
+
+        result = chat(message=message, history=history, scope=scope)
         return jsonify(result), 200 if result.get("success") else 500
 
-    except Exception as exc:
+    except Exception:
         from flask import jsonify
 
-        return jsonify({"success": False, "error": str(exc)}), 500
+        return jsonify(
+            {"success": False, "error": "LARA is temporarily unavailable. Please try again."}
+        ), 500

@@ -23,14 +23,15 @@ import requests
 from services.scrapers.sentiment_analyzer import analyze_sentiment
 from services.supabase_client import get_supabase
 
-RAPIDAPI_KEY = os.getenv(
-    "RAPIDAPI_KEY", "5ff1bfc10cmshe5d845d6ee26d10p127e02jsn7b41af6d7ddd"
-)
+RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
 FB_SEARCH_URL = "https://facebook-scraper3.p.rapidapi.com/search/posts"
-_HEADERS = {
-    "x-rapidapi-key": RAPIDAPI_KEY,
-    "x-rapidapi-host": "facebook-scraper3.p.rapidapi.com",
-}
+
+
+def _headers() -> dict[str, str]:
+    return {
+        "x-rapidapi-key": RAPIDAPI_KEY or "",
+        "x-rapidapi-host": "facebook-scraper3.p.rapidapi.com",
+    }
 
 
 def _fb_search(query: str) -> list[dict]:
@@ -38,7 +39,7 @@ def _fb_search(query: str) -> list[dict]:
     try:
         resp = requests.get(
             FB_SEARCH_URL,
-            headers=_HEADERS,
+            headers=_headers(),
             params={"query": query},
             timeout=15,
         )
@@ -207,6 +208,13 @@ def scrape_events_social() -> dict[str, Any]:
 
 def scrape_social_all() -> dict[str, Any]:
     """Run both spot and event social media scraping in sequence."""
+    if not RAPIDAPI_KEY:
+        return {
+            "ok": False,
+            "error": "RAPIDAPI_KEY not set in .env — Facebook search is skipped.",
+            "inserted": 0,
+            "errors": [],
+        }
     r1 = scrape_spots_social()
     r2 = scrape_events_social()
     return {

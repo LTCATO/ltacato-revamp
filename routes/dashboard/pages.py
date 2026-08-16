@@ -17,6 +17,7 @@ from services.arrival_reports import (
     monthly_spot_reports_for_export,
 )
 from services.chatbot_knowledge import list_knowledge
+from services.chatbot_unanswered import list_unanswered_queries
 from services.dashboard_analytics import (
     get_analytics_overview,
     get_establishment_analytics,
@@ -541,10 +542,12 @@ def chatbot():
     user = get_current_dashboard_user()
     can_approve = user["role"] == "super_admin"
     entries = list_knowledge(approval_status=None, limit=100)
+    unanswered = list_unanswered_queries(resolved=False, limit=100)
     return render_dashboard(
         "views/dashboard/pages/chatbot.html",
         user,
         entries=entries,
+        unanswered=unanswered,
         can_approve=can_approve,
         page_title="Chatbot configuration",
         page_description="Manage the FAQ knowledge base for the LARA AI tourism assistant.",
