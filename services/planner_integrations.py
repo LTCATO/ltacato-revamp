@@ -13,6 +13,8 @@ import urllib.request
 from datetime import date, datetime, timedelta
 from typing import Any
 
+from services.ttl_cache import TTLCache
+
 # Laguna provincial center (Santa Cruz area) for default weather
 LAGUNA_CENTER = (14.2691, 121.4119)
 
@@ -47,6 +49,97 @@ def _http_get_json(url: str, timeout: int = 12) -> dict[str, Any] | None:
             return json.loads(resp.read().decode())
     except (urllib.error.URLError, json.JSONDecodeError, TimeoutError, ValueError):
         return None
+
+
+_OVERPASS_TAGS = {
+    "dining": ('["amenity"~"^(restaurant|fast_food|cafe)$"]', 2000),
+    # "resort" is how most Philippine tourist lodging is tagged in OSM, not
+    # "hotel" — and lodging is sparser than dining in rural/mountain-adjacent
+    # towns, so travelers realistically go further for a place to stay.
+    "accommodation": ('["tourism"~"^(hotel|guest_house|motel|hostel|resort)$"]', 12000),
+}
+
+# The free public Overpass instance is regularly slow or overloaded, so a
+# second independently-run mirror is tried if the first stalls or errors.
+_OVERPASS_ENDPOINTS = (
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+)
+
+# Keyed by rounded coords/kind so nearby lookups (e.g. lunch + hotel searches
+# for spots a few hundred meters apart) don't re-hit Overpass every time.
+# Successful lookups are cached longer than empty ones, so a transient outage
+# gets retried on the next plan instead of being "remembered" as empty for an
+# hour.
+_nearby_places_cache = TTLCache(max_size=300, ttl_seconds=3600)
+
+
+def fetch_nearby_places(lat: float, lon: float, kind: str, limit: int = 3) -> list[dict[str, Any]]:
+    """
+    Real nearby restaurants ("dining") or lodging ("accommodation") from
+    OpenStreetMap via the free Overpass API. Best-effort: returns [] on any
+    failure (timeout, empty area, service down) so callers can fall back to
+    a generic suggestion instead of failing the whole plan.
+    """
+    cache_key = f"{kind}:{round(lat, 3)}:{round(lon, 3)}:{limit}"
+    cached = _nearby_places_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    tag_filter, radius_m = _OVERPASS_TAGS.get(kind, _OVERPASS_TAGS["dining"])
+    query = (
+        "[out:json][timeout:10];"
+        f"node{tag_filter}(around:{radius_m},{lat},{lon});"
+        f"out body {limit * 3};"
+    )
+    body = urllib.parse.urlencode({"data": query}).encode()
+
+    payload: dict[str, Any] | None = None
+    for endpoint in _OVERPASS_ENDPOINTS:
+        try:
+            req = urllib.request.Request(
+                endpoint,
+                data=body,
+                headers={"User-Agent": "LTCATO-Planner/1.0"},
+            )
+            # This now runs as a client-side fetch after the page has already
+            # rendered (see /planner/nearby-places), not during plan generation
+            # — so a generous timeout only costs a longer spinner on this one
+            # card, not page-load time. Wider-radius accommodation queries in
+            # particular need real time for Overpass to scan server-side.
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                payload = json.loads(resp.read().decode())
+            break
+        except (urllib.error.URLError, json.JSONDecodeError, TimeoutError, ValueError):
+            continue
+
+    if payload is None:
+        _nearby_places_cache.set(cache_key, [], ttl_seconds=60)
+        return []
+
+    places: list[dict[str, Any]] = []
+    for el in payload.get("elements") or []:
+        tags = el.get("tags") or {}
+        name = tags.get("name")
+        elat, elon = el.get("lat"), el.get("lon")
+        if not name or elat is None or elon is None:
+            continue
+        address = ", ".join(
+            p for p in (tags.get("addr:housenumber"), tags.get("addr:street"), tags.get("addr:city")) if p
+        )
+        places.append(
+            {
+                "name": name,
+                "address": address,
+                "distance_km": round(haversine_km(lat, lon, elat, elon), 1),
+                "cuisine": tags.get("cuisine"),
+            }
+        )
+
+    places.sort(key=lambda p: p["distance_km"])
+    result = places[:limit]
+    _nearby_places_cache.set(cache_key, result)
+    return result
 
 
 def travel_matrix_minutes(

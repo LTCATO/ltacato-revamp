@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 from datetime import date, timedelta
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, jsonify, redirect, render_template, request, url_for
 
 from services.itineraries import (
     delete_itinerary,
@@ -20,12 +20,26 @@ from services.itineraries import (
     save_itinerary_from_plan,
 )
 from services.itinerary_planner import generate_plan, planner_form_options
+from services.planner_integrations import fetch_nearby_places
 from services.tourist_auth import get_current_tourist
 from services.tourist_passport import get_or_create_passport, stamp_spot
+from services.ttl_cache import TTLCache
 from utils.jinja_helpers import normalize_image_url
 from utils.tourist_helpers import tourist_login_required
 
 itinerary_bp = Blueprint("itinerary", __name__)
+
+# Nearby-place lookups are looked up client-side and proxy to a free public
+# Overpass instance (see services.planner_integrations) — a light per-IP
+# cooldown keeps a single client from hammering that shared service.
+_NEARBY_RATE_WINDOW_SECONDS = 60
+_NEARBY_RATE_MAX_PER_WINDOW = 20
+_nearby_rate_counts = TTLCache(max_size=2000, ttl_seconds=_NEARBY_RATE_WINDOW_SECONDS)
+
+# Roughly the Philippines' bounding box — rejects obviously bogus coordinates
+# without hardcoding to Laguna alone (starting points can be just outside it).
+_PH_LAT_RANGE = (4.0, 21.5)
+_PH_LNG_RANGE = (115.0, 127.5)
 
 
 def _parse_date(value: str | None) -> date | None:
@@ -254,6 +268,37 @@ def planner():
     selected_ids = [preselect] if preselect else []
     ctx = _planner_context(selected_spot_ids=selected_ids)
     return render_template("views/site/itinerary/planner.html", **ctx)
+
+
+@itinerary_bp.route("/planner/nearby-places")
+def planner_nearby_places():
+    """Real nearby restaurants/hotels for a dining or accommodation stop,
+    fetched client-side (see static/js/planner.js) instead of during plan
+    generation — see the comment in itinerary_planner._dining_suggestion for
+    why."""
+    try:
+        lat = float(request.args.get("lat", ""))
+        lng = float(request.args.get("lng", ""))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "places": []}), 400
+
+    if not (_PH_LAT_RANGE[0] <= lat <= _PH_LAT_RANGE[1] and _PH_LNG_RANGE[0] <= lng <= _PH_LNG_RANGE[1]):
+        return jsonify({"ok": False, "places": []}), 400
+
+    kind = request.args.get("type") or "dining"
+    if kind not in ("dining", "accommodation"):
+        kind = "dining"
+
+    client_ip = (
+        request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or request.remote_addr or "unknown"
+    )
+    count = _nearby_rate_counts.get(client_ip) or 0
+    if count >= _NEARBY_RATE_MAX_PER_WINDOW:
+        return jsonify({"ok": False, "places": [], "error": "Too many requests, try again shortly."}), 429
+    _nearby_rate_counts.set(client_ip, count + 1)
+
+    places = fetch_nearby_places(lat, lng, kind, limit=3)
+    return jsonify({"ok": True, "places": places})
 
 
 @itinerary_bp.route("/my-trips")
