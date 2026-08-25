@@ -53,6 +53,9 @@
       <p class="small text-warning mb-2"><i class="ph ph-warning"></i> {{ alert }}</p>
       {% endfor %}
       {% endif %}
+      {% for warning in plan.warnings or [] %}
+      <p class="small text-warning mb-2"><i class="ph ph-warning"></i> {{ warning }}</p>
+      {% endfor %}
       <h4 class="h6 mt-3">Smart recommendations</h4>
       <ul class="planner-smart-list">
         {% for tip in plan.smart_tips or [] %}
@@ -78,11 +81,16 @@
     {% endif %}
     
     <ol class="planner-stops">
+      {% if day.day_number == 1 and plan.starting_lat and plan.starting_lng %}
+      {% set prev_coords = namespace(lat=plan.starting_lat, lng=plan.starting_lng) %}
+      <p class="small text-muted mb-2"><i class="ph ph-map-pin-line"></i> Starting from {{ plan.starting_point or 'your starting point' }}</p>
+      {% else %}
       {% set prev_coords = namespace(lat=none, lng=none) %}
-      
+      {% endif %}
+
       {% for stop in day.stops %}
-      
-      {% if not loop.first and prev_coords.lat and stop.latitude %}
+
+      {% if prev_coords.lat and stop.latitude %}
       <div class="planner-directions-wrapper position-relative ms-4 ps-3 border-start border-2 border-primary mb-3">
          <button type="button" class="btn btn-sm btn-outline-primary rounded-pill get-directions-btn" data-start-lat="{{ prev_coords.lat }}" data-start-lng="{{ prev_coords.lng }}" data-end-lat="{{ stop.latitude }}" data-end-lng="{{ stop.longitude }}">
            <i class="ph ph-car"></i> Get Directions {% if stop.travel_minutes %}(~{{ stop.travel_minutes }} min){% endif %}
@@ -91,9 +99,9 @@
       </div>
       {% endif %}
       
-      <li class="planner-stop {% if stop.type in ['dining', 'accommodation'] %}planner-stop--suggestion{% endif %}"
-          {% if stop.type in ['dining', 'accommodation'] and prev_coords.lat %}
-          data-suggestion-type="{{ stop.type }}" data-search-lat="{{ prev_coords.lat }}" data-search-lng="{{ prev_coords.lng }}"
+      <li class="planner-stop {% if stop.type in ['dining', 'accommodation', 'return', 'free_day'] %}planner-stop--suggestion{% endif %}"
+          {% if stop.type in ['dining', 'accommodation'] and stop.search_lat and stop.search_lng %}
+          data-suggestion-type="{{ stop.type }}" data-search-lat="{{ stop.search_lat }}" data-search-lng="{{ stop.search_lng }}"
           {% endif %}>
         <div class="planner-stop__time">
           <span>{{ stop.activity_time[:5] if stop.activity_time else '' }}</span>
@@ -105,6 +113,10 @@
             <div class="planner-stop__placeholder bg-warning text-dark"><i class="ph ph-bowl-food"></i></div>
             {% elif stop.type == 'accommodation' %}
             <div class="planner-stop__placeholder bg-info text-dark"><i class="ph ph-bed"></i></div>
+            {% elif stop.type == 'return' %}
+            <div class="planner-stop__placeholder bg-primary text-white"><i class="ph ph-car"></i></div>
+            {% elif stop.type == 'free_day' %}
+            <div class="planner-stop__placeholder bg-light text-dark"><i class="ph ph-sun"></i></div>
             {% else %}
             {% set img = stop.main_image_url | normalize_image_url %}
             {% if img %}
@@ -122,29 +134,37 @@
             </h4>
             
             {% if stop.type in ['dining', 'accommodation'] %}
-              <p class="small text-muted mb-2"><i class="ph ph-lightbulb"></i> AI Suggestion {% if stop.lgu_name %}· {{ stop.lgu_name }}{% endif %}</p>
-              
+              <p class="small text-muted mb-2">
+                <i class="ph ph-map-pin"></i> Nearby suggestions
+                {% if stop.lgu_name %}· {{ stop.lgu_name }}{% endif %}
+              </p>
+
               <div class="suggestion-results-container">
-                  <p class="small mb-2 fst-italic placeholder-text">{{ stop.description }}</p>
-                  {% if prev_coords.lat %}
-                  <button type="button" class="btn btn-sm btn-light border rounded-pill load-suggestion-btn">
-                     <i class="ph ph-magnifying-glass"></i> Find real {{ 'restaurants' if stop.type == 'dining' else 'hotels' }} nearby
-                  </button>
-                  <div class="real-suggestions-list mt-2 d-flex flex-column gap-2 d-none"></div>
-                  {% endif %}
+                {% if stop.search_lat and stop.search_lng %}
+                <p class="small mb-2 text-muted nearby-loading"><i class="ph ph-spinner ph-spin"></i> Looking up nearby options…</p>
+                <ul class="planner-nearby-options list-unstyled small mb-2 d-none"></ul>
+                <p class="small mb-2 fst-italic placeholder-text d-none">{{ stop.description }}</p>
+                {% else %}
+                <p class="small mb-2 fst-italic placeholder-text">{{ stop.description }}</p>
+                {% endif %}
               </div>
-              
+
               {% if stop.notes %}
               <p class="small mb-2 text-primary"><i class="ph ph-info"></i> {{ stop.notes }}</p>
               {% endif %}
               {% if stop.estimated_cost %}<span class="badge bg-light text-dark border">~₱{{ '%.0f'|format(stop.estimated_cost) }}</span>{% endif %}
+            {% elif stop.type in ['return', 'free_day'] %}
+              <p class="small mb-2">{{ stop.description }}</p>
+              {% if stop.type == 'return' and stop.travel_minutes %}
+              <span class="badge bg-light text-dark border"><i class="ph ph-car"></i> ~{{ stop.travel_minutes }} min</span>
+              {% endif %}
             {% else %}
               <p class="small text-muted mb-1">
                 <i class="ph ph-map-pin"></i> {{ stop.lgu_name or 'Laguna' }}
                 {% if stop.category_name %} · {{ stop.category_name }}{% endif %}
                 {% if stop.rating %} · <i class="ph ph-star"></i> {{ stop.rating }}{% endif %}
               </p>
-              {% if stop.travel_minutes and loop.index > 1 and not (prev_coords.lat and stop.latitude) %}
+              {% if stop.travel_minutes and not (prev_coords.lat and stop.latitude) %}
               <p class="planner-stop__travel small"><i class="ph ph-car"></i> ~{{ stop.travel_minutes }} min from previous stop</p>
               {% endif %}
               {% if stop.opening_hours %}

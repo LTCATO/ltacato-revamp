@@ -529,79 +529,72 @@
       });
     });
 
-    // 2. Load Suggestions Buttons
-    document.querySelectorAll('.load-suggestion-btn').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        var li = this.closest('.planner-stop');
-        var lat = li.getAttribute('data-search-lat');
-        var lng = li.getAttribute('data-search-lng');
-        var type = li.getAttribute('data-suggestion-type');
-        var container = this.nextElementSibling;
-        
-        if (!lat || !lng) return;
+  }
 
-        this.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Searching...';
-        this.disabled = true;
-        var self = this;
+  // Fetches real nearby restaurants/hotels for each dining/accommodation stop
+  // from our own backend (which proxies OpenStreetMap's Overpass API), rather
+  // than during plan generation — see itinerary_planner._dining_suggestion.
+  // Runs automatically on load, with a retry button if a lookup fails (the
+  // free Overpass service is sometimes slow/unavailable).
+  function loadNearbySuggestions() {
+    document.querySelectorAll('.planner-stop[data-suggestion-type]').forEach(function (li) {
+      var lat = li.getAttribute('data-search-lat');
+      var lng = li.getAttribute('data-search-lng');
+      var type = li.getAttribute('data-suggestion-type');
+      var loading = li.querySelector('.nearby-loading');
+      var list = li.querySelector('.planner-nearby-options');
+      var placeholder = li.querySelector('.placeholder-text');
+      if (!lat || !lng || !loading || !list) return;
 
-        var query = type === 'dining' ? 'restaurant' : 'hotel';
-        var url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/' + query + '.json?proximity=' + lng + ',' + lat + '&limit=3&access_token=' + window.MAPBOX_TOKEN;
+      function showFallback() {
+        loading.classList.add('d-none');
+        if (placeholder) placeholder.classList.remove('d-none');
+        if (li.querySelector('.nearby-retry-btn')) return;
+        var retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'btn btn-sm btn-light border rounded-pill mt-1 nearby-retry-btn';
+        retry.innerHTML = '<i class="ph ph-arrow-clockwise"></i> Try again';
+        retry.addEventListener('click', function () {
+          if (placeholder) placeholder.classList.add('d-none');
+          retry.remove();
+          loading.classList.remove('d-none');
+          fetchNearby();
+        });
+        loading.insertAdjacentElement('afterend', retry);
+      }
 
+      function fetchNearby() {
+        var url = '/planner/nearby-places?lat=' + encodeURIComponent(lat) + '&lng=' + encodeURIComponent(lng) + '&type=' + encodeURIComponent(type);
         fetch(url)
-          .then(res => res.json())
-          .then(data => {
-            self.style.display = 'none';
-            var placeholder = li.querySelector('.placeholder-text');
-            if (placeholder) placeholder.style.display = 'none';
-
-            if (data.features && data.features.length > 0) {
-              var html = '';
-              data.features.forEach(function(f, i) {
-                var name = f.text;
-                var address = f.place_name.replace(name + ', ', '');
-                var dist = getDistanceFromLatLonInKm(parseFloat(lat), parseFloat(lng), f.geometry.coordinates[1], f.geometry.coordinates[0]);
-                
-                html += '<div class="p-2 border rounded bg-white shadow-sm">';
-                html += '<strong class="text-dark">' + (i+1) + '. ' + name + '</strong> <small class="text-muted">(' + dist.toFixed(1) + 'km away)</small><br>';
-                html += '<small class="text-muted"><i class="ph ph-map-pin"></i> ' + address + '</small>';
-                html += '</div>';
-
-                if (map) {
-                  var mEl = document.createElement('div');
-                  mEl.className = 'marker';
-                  mEl.style.backgroundColor = type === 'dining' ? '#ffc107' : '#0dcaf0';
-                  mEl.style.color = '#000';
-                  mEl.style.width = '24px';
-                  mEl.style.height = '24px';
-                  mEl.style.borderRadius = '50%';
-                  mEl.style.textAlign = 'center';
-                  mEl.style.lineHeight = '24px';
-                  mEl.style.fontSize = '12px';
-                  mEl.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
-                  mEl.innerHTML = type === 'dining' ? '<i class="ph ph-fork-knife"></i>' : '<i class="ph ph-bed"></i>';
-
-                  var popup = new mapboxgl.Popup({ offset: 25 }).setHTML("<strong>" + name + "</strong><br><small>" + address + "</small>");
-                  new mapboxgl.Marker(mEl).setLngLat(f.geometry.coordinates).setPopup(popup).addTo(map);
-                }
-              });
-              container.innerHTML = html;
-              container.classList.remove('d-none');
-              
-              if (map) {
-                  map.flyTo({ center: [parseFloat(lng), parseFloat(lat)], zoom: 14 });
-                  if (window.innerWidth > 768) setTimeout(() => map.panBy(getPanelOffset()), 500);
-              }
-            } else {
-              container.innerHTML = '<span class="small text-muted">No places found nearby on Mapbox.</span>';
-              container.classList.remove('d-none');
+          .then(function (res) { return res.json(); })
+          .then(function (data) {
+            loading.classList.add('d-none');
+            if (!data.ok || !data.places || !data.places.length) {
+              showFallback();
+              return;
             }
+            list.innerHTML = '';
+            data.places.forEach(function (p) {
+              var item = document.createElement('li');
+              item.className = 'mb-1';
+              var strong = document.createElement('strong');
+              strong.textContent = p.name || '';
+              var span = document.createElement('span');
+              span.className = 'text-muted';
+              var bits = ['— ' + p.distance_km + ' km away'];
+              if (p.cuisine) bits.push(String(p.cuisine).replace(/_/g, ' '));
+              if (p.address) bits.push(p.address);
+              span.textContent = ' ' + bits.join(' · ');
+              item.appendChild(strong);
+              item.appendChild(span);
+              list.appendChild(item);
+            });
+            list.classList.remove('d-none');
           })
-          .catch(err => {
-            self.innerHTML = '<i class="ph ph-warning"></i> Error searching';
-            self.disabled = false;
-            console.error("Geocoding Error", err);
-          });
-      });
+          .catch(function () { showFallback(); });
+      }
+
+      fetchNearby();
     });
   }
 
@@ -611,6 +604,7 @@
     setupGpsButton();
     setupPanelToggle();
     setupItineraryInteractions();
+    loadNearbySuggestions();
 
     ["start_date", "end_date"].forEach(function (id) {
       var el = document.getElementById(id);

@@ -30,7 +30,12 @@ def tourist_profile():
     tourist = get_current_tourist()
     assert tourist
 
-    profile = get_tourist_profile(tourist["id"])
+    try:
+        profile = get_tourist_profile(tourist["id"])
+    except Exception:
+        flash("We couldn't load your profile right now — please try again in a moment.", "danger")
+        return redirect(url_for("public.home"))
+
     if not profile:
         flash("Profile not found. Please contact support.", "danger")
         return redirect(url_for("public.home"))
@@ -115,7 +120,6 @@ def tourist_profile():
                 or session.get("tourist_name", "Traveler")
             )
             flash("Profile updated successfully.", "success")
-            session.pop("tourist_profile_image", None)  # refresh navbar avatar cache
             return redirect(url_for("profile.tourist_profile"))
         flash(err or "Update failed.", "danger")
         form_data = {
