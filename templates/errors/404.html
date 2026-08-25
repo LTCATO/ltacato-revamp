@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Page not found{% endblock %}
+
+{% block content %}
+<section class="page-hero page-hero--spots">
+  <div class="container-xl text-center py-4">
+    <span class="section-eyebrow">Error 404</span>
+    <h1 class="page-hero__title">We couldn't find that page</h1>
+    <p class="page-hero__lead mx-auto">
+      The page you're looking for may have been moved, renamed, or no longer exists.
+    </p>
+  </div>
+</section>
+
+<section class="home-section">
+  <div class="container-xl text-center py-4">
+    <i class="ph ph-compass" style="font-size: 3.5rem; color: var(--muted-foreground); opacity: 0.5;"></i>
+    <p class="section-lead mx-auto my-4">
+      Try heading back to the home page, or explore our tourist spots and events instead.
+    </p>
+    <div class="d-flex flex-wrap gap-3 justify-content-center">
+      <a href="{{ url_for('public.home') }}" class="btn ltcato-btn-pill">
+        <i class="ph ph-house"></i> Back to home
+      </a>
+      <a href="{{ url_for('spots.spots_list') }}" class="btn ltcato-btn-outline-lg">
+        <i class="ph ph-compass"></i> Tourist spots
+      </a>
+      <a href="{{ url_for('events.events_list') }}" class="btn ltcato-btn-outline-lg">
+        <i class="ph ph-calendar-star"></i> Events
+      </a>
+    </div>
+  </div>
+</section>
+{% endblock %}

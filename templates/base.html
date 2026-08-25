@@ -42,9 +42,10 @@
         {% block style %} {% endblock %}
     </head>
     <body>
+        <a href="#main-content" class="skip-link">Skip to content</a>
         {% include 'include/navbar.html' %}
 
-        <main>
+        <main id="main-content" tabindex="-1">
             <!-- Flash messages data for toast notifications -->
             {% with messages = get_flashed_messages(with_categories=true) %} {%
             if messages %} {% for category, message in messages %}

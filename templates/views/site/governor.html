@@ -130,32 +130,3 @@
   </div>
 </section>
 {% endblock %}
-
-{% block script %}
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const swiperEl = document.querySelector(".governor-gallery-swiper");
-  if (!swiperEl || typeof Swiper === "undefined") return;
-
-  const captions = document.querySelectorAll(".governor-gallery-captions__item");
-
-  new Swiper(swiperEl, {
-    slidesPerView: 1,
-    spaceBetween: 16,
-    loop: true,
-    autoplay: { delay: 5000, disableOnInteraction: false },
-    pagination: { el: ".governor-gallery-swiper .swiper-pagination", clickable: true },
-    navigation: {
-      nextEl: ".governor-gallery-swiper .swiper-button-next",
-      prevEl: ".governor-gallery-swiper .swiper-button-prev",
-    },
-    on: {
-      slideChange(swiper) {
-        const index = swiper.realIndex;
-        captions.forEach((el, i) => el.classList.toggle("is-active", i === index));
-      },
-    },
-  });
-});
-</script>
-{% endblock %}

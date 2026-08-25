@@ -454,9 +454,15 @@ MAIN CONTENT (col-lg-8 + col-lg-4)
                         <input type="hidden" name="rating" value="" />
 
                         {# Interactive star picker #}
-                        <div class="event-star-picker mb-3">
+                        <div class="event-star-picker mb-3" role="group" aria-label="Rating">
                             {% for i in range(1, 6) %}
-                            <i class="ph ph-star" data-star="{{ i }}"></i>
+                            <button
+                                type="button"
+                                class="star-picker__star ph ph-star"
+                                data-star="{{ i }}"
+                                aria-label="Rate {{ i }} star{{ 's' if i > 1 else '' }}"
+                                aria-pressed="false"
+                            ></button>
                             {% endfor %}
                         </div>
 
@@ -853,8 +859,10 @@ RELATED EVENTS ═════════════════════�
         /* ── Engagement buttons (like / bookmark) ──────────────────── */
         document.querySelectorAll("[data-engage-btn]").forEach((btn) => {
             btn.addEventListener("click", async () => {
+                if (btn.disabled) return;
                 const eventId = btn.dataset.eventId;
                 const type = btn.dataset.type;
+                btn.disabled = true;
                 try {
                     const resp = await fetch(`/events/${eventId}/engage`, {
                         method: "POST",
@@ -894,6 +902,8 @@ RELATED EVENTS ═════════════════════�
                     }
                 } catch (err) {
                     console.error("Engage error:", err);
+                } finally {
+                    btn.disabled = false;
                 }
             });
         });
@@ -907,11 +917,11 @@ RELATED EVENTS ═════════════════════�
             const refreshStars = (active) => {
                 stars.forEach((st) => {
                     const v = parseInt(st.dataset.star);
-                    if (v <= active) {
-                        st.className = "ph-fill ph-star is-active";
-                    } else {
-                        st.className = "ph ph-star";
-                    }
+                    const isActive = v <= active;
+                    st.className = isActive
+                        ? "star-picker__star ph-fill ph-star is-active"
+                        : "star-picker__star ph ph-star";
+                    st.setAttribute("aria-pressed", String(isActive));
                 });
             };
 
@@ -923,6 +933,12 @@ RELATED EVENTS ═════════════════════�
                 s.addEventListener("mouseleave", () =>
                     refreshStars(selectedRating),
                 );
+
+                /* Keyboard focus highlight (mirrors hover) */
+                s.addEventListener("focus", () =>
+                    refreshStars(parseInt(s.dataset.star)),
+                );
+                s.addEventListener("blur", () => refreshStars(selectedRating));
 
                 /* Click to select */
                 s.addEventListener("click", () => {
@@ -943,6 +959,13 @@ RELATED EVENTS ═════════════════════�
                         errMsg.classList.remove("d-none");
                     }
                     return;
+                }
+                const submitBtn = fbForm.querySelector('button[type="submit"]');
+                const originalBtnHtml = submitBtn ? submitBtn.innerHTML : "";
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML =
+                        '<i class="ph ph-spinner ph-spin me-1"></i> Submitting…';
                 }
                 const formData = new FormData(fbForm);
                 try {
@@ -968,6 +991,11 @@ RELATED EVENTS ═════════════════════�
                     }
                 } catch (err) {
                     console.error("Feedback error:", err);
+                } finally {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalBtnHtml;
+                    }
                 }
             });
         }

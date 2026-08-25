@@ -229,14 +229,18 @@ ensure_list %} {% set driving = spot.driving_guide | ensure_list %}
                             id="spotRatingInput"
                             value=""
                         />
-                        <div class="spot-star-picker" id="spotStarPicker">
+                        <div class="spot-star-picker" id="spotStarPicker" role="group" aria-label="Rating">
                             {% for i in range(1,6) %}
-                            <span
+                            <button
+                                type="button"
+                                class="spot-star-picker__star"
                                 data-star="{{ i }}"
                                 title="{{ i }} star{{ 's' if i > 1 else '' }}"
+                                aria-label="Rate {{ i }} star{{ 's' if i > 1 else '' }}"
+                                aria-pressed="false"
                             >
                                 <i class="ph ph-star"></i>
-                            </span>
+                            </button>
                             {% endfor %}
                         </div>
                         <textarea
@@ -477,8 +481,10 @@ ensure_list %} {% set driving = spot.driving_guide | ensure_list %}
     // Spot engagement (like/bookmark)
     document.querySelectorAll("[data-engage-btn]").forEach((btn) => {
         btn.addEventListener("click", async () => {
+            if (btn.disabled) return;
             const spotId = btn.dataset.spotId;
             const type = btn.dataset.type;
+            btn.disabled = true;
             try {
                 const resp = await fetch(`/spots/${spotId}/engage`, {
                     method: "POST",
@@ -510,6 +516,8 @@ ensure_list %} {% set driving = spot.driving_guide | ensure_list %}
                 }
             } catch (e) {
                 console.error(e);
+            } finally {
+                btn.disabled = false;
             }
         });
     });
@@ -520,31 +528,27 @@ ensure_list %} {% set driving = spot.driving_guide | ensure_list %}
     if (spotStarPicker) {
         const stars = spotStarPicker.querySelectorAll("[data-star]");
         let selectedRating = 0;
+        const refreshStars = (active) => {
+            stars.forEach((st) => {
+                const isActive = parseInt(st.dataset.star) <= active;
+                const si = st.querySelector("i");
+                if (si) si.className = isActive ? "ph-fill ph-star" : "ph ph-star";
+                st.setAttribute("aria-pressed", String(isActive));
+            });
+        };
         stars.forEach((s) => {
-            s.addEventListener("mouseenter", () => {
-                const n = parseInt(s.dataset.star);
-                stars.forEach((st) => {
-                    const si = st.querySelector("i");
-                    if (si)
-                        si.className =
-                            parseInt(st.dataset.star) <= n
-                                ? "ph-fill ph-star"
-                                : "ph ph-star";
-                });
-            });
-            s.addEventListener("mouseleave", () => {
-                stars.forEach((st) => {
-                    const si = st.querySelector("i");
-                    if (si)
-                        si.className =
-                            parseInt(st.dataset.star) <= selectedRating
-                                ? "ph-fill ph-star"
-                                : "ph ph-star";
-                });
-            });
+            s.addEventListener("mouseenter", () =>
+                refreshStars(parseInt(s.dataset.star)),
+            );
+            s.addEventListener("mouseleave", () => refreshStars(selectedRating));
+            s.addEventListener("focus", () =>
+                refreshStars(parseInt(s.dataset.star)),
+            );
+            s.addEventListener("blur", () => refreshStars(selectedRating));
             s.addEventListener("click", () => {
                 selectedRating = parseInt(s.dataset.star);
                 if (spotRatingInput) spotRatingInput.value = selectedRating;
+                refreshStars(selectedRating);
             });
         });
     }
@@ -562,6 +566,13 @@ ensure_list %} {% set driving = spot.driving_guide | ensure_list %}
                 }
                 return;
             }
+            const submitBtn = spotFbForm.querySelector('button[type="submit"]');
+            const originalBtnHtml = submitBtn ? submitBtn.innerHTML : "";
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML =
+                    '<i class="ph ph-spinner ph-spin me-1"></i> Submitting…';
+            }
             const formData = new FormData(spotFbForm);
             try {
                 const resp = await fetch(spotFbForm.action, {
@@ -573,6 +584,7 @@ ensure_list %} {% set driving = spot.driving_guide | ensure_list %}
                     spotFbForm.innerHTML =
                         '<div class="alert alert-success mt-2">Thank you for your review! The page will refresh shortly.</div>';
                     setTimeout(() => location.reload(), 2000);
+                    return;
                 } else if (data.error === "already_submitted") {
                     if (msg) {
                         msg.textContent =
@@ -581,9 +593,14 @@ ensure_list %} {% set driving = spot.driving_guide | ensure_list %}
                     }
                 } else if (resp.status === 401) {
                     window.location.href = '{{ url_for("auth.login") }}';
+                    return;
                 }
             } catch (e) {
                 console.error(e);
+            }
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnHtml;
             }
         });
     }

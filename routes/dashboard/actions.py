@@ -1,5 +1,5 @@
 # pyrefly: ignore [missing-import]
-from flask import flash, redirect, request, url_for
+from flask import flash, jsonify, redirect, request, url_for
 
 from routes.dashboard.blueprint import dashboard_bp
 from routes.dashboard.helpers import dashboard_login_required, role_required
@@ -449,7 +449,7 @@ def save_event():
     forced_lgu_id = resolve_dashboard_lgu_id(user) if user["role"] == "lgu_admin" else None
     approval_status = "pending" if user["role"] == "lgu_admin" else "approved"
     try:
-        create_event_from_request(
+        event = create_event_from_request(
             request.form,
             request.files,
             created_by=str(user.get("id") or ""),
@@ -460,11 +460,93 @@ def save_event():
             flash("Event submitted and is pending LTCATO approval.", "success")
         else:
             flash("Event published successfully.", "success")
+        if event.get("_exhibitor_save_failed"):
+            flash(
+                "The event saved, but the exhibitor list could not be saved. "
+                "Please re-add exhibitors for this event.",
+                "warning",
+            )
     except ValueError as exc:
         flash(str(exc), "danger")
     except Exception as exc:
         flash(
             f"Could not save event: {exc}. "
+            "If you just added new columns, run the Supabase migration. "
+            "For uploads, ensure Storage bucket exists (see SUPABASE_STORAGE_BUCKET).",
+            "danger",
+        )
+    return redirect(url_for("dashboard.promotions"))
+
+
+def _can_manage_event(user, event: dict) -> bool:
+    if user["role"] in ("super_admin", "ltcato_staff"):
+        return True
+    if user["role"] == "lgu_admin":
+        return int(event.get("lgu_id") or -1) == int(resolve_dashboard_lgu_id(user) or -2)
+    return False
+
+
+@dashboard_bp.route("/actions/event/<int:event_id>/edit-data")
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff", "lgu_admin")
+def event_edit_data(event_id: int):
+    """JSON snapshot of an event for the dashboard edit modal to populate."""
+    from services.events import get_event
+
+    user = get_current_dashboard_user()
+    event = get_event(event_id, public_only=False)
+    if not event:
+        return jsonify({"error": "Event not found."}), 404
+    if not _can_manage_event(user, event):
+        return jsonify({"error": "You can only edit your own LGU's events."}), 403
+    return jsonify(event)
+
+
+@dashboard_bp.route("/actions/event/<int:event_id>/update", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff", "lgu_admin")
+def update_event(event_id: int):
+    from services.events import get_event, update_event_from_request
+
+    user = get_current_dashboard_user()
+    existing = get_event(event_id, public_only=False)
+    if not existing:
+        flash("Event not found.", "danger")
+        return redirect(url_for("dashboard.promotions"))
+    if not _can_manage_event(user, existing):
+        flash("You can only edit your own LGU's events.", "danger")
+        return redirect(url_for("dashboard.promotions"))
+
+    is_lgu_admin = user["role"] == "lgu_admin"
+    forced_lgu_id = resolve_dashboard_lgu_id(user) if is_lgu_admin else None
+    # An LGU-submitted edit needs re-review like a new submission; an
+    # LTCATO/super_admin edit keeps whatever approval state the event
+    # already had (fixing a typo shouldn't silently re-approve a rejected
+    # event or require re-approving an already-approved one).
+    approval_status = "pending" if is_lgu_admin else (existing.get("approval_status") or "approved")
+    try:
+        event = update_event_from_request(
+            event_id,
+            request.form,
+            request.files,
+            forced_lgu_id=forced_lgu_id,
+            approval_status=approval_status,
+        )
+        if is_lgu_admin:
+            flash("Event updated and re-submitted for LTCATO approval.", "success")
+        else:
+            flash("Event updated successfully.", "success")
+        if event.get("_exhibitor_save_failed"):
+            flash(
+                "The event saved, but the exhibitor list could not be updated. "
+                "Please re-add exhibitors for this event.",
+                "warning",
+            )
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    except Exception as exc:
+        flash(
+            f"Could not update event: {exc}. "
             "If you just added new columns, run the Supabase migration. "
             "For uploads, ensure Storage bucket exists (see SUPABASE_STORAGE_BUCKET).",
             "danger",

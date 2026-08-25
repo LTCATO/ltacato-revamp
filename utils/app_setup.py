@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from flask import Flask
+from flask import Flask, render_template
 
 from routes import register_blueprints
 from services.dashboard_auth import get_current_dashboard_user, get_nav_items
@@ -25,6 +25,14 @@ def create_app():
 
     register_template_filters(app)
     register_blueprints(app)
+
+    @app.errorhandler(404)
+    def not_found(_error):
+        return render_template("errors/404.html"), 404
+
+    @app.errorhandler(500)
+    def server_error(_error):
+        return render_template("errors/500.html"), 500
 
     @app.context_processor
     def inject_auth_context():

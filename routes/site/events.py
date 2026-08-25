@@ -73,10 +73,10 @@ def events_list():
 
 @events_bp.route("/events/<int:event_id>")
 def event_detail(event_id: int):
-    record_event_view(event_id)
     raw = get_event(event_id, public_only=True)
     if not raw:
         abort(404)
+    record_event_view(event_id)
 
     event = enrich_event_for_display(raw)
     gallery: list[str] = []

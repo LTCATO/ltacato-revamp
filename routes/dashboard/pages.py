@@ -24,7 +24,7 @@ from services.dashboard_analytics import (
 )
 from services.dashboard_auth import get_current_dashboard_user, resolve_dashboard_lgu_id
 from services.dashboard_pages import get_dashboard_overview, get_workflow_cards
-from services.events import list_events
+from services.events import _compute_event_status, list_events
 from services.external_reviews import list_external_reviews
 from services.feedbacks import list_feedbacks
 from services.lgus import list_lgus_simple
@@ -523,6 +523,8 @@ def promotions():
         events = list_events(lgu_id=forced_lgu_id, approval_status=None, limit=80)
     else:
         events = list_events(approval_status=None, limit=80)
+    for event in events:
+        event["computed_status"] = _compute_event_status(event)
     return render_dashboard(
         "views/dashboard/pages/promotions.html",
         user,
