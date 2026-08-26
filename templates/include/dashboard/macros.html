@@ -1,7 +1,7 @@
 {% macro status_badge(status) %}
 {% set s = (status or '')|lower %}
 <span class="dashboard-badge dashboard-badge--{{ 'success' if s == 'approved' else 'warning' if 'pending' in s else 'danger' if s == 'rejected' else 'muted' }}">
-  {{ status|replace('_', ' ')|title }}
+  {{ (status or 'Unknown')|replace('_', ' ')|title }}
 </span>
 {% endmacro %}
 

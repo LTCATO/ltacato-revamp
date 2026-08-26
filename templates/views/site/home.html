@@ -234,7 +234,7 @@
             </p>
         </div>
 
-        <div class="row g-4">
+        <div class="event-highlight-grid{% if home_events|length == 3 %} event-highlight-grid--triple{% endif %}">
             {% if home_events %}
             {% for ev in home_events %}
             {% set lgu = ev.lgus or {} %}
@@ -242,8 +242,9 @@
             {% set ev_month = ev.date_month or '' %}
             {% set ev_day = ev.date_day or '' %}
             {% set cat = (ev.category or 'General')|lower %}
-            <div class="col-lg-4 col-md-6">
-                <article class="event-card">
+            {% set is_spotlight = home_events|length == 3 and loop.index0 == 1 %}
+            <div class="event-highlight-col{% if is_spotlight %} event-highlight-col--spotlight{% endif %}">
+                <article class="event-card{% if is_spotlight %} event-card--spotlight{% endif %}">
                     <div class="event-image-container">
                         {% if ev.is_featured_now %}
                         <div
@@ -317,8 +318,7 @@
                             <div class="event-detail-item">
                                 <i class="ph ph-radio-button"></i>
                                 <span
-                                    class="text-capitalize"
-                                    style="color:{{ '#16a34a' if (ev.status or ev.event_status)=='ongoing' else '#ca8a04' }};"
+                                    class="text-capitalize event-status-text--{{ ev.status or ev.event_status or 'upcoming' }}"
                                     >{{ ev.status or ev.event_status or 'upcoming' }}</span
                                 >
                             </div>
@@ -334,7 +334,7 @@
                 </article>
             </div>
             {% endfor %} {% else %}
-            <div class="col-12 text-center py-5">
+            <div class="text-center py-5" style="grid-column: 1 / -1;">
                 <i
                     class="ph ph-calendar-blank"
                     style="font-size: 3rem; opacity: 0.3"

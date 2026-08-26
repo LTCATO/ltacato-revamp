@@ -8,35 +8,133 @@
 {% include "include/dashboard/module_header.html" %}
 
 <div class="dashboard-card">
-  <table class="table dashboard-table mb-0">
-    <thead>
-      <tr>
-        <th>Spot</th>
-        {% if user.role == 'super_admin' %}<th>LGU</th>{% endif %}
-        <th>Guest</th>
-        <th>Rating</th>
-        <th>Comments</th>
-        <th>Sentiment</th>
-        <th>Date</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for f in feedbacks %}
-      {% set spot = f.tourist_spots or {} %}
-      {% set lgu = spot.lgus or {} %}
-      <tr>
-        <td><strong>{{ spot.name or '—' }}</strong></td>
-        {% if user.role == 'super_admin' %}<td>{{ lgu.name or '—' }}</td>{% endif %}
-        <td>{{ f.guest_name or 'Tourist' }}</td>
-        <td>{% if f.rating %}<span class="dashboard-badge dashboard-badge--success">{{ f.rating }} ★</span>{% else %}—{% endif %}</td>
-        <td class="small">{{ f.comments|truncate_text(100) if f.comments else '—' }}</td>
-        <td>{{ status_badge(f.sentiment or 'neutral') }}</td>
-        <td class="small text-muted">{{ (f.created_at or '')[:10] }}</td>
-      </tr>
-      {% else %}
-      <tr><td colspan="7" class="text-center text-muted py-4">No feedback received yet.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="dashboard-card__header">
+    <h3 class="dashboard-card__title mb-0">Tourist spot reviews</h3>
+    <p class="text-muted small mb-0">
+      Review photos are held for moderation — approve them so they appear on the public spot page.
+    </p>
+  </div>
+  <div class="table-responsive">
+    <table class="table dashboard-table mb-0">
+      <thead>
+        <tr>
+          <th>Spot</th>
+          {% if user.role == 'super_admin' %}<th>LGU</th>{% endif %}
+          <th>Guest</th>
+          <th>Rating</th>
+          <th>Comments</th>
+          <th>Sentiment</th>
+          <th>Photos</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in feedbacks %}
+        {% set spot = f.tourist_spots or {} %}
+        {% set lgu = spot.lgus or {} %}
+        <tr>
+          <td><strong>{{ spot.name or '—' }}</strong></td>
+          {% if user.role == 'super_admin' %}<td>{{ lgu.name or '—' }}</td>{% endif %}
+          <td>{{ f.guest_name or 'Tourist' }}</td>
+          <td>{% if f.rating %}<span class="dashboard-badge dashboard-badge--success">{{ f.rating }} ★</span>{% else %}—{% endif %}</td>
+          <td class="small">{{ f.comments|truncate_text(100) if f.comments else '—' }}</td>
+          <td>{{ status_badge(f.sentiment or 'neutral') }}</td>
+          <td>
+            {% if f.images %}
+            <div class="dashboard-review-photos">
+              {% for img in f.images %}
+              <a href="{{ img|normalize_image_url }}" target="_blank" rel="noopener noreferrer">
+                <img src="{{ img|normalize_image_url }}" alt="Review photo" class="dashboard-review-photos__thumb" />
+              </a>
+              {% endfor %}
+            </div>
+            {{ status_badge(f.images_approval_status) }}
+            {% if f.images_approval_status != 'approved' %}
+            <form method="post" action="{{ url_for('dashboard.approve_feedback_images', feedback_id=f.id) }}" class="d-inline">
+              <button type="submit" class="btn btn-sm dashboard-btn-primary" title="Approve photos"><i class="bx bx-check"></i></button>
+            </form>
+            {% endif %}
+            {% if f.images_approval_status != 'rejected' %}
+            <form method="post" action="{{ url_for('dashboard.reject_feedback_images', feedback_id=f.id) }}" class="d-inline">
+              <button type="submit" class="btn btn-sm btn-outline-danger" title="Reject photos"><i class="bx bx-x"></i></button>
+            </form>
+            {% endif %}
+            {% else %}
+            <span class="text-muted small">—</span>
+            {% endif %}
+          </td>
+          <td class="small text-muted">{{ (f.created_at or '')[:10] }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="{{ 8 if user.role == 'super_admin' else 7 }}" class="text-center text-muted py-4">No feedback received yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="dashboard-card mt-4">
+  <div class="dashboard-card__header">
+    <h3 class="dashboard-card__title mb-0">Event reviews</h3>
+    <p class="text-muted small mb-0">
+      Review photos are held for moderation — approve them so they appear on the public event page.
+    </p>
+  </div>
+  <div class="table-responsive">
+    <table class="table dashboard-table mb-0">
+      <thead>
+        <tr>
+          <th>Event</th>
+          {% if user.role == 'super_admin' %}<th>LGU</th>{% endif %}
+          <th>Guest</th>
+          <th>Rating</th>
+          <th>Comment</th>
+          <th>Photos</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in event_feedbacks %}
+        {% set ev = f.events or {} %}
+        {% set lgu = ev.lgus or {} %}
+        {% set profile = f.profiles or {} %}
+        <tr>
+          <td><strong>{{ ev.title or '—' }}</strong></td>
+          {% if user.role == 'super_admin' %}<td>{{ lgu.name or '—' }}</td>{% endif %}
+          <td>{{ ((profile.first_name or '') ~ ' ' ~ (profile.last_name or ''))|trim or 'Tourist' }}</td>
+          <td>{% if f.rating %}<span class="dashboard-badge dashboard-badge--success">{{ f.rating }} ★</span>{% else %}—{% endif %}</td>
+          <td class="small">{{ f.comment|truncate_text(100) if f.comment else '—' }}</td>
+          <td>
+            {% if f.images %}
+            <div class="dashboard-review-photos">
+              {% for img in f.images %}
+              <a href="{{ img|normalize_image_url }}" target="_blank" rel="noopener noreferrer">
+                <img src="{{ img|normalize_image_url }}" alt="Review photo" class="dashboard-review-photos__thumb" />
+              </a>
+              {% endfor %}
+            </div>
+            {{ status_badge(f.images_approval_status) }}
+            {% if f.images_approval_status != 'approved' %}
+            <form method="post" action="{{ url_for('dashboard.approve_event_feedback_images', feedback_id=f.id) }}" class="d-inline">
+              <button type="submit" class="btn btn-sm dashboard-btn-primary" title="Approve photos"><i class="bx bx-check"></i></button>
+            </form>
+            {% endif %}
+            {% if f.images_approval_status != 'rejected' %}
+            <form method="post" action="{{ url_for('dashboard.reject_event_feedback_images', feedback_id=f.id) }}" class="d-inline">
+              <button type="submit" class="btn btn-sm btn-outline-danger" title="Reject photos"><i class="bx bx-x"></i></button>
+            </form>
+            {% endif %}
+            {% else %}
+            <span class="text-muted small">—</span>
+            {% endif %}
+          </td>
+          <td class="small text-muted">{{ (f.created_at or '')[:10] }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="{{ 7 if user.role == 'super_admin' else 6 }}" class="text-center text-muted py-4">No event feedback received yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

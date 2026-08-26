@@ -327,7 +327,8 @@ def get_spot_feedbacks(spot_id: int, limit: int = 20) -> list[dict[str, Any]]:
         get_supabase()
         .table("feedbacks")
         .select(
-            "id, guest_name, rating, comments, suggestions, sentiment, source, created_at"
+            "id, guest_name, rating, comments, suggestions, sentiment, source, "
+            "images, images_approval_status, created_at"
         )
         .eq("tourist_spot_id", spot_id)
         .order("created_at", desc=True)

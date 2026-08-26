@@ -68,6 +68,26 @@ main {
     padding-top: var(--site-header-offset);
 }
 
+.skip-link {
+    position: fixed;
+    top: -3rem;
+    left: 1rem;
+    z-index: 2000;
+    background: var(--card);
+    color: var(--primary);
+    font-weight: 600;
+    padding: 0.6rem 1rem;
+    border-radius: var(--radius);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    text-decoration: none;
+    transition: top 0.15s ease;
+}
+
+.skip-link:focus {
+    top: 1rem;
+    color: var(--primary);
+}
+
 /* ——— Navbar ——— */
 .site-header {
     position: fixed;
@@ -769,11 +789,44 @@ main {
     background: var(--muted);
 }
 
+.event-highlight-grid {
+    display: grid;
+    /* auto-fit + justify-content:center means 1-2 cards center themselves
+       instead of stretching full-width with dead space where a 3rd column
+       would have been; the --triple modifier below overrides this for the
+       exactly-3-events spotlight layout. */
+    grid-template-columns: repeat(auto-fit, minmax(280px, 380px));
+    justify-content: center;
+    gap: 1.5rem;
+    align-items: stretch;
+}
+
+.event-highlight-grid--triple {
+    grid-template-columns: 0.92fr 1.28fr 0.92fr;
+}
+
+@media (max-width: 991.98px) {
+    .event-highlight-grid,
+    .event-highlight-grid--triple {
+        grid-template-columns: 1fr;
+    }
+}
+
+.event-highlight-col--spotlight {
+    z-index: 2;
+}
+
+@media (min-width: 992px) {
+    .event-highlight-col--spotlight {
+        margin-top: -1.5rem;
+    }
+}
+
 .event-card {
     height: 100%;
     background: #fff;
-    border-radius: 1rem;
-    overflow: hidden;
+    border-radius: 1.25rem;
+    padding: 0.9rem 0.9rem 0;
     border: 1px solid var(--border);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
     transition:
@@ -786,10 +839,21 @@ main {
     box-shadow: 0 16px 40px rgba(155, 44, 44, 0.12);
 }
 
+.event-card--spotlight {
+    padding: 1.15rem 1.15rem 0;
+    box-shadow: 0 20px 45px rgba(155, 44, 44, 0.16);
+    border-color: rgba(155, 44, 44, 0.18);
+}
+
 .event-image-container {
     position: relative;
     aspect-ratio: 16 / 10;
+    border-radius: 0.85rem;
     overflow: hidden;
+}
+
+.event-card--spotlight .event-image-container {
+    aspect-ratio: 16 / 11;
 }
 
 .event-image {
@@ -828,7 +892,19 @@ main {
 }
 
 .event-content {
-    padding: 1.25rem 1.35rem 1.35rem;
+    padding: 1.1rem 0.15rem 1.25rem;
+}
+
+.event-card--spotlight .event-content {
+    padding: 1.35rem 0.15rem 1.5rem;
+}
+
+.event-card--spotlight .event-title {
+    font-size: 1.35rem;
+}
+
+.event-card--spotlight .event-description {
+    font-size: 0.95rem;
 }
 
 .category-badge {
@@ -1198,7 +1274,8 @@ main {
     color: #fff;
 }
 
-.page-hero--spots {
+.page-hero--spots,
+.page-hero--planner {
     margin-top: calc(var(--pennant-height) * -0.2);
 }
 
@@ -1594,6 +1671,57 @@ main {
     margin: 0.5rem 0 0;
 }
 
+.spot-review-card__images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.spot-review-card__image-link {
+    display: block;
+    width: 72px;
+    height: 72px;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.spot-review-card__image-link img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.spot-review-images-label {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+    color: var(--muted-foreground);
+    margin-bottom: 0.35rem;
+}
+
+.review-image-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.review-image-preview:empty {
+    margin-bottom: 0;
+}
+
+.review-image-preview__thumb {
+    width: 64px;
+    height: 64px;
+    object-fit: cover;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border);
+}
+
 .spot-sidebar {
     position: sticky;
     top: calc(var(--site-header-offset) + 1rem);
@@ -1736,6 +1864,21 @@ main {
 }
 .event-status-pill--finished {
     background: #f1f5f9;
+    color: #64748b;
+}
+
+/* Same status palette as .event-status-pill, but for plain inline text next
+   to an icon (e.g. an event-card detail row) rather than a pinned badge. */
+.event-status-text--draft {
+    color: #475569;
+}
+.event-status-text--upcoming {
+    color: var(--chart-4);
+}
+.event-status-text--ongoing {
+    color: #166534;
+}
+.event-status-text--finished {
     color: #64748b;
 }
 
@@ -2217,35 +2360,6 @@ main {
     color: var(--primary);
     margin-top: 0.15rem;
     flex-shrink: 0;
-}
-
-.governor-gallery-section {
-    padding-top: 2rem;
-    padding-bottom: 1rem;
-}
-
-.governor-gallery-swiper .swiper-slide img {
-    width: 100%;
-    max-height: 480px;
-    object-fit: cover;
-    border-radius: 1rem;
-}
-
-.governor-gallery-captions {
-    margin-top: 1rem;
-    text-align: center;
-    min-height: 2.5rem;
-}
-
-.governor-gallery-captions__item {
-    display: none;
-    font-size: 0.9rem;
-    color: var(--muted-foreground);
-    margin: 0;
-}
-
-.governor-gallery-captions__item.is-active {
-    display: block;
 }
 
 .governor-profile-section {
@@ -4109,6 +4223,23 @@ main {
     transform: scale(1.12);
 }
 
+/* Star pickers are <button> elements for keyboard access — strip default
+   button chrome so they still read as plain icons, and give focus its own
+   visible indicator since the outline is otherwise removed. */
+.star-picker__star,
+.spot-star-picker__star {
+    background: none;
+    border: none;
+    padding: 0.15rem;
+    border-radius: 0.25rem;
+}
+
+.star-picker__star:focus-visible,
+.spot-star-picker__star:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
 /* Feedback list */
 .event-feedback-list {
     display: flex;
@@ -4553,6 +4684,10 @@ main {
 .profile-tabs .nav-link:not(.active) .profile-tab-count {
     background: var(--primary);
     color: #fff;
+}
+.profile-tab-count--alert {
+    background: var(--destructive) !important;
+    color: #fff !important;
 }
 .profile-saved-title {
     font-size: 1rem;

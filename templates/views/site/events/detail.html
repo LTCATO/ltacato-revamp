@@ -450,13 +450,20 @@ MAIN CONTENT (col-lg-8 + col-lg-4)
                         id="eventFeedbackForm"
                         action="{{ url_for('events.event_feedback', event_id=event.id) }}"
                         method="POST"
+                        enctype="multipart/form-data"
                     >
                         <input type="hidden" name="rating" value="" />
 
                         {# Interactive star picker #}
-                        <div class="event-star-picker mb-3">
+                        <div class="event-star-picker mb-3" role="group" aria-label="Rating">
                             {% for i in range(1, 6) %}
-                            <i class="ph ph-star" data-star="{{ i }}"></i>
+                            <button
+                                type="button"
+                                class="star-picker__star ph ph-star"
+                                data-star="{{ i }}"
+                                aria-label="Rate {{ i }} star{{ 's' if i > 1 else '' }}"
+                                aria-pressed="false"
+                            ></button>
                             {% endfor %}
                         </div>
 
@@ -467,6 +474,24 @@ MAIN CONTENT (col-lg-8 + col-lg-4)
                                 rows="3"
                                 placeholder="Share your experience at this event…"
                             ></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="eventReviewImages" class="spot-review-images-label">
+                                <i class="ph ph-camera"></i> Add photos (optional, up to 5)
+                            </label>
+                            <input
+                                type="file"
+                                name="images"
+                                id="eventReviewImages"
+                                class="form-control"
+                                accept="image/*"
+                                multiple
+                            />
+                            <div
+                                class="review-image-preview"
+                                id="eventReviewImagePreview"
+                            ></div>
                         </div>
 
                         <p
@@ -544,6 +569,31 @@ MAIN CONTENT (col-lg-8 + col-lg-4)
                                 style="color: var(--muted-foreground)"
                             >
                                 {{ fb.comment }}
+                            </p>
+                            {% endif %} {% if fb.images and fb.images_approval_status == 'approved' %}
+                            <div class="spot-review-card__images">
+                                {% for img in fb.images %}
+                                <a
+                                    href="{{ img | normalize_image_url }}"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="spot-review-card__image-link"
+                                >
+                                    <img
+                                        src="{{ img | normalize_image_url }}"
+                                        alt="Review photo"
+                                        loading="lazy"
+                                    />
+                                </a>
+                                {% endfor %}
+                            </div>
+                            {% elif fb.images and fb.images_approval_status == 'pending' %}
+                            <p
+                                class="small mb-0"
+                                style="color: var(--muted-foreground)"
+                            >
+                                <i class="ph ph-clock"></i> Photos submitted —
+                                pending review before they appear.
                             </p>
                             {% endif %}
                         </div>
@@ -853,8 +903,10 @@ RELATED EVENTS ═════════════════════�
         /* ── Engagement buttons (like / bookmark) ──────────────────── */
         document.querySelectorAll("[data-engage-btn]").forEach((btn) => {
             btn.addEventListener("click", async () => {
+                if (btn.disabled) return;
                 const eventId = btn.dataset.eventId;
                 const type = btn.dataset.type;
+                btn.disabled = true;
                 try {
                     const resp = await fetch(`/events/${eventId}/engage`, {
                         method: "POST",
@@ -894,11 +946,40 @@ RELATED EVENTS ═════════════════════�
                     }
                 } catch (err) {
                     console.error("Engage error:", err);
+                } finally {
+                    btn.disabled = false;
                 }
             });
         });
 
         /* ── Feedback form ─────────────────────────────────────────── */
+        const eventReviewImagesInput = document.getElementById(
+            "eventReviewImages",
+        );
+        const eventReviewImagePreview = document.getElementById(
+            "eventReviewImagePreview",
+        );
+        let eventReviewImageUrls = [];
+        if (eventReviewImagesInput && eventReviewImagePreview) {
+            eventReviewImagesInput.addEventListener("change", () => {
+                eventReviewImageUrls.forEach((url) => URL.revokeObjectURL(url));
+                eventReviewImageUrls = [];
+                eventReviewImagePreview.innerHTML = "";
+                const files = Array.from(
+                    eventReviewImagesInput.files || [],
+                ).slice(0, 5);
+                files.forEach((file) => {
+                    const url = URL.createObjectURL(file);
+                    eventReviewImageUrls.push(url);
+                    const img = document.createElement("img");
+                    img.src = url;
+                    img.alt = file.name;
+                    img.className = "review-image-preview__thumb";
+                    eventReviewImagePreview.appendChild(img);
+                });
+            });
+        }
+
         const fbForm = document.getElementById("eventFeedbackForm");
         if (fbForm) {
             const stars = fbForm.querySelectorAll("[data-star]");
@@ -907,11 +988,11 @@ RELATED EVENTS ═════════════════════�
             const refreshStars = (active) => {
                 stars.forEach((st) => {
                     const v = parseInt(st.dataset.star);
-                    if (v <= active) {
-                        st.className = "ph-fill ph-star is-active";
-                    } else {
-                        st.className = "ph ph-star";
-                    }
+                    const isActive = v <= active;
+                    st.className = isActive
+                        ? "star-picker__star ph-fill ph-star is-active"
+                        : "star-picker__star ph ph-star";
+                    st.setAttribute("aria-pressed", String(isActive));
                 });
             };
 
@@ -923,6 +1004,12 @@ RELATED EVENTS ═════════════════════�
                 s.addEventListener("mouseleave", () =>
                     refreshStars(selectedRating),
                 );
+
+                /* Keyboard focus highlight (mirrors hover) */
+                s.addEventListener("focus", () =>
+                    refreshStars(parseInt(s.dataset.star)),
+                );
+                s.addEventListener("blur", () => refreshStars(selectedRating));
 
                 /* Click to select */
                 s.addEventListener("click", () => {
@@ -943,6 +1030,13 @@ RELATED EVENTS ═════════════════════�
                         errMsg.classList.remove("d-none");
                     }
                     return;
+                }
+                const submitBtn = fbForm.querySelector('button[type="submit"]');
+                const originalBtnHtml = submitBtn ? submitBtn.innerHTML : "";
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML =
+                        '<i class="ph ph-spinner ph-spin me-1"></i> Submitting…';
                 }
                 const formData = new FormData(fbForm);
                 try {
@@ -968,6 +1062,11 @@ RELATED EVENTS ═════════════════════�
                     }
                 } catch (err) {
                     console.error("Feedback error:", err);
+                } finally {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalBtnHtml;
+                    }
                 }
             });
         }

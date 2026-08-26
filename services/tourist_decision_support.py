@@ -10,6 +10,7 @@ Provides personalised travel recommendations based on a tourist's own data:
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from services.supabase_client import get_supabase
@@ -123,22 +124,31 @@ def _get_stamp_count(passport_id: int) -> int:
 def _get_upcoming_events(lgu_ids: list[int], limit: int = 6) -> list[dict]:
     if not lgu_ids:
         return []
-    return _safe(
+    from services.events import _compute_event_status
+
+    today_iso = date.today().isoformat()
+    rows = _safe(
         lambda: (
             get_supabase()
             .table("events")
-            .select("id, title, start_date, end_date, cover_image, lgu_id, lgus(name)")
+            .select("id, title, start_date, end_date, event_status, cover_image, lgu_id, lgus(name)")
             .in_("lgu_id", lgu_ids)
             .eq("approval_status", "approved")
-            .in_("event_status", ["upcoming", "ongoing"])
+            .neq("event_status", "draft")
+            # Exclude events clearly in the past server-side, so an LGU with
+            # many old events can't fill the whole limited fetch window
+            # before the client-side upcoming/ongoing check ever runs.
+            .or_(f"end_date.gte.{today_iso},end_date.is.null")
             .order("start_date")
-            .limit(limit)
+            .limit(limit * 5)
             .execute()
             .data
             or []
         ),
         [],
     )
+    active = [e for e in rows if _compute_event_status(e) in ("upcoming", "ongoing")]
+    return active[:limit]
 
 
 def _get_weather_for_lgus(lgu_ids: list[int]) -> list[dict]:

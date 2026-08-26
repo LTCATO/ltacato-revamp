@@ -68,7 +68,7 @@
     top: 100px;
     left: 20px;
     z-index: 9;
-    background: var(--ltcato-primary, #9b2c2c);
+    background: var(--primary);
     color: white;
     border: none;
     border-radius: 2rem;
@@ -107,13 +107,13 @@
     font-size: 1.25rem;
     font-weight: 700;
     margin: 0;
-    color: var(--ltcato-dark);
+    color: var(--foreground);
   }
 
   .planner-panel-header p {
     font-size: 0.85rem;
     margin: 0;
-    color: var(--ltcato-gray);
+    color: var(--muted-foreground);
   }
 
   .planner-panel-content {
@@ -134,8 +134,10 @@
     border-radius: 3px;
   }
 
-  /* Mobile Adjustments */
-  @media (max-width: 768px) {
+  /* Mobile/tablet adjustments — widened from 768px so tablet widths
+     (769-991px) also get the stacked bottom-sheet layout instead of the
+     fixed 380px+400px side panels overflowing a narrower viewport. */
+  @media (max-width: 991.98px) {
     .planner-panel {
       top: auto;
       bottom: 0;

@@ -32,8 +32,11 @@ def login():
             ok, error = login_dashboard(email, password)
             if ok:
                 flash("Welcome to the LTCATO dashboard.", "success")
-                next_url = request.args.get("next") or url_for("dashboard.index")
-                return redirect(next_url)
+                next_url = request.args.get("next") or ""
+                # Only follow relative paths to prevent open-redirect attacks
+                if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+                    return redirect(next_url)
+                return redirect(url_for("dashboard.index"))
             flash(error or "Sign in failed.", "danger")
 
     return render_template(

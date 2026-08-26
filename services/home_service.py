@@ -5,10 +5,13 @@ Fetches real events and trending spots from Supabase for the public home page.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from services.events import list_home_events
 from services.supabase_client import get_supabase
+
+logger = logging.getLogger(__name__)
 
 
 def get_home_events(limit: int = 3) -> list[dict[str, Any]]:
@@ -16,6 +19,7 @@ def get_home_events(limit: int = 3) -> list[dict[str, Any]]:
     try:
         return list_home_events(limit=limit)
     except Exception:
+        logger.exception("Failed to fetch home page events")
         return []
 
 
@@ -46,6 +50,7 @@ def get_trending_spots(limit: int = 3) -> list[dict[str, Any]]:
             or []
         )
     except Exception:
+        logger.exception("Failed to fetch trending spots")
         return []
 
     if not spots:

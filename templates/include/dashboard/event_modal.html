@@ -10,6 +10,9 @@
             <form
                 method="post"
                 action="{{ url_for('dashboard.save_event') }}"
+                data-create-action="{{ url_for('dashboard.save_event') }}"
+                data-update-action-template="{{ url_for('dashboard.update_event', event_id=0) }}"
+                data-edit-data-template="{{ url_for('dashboard.event_edit_data', event_id=0) }}"
                 enctype="multipart/form-data"
                 id="eventPromotionForm"
             >
@@ -18,7 +21,7 @@
                         <h5 class="modal-title" id="eventModalLabel">
                             Post promotion / event
                         </h5>
-                        <p class="text-muted small mb-0">
+                        <p class="text-muted small mb-0" id="eventModalSubtitle">
                             Complete all sections. Gallery supports multiple
                             images.
                         </p>
@@ -256,18 +259,23 @@
                                     />
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label">Status</label>
+                                    <label class="form-label"
+                                        >Status
+                                        <small class="text-muted fw-normal"
+                                            >(Upcoming/Ongoing/Finished is
+                                            worked out automatically from the
+                                            dates below)</small
+                                        ></label
+                                    >
                                     <select
                                         name="event_status"
                                         class="form-select"
                                     >
-                                        <option value="draft">Draft</option>
-                                        <option value="upcoming" selected>
-                                            Upcoming
+                                        <option value="draft">
+                                            Draft (not visible to the public)
                                         </option>
-                                        <option value="ongoing">Ongoing</option>
-                                        <option value="finished">
-                                            Finished
+                                        <option value="published" selected>
+                                            Published
                                         </option>
                                     </select>
                                 </div>
@@ -281,9 +289,6 @@
                                             Public
                                         </option>
                                         <option value="private">Private</option>
-                                        <option value="featured">
-                                            Featured
-                                        </option>
                                     </select>
                                 </div>
                                 <div class="col-md-4">
@@ -358,6 +363,10 @@
                                         class="form-control"
                                         accept="image/*"
                                     />
+                                    <div
+                                        class="form-text"
+                                        data-current-file="official_banner"
+                                    ></div>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Event logo</label>
@@ -367,6 +376,10 @@
                                         class="form-control"
                                         accept="image/*"
                                     />
+                                    <div
+                                        class="form-text"
+                                        data-current-file="event_logo"
+                                    ></div>
                                 </div>
                                 <div class="col-12">
                                     <label class="form-label"
@@ -625,6 +638,10 @@
                                         class="form-control"
                                         accept="image/*"
                                     />
+                                    <div
+                                        class="form-text"
+                                        data-current-file="cover_image"
+                                    ></div>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label"
