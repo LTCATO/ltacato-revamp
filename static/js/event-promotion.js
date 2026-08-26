@@ -39,8 +39,11 @@
   }
 
   // ── gallery preview (new file selections) ───────────────────────────────
+  let galleryPreviewUrls = [];
   function renderGalleryPreviewFromFiles() {
     if (!galleryInput || !galleryPreview) return;
+    galleryPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+    galleryPreviewUrls = [];
     galleryPreview.innerHTML = "";
     const files = galleryInput.files || [];
     for (let i = 0; i < files.length; i += 1) {
@@ -51,7 +54,9 @@
       const img = document.createElement("img");
       img.alt = f.name;
       img.loading = "lazy";
-      img.src = URL.createObjectURL(f);
+      const url = URL.createObjectURL(f);
+      galleryPreviewUrls.push(url);
+      img.src = url;
       wrap.appendChild(img);
       galleryPreview.appendChild(wrap);
     }
@@ -62,6 +67,8 @@
 
   function renderGalleryPreviewFromUrls(urls) {
     if (!galleryPreview) return;
+    galleryPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+    galleryPreviewUrls = [];
     galleryPreview.innerHTML = "";
     (urls || []).forEach((url) => {
       const wrap = document.createElement("div");

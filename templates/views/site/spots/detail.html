@@ -222,6 +222,7 @@ ensure_list %} {% set driving = spot.driving_guide | ensure_list %}
                         id="spotFeedbackForm"
                         action="{{ url_for('spots.spot_feedback', spot_id=spot.id) }}"
                         method="post"
+                        enctype="multipart/form-data"
                     >
                         <input
                             type="hidden"
@@ -255,6 +256,21 @@ ensure_list %} {% set driving = spot.driving_guide | ensure_list %}
                             rows="1"
                             placeholder="Any suggestions? (optional)"
                         ></textarea>
+                        <label for="spotReviewImages" class="spot-review-images-label">
+                            <i class="ph ph-camera"></i> Add photos (optional, up to 5)
+                        </label>
+                        <input
+                            type="file"
+                            name="images"
+                            id="spotReviewImages"
+                            class="form-control mb-2"
+                            accept="image/*"
+                            multiple
+                        />
+                        <div
+                            class="review-image-preview"
+                            id="spotReviewImagePreview"
+                        ></div>
                         <button
                             type="submit"
                             class="btn ltcato-btn-pill btn-sm"
@@ -301,6 +317,28 @@ ensure_list %} {% set driving = spot.driving_guide | ensure_list %}
                             <p class="spot-review-suggestion">
                                 <strong>Suggestion:</strong> {{ fb.suggestions
                                 }}
+                            </p>
+                            {% endif %} {% if fb.images and fb.images_approval_status == 'approved' %}
+                            <div class="spot-review-card__images">
+                                {% for img in fb.images %}
+                                <a
+                                    href="{{ img | normalize_image_url }}"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="spot-review-card__image-link"
+                                >
+                                    <img
+                                        src="{{ img | normalize_image_url }}"
+                                        alt="Review photo"
+                                        loading="lazy"
+                                    />
+                                </a>
+                                {% endfor %}
+                            </div>
+                            {% elif fb.images and fb.images_approval_status == 'pending' %}
+                            <p class="spot-review-suggestion">
+                                <i class="ph ph-clock"></i> Photos submitted —
+                                pending review before they appear.
                             </p>
                             {% endif %}
                         </article>
@@ -549,6 +587,32 @@ ensure_list %} {% set driving = spot.driving_guide | ensure_list %}
                 selectedRating = parseInt(s.dataset.star);
                 if (spotRatingInput) spotRatingInput.value = selectedRating;
                 refreshStars(selectedRating);
+            });
+        });
+    }
+
+    const spotReviewImagesInput = document.getElementById("spotReviewImages");
+    const spotReviewImagePreview = document.getElementById(
+        "spotReviewImagePreview",
+    );
+    let spotReviewImageUrls = [];
+    if (spotReviewImagesInput && spotReviewImagePreview) {
+        spotReviewImagesInput.addEventListener("change", () => {
+            spotReviewImageUrls.forEach((url) => URL.revokeObjectURL(url));
+            spotReviewImageUrls = [];
+            spotReviewImagePreview.innerHTML = "";
+            const files = Array.from(spotReviewImagesInput.files || []).slice(
+                0,
+                5,
+            );
+            files.forEach((file) => {
+                const url = URL.createObjectURL(file);
+                spotReviewImageUrls.push(url);
+                const img = document.createElement("img");
+                img.src = url;
+                img.alt = file.name;
+                img.className = "review-image-preview__thumb";
+                spotReviewImagePreview.appendChild(img);
             });
         });
     }

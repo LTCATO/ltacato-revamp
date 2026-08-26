@@ -155,11 +155,34 @@ def _filter_active_public_events(rows: list[dict[str, Any]]) -> list[dict[str, A
     return active
 
 
+def _apply_home_spotlight(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Put the LGU-paid Featured event in the middle "spotlight" card.
+
+    Only events that went through the paid LGU request_event_featured() flow
+    qualify (identified by featured_requested_at being set) — an event a
+    super_admin/ltcato_staff marked Featured directly on their own authority
+    doesn't get to claim the spotlight over a paying LGU's placement. With
+    several LGU-featured events in the running, the soonest one wins.
+    Home only ever renders 3 cards, so this only matters at that length.
+    """
+    if len(events) != 3:
+        return events
+    candidates = [
+        e for e in events if e.get("is_featured_now") and e.get("featured_requested_at")
+    ]
+    if not candidates:
+        return events
+    spotlight = min(candidates, key=lambda e: e.get("start_date") or "9999-12-31")
+    others = [e for e in events if e is not spotlight]
+    return [others[0], spotlight, others[1]]
+
+
 def list_home_events(limit: int = 3) -> list[dict[str, Any]]:
     """Enriched upcoming/ongoing events for the home page."""
     raw = list_events(public_approved_only=True, limit=100)
     active = _filter_active_public_events(raw)
-    return [enrich_event_for_display(e) for e in active[:limit]]
+    enriched = [enrich_event_for_display(e) for e in active[:limit]]
+    return _apply_home_spotlight(enriched)
 
 
 def list_lgu_public_events(lgu_id: int, limit: int = 4) -> list[dict[str, Any]]:
@@ -250,22 +273,20 @@ def _compute_event_status(event: dict[str, Any]) -> str:
 
 
 def is_event_currently_featured(event: dict[str, Any]) -> bool:
-    """Featured is a computed window, not a permanent flag: it only shows
-    from the event's start date through 5 days after it ends, and only
-    once a Featured request has been approved."""
+    """Featured is a computed window, not a permanent flag: once a Featured
+    request is approved it shows immediately (so LGUs can promote an event
+    ahead of time) and keeps showing through 5 days after the event ends."""
     if (event.get("featured_status") or "none") != "approved":
         return False
-    start_raw = event.get("start_date")
-    if not start_raw:
+    end_raw = event.get("end_date") or event.get("start_date")
+    if not end_raw:
         return False
     try:
-        start = date.fromisoformat(str(start_raw)[:10])
-        end_raw = event.get("end_date") or start_raw
         end = date.fromisoformat(str(end_raw)[:10])
     except ValueError:
         return False
     today = date.today()
-    return start <= today <= end + timedelta(days=5)
+    return today <= end + timedelta(days=5)
 
 
 def _parse_event_date(date_str: str | None) -> tuple[str, str]:
@@ -648,8 +669,10 @@ def request_event_featured(
     lgu_id: int | None = None,
     payment_reference: str | None = None,
 ) -> None:
-    """LGU (or LTCATO staff, payment-free) requests an approved event be
-    made Featured. Goes to featured_status='requested' pending LTCATO review."""
+    """An LGU requests an approved event be made Featured (a paid promotion).
+    Goes to featured_status='requested' pending LTCATO review. LTCATO staff
+    and super_admin don't request — they mark events Featured directly via
+    review_event_featured()."""
     response = (
         get_supabase()
         .table("events")

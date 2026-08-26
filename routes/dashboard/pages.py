@@ -24,6 +24,7 @@ from services.dashboard_analytics import (
 )
 from services.dashboard_auth import get_current_dashboard_user, resolve_dashboard_lgu_id
 from services.dashboard_pages import get_dashboard_overview, get_workflow_cards
+from services.event_engagement import list_event_feedbacks_for_dashboard
 from services.events import _compute_event_status, list_events
 from services.external_reviews import list_external_reviews
 from services.feedbacks import list_feedbacks
@@ -465,7 +466,11 @@ def arrivals_export():
         flash("Select an LGU to download its arrival Excel report.", "warning")
         return redirect(url_for("dashboard.arrivals"))
     lgu_id = int(lgu_raw)
-    report_date = date.fromisoformat(date_raw) if date_raw else None
+    try:
+        report_date = date.fromisoformat(date_raw) if date_raw else None
+    except ValueError:
+        flash("Invalid report date.", "danger")
+        return redirect(url_for("dashboard.arrivals"))
 
     # Check for data BEFORE generating the file: flashing a message and then
     # still send_file()-ing left the warning stranded in the session (it can
@@ -640,10 +645,12 @@ def feedback():
     user = get_current_dashboard_user()
     lgu_id = _user_lgu_id(user) if user["role"] == "lgu_admin" else None
     items = list_feedbacks(lgu_id=lgu_id, limit=100)
+    event_items = list_event_feedbacks_for_dashboard(lgu_id=lgu_id, limit=100)
     return render_dashboard(
         "views/dashboard/pages/feedback.html",
         user,
         feedbacks=items,
+        event_feedbacks=event_items,
         page_title="Feedback",
         page_description="Tourist ratings and comments across managed establishments."
         if user["role"] == "lgu_admin"

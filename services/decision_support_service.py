@@ -31,8 +31,8 @@ from services.scrapers.sentiment_analyzer import (
 )
 from services.supabase_client import get_supabase
 
-# ── Module-level cache (10-minute TTL) ────────────────────────────────────
-_CACHE: dict[str, Any] = {"data": None, "ts": 0.0}
+# ── Module-level cache (10-minute TTL), keyed per lgu_id (None = province-wide)
+_CACHE: dict[int | None, dict[str, Any]] = {}
 _CACHE_TTL = 600  # 10 minutes
 
 
@@ -289,19 +289,18 @@ def get_decision_support_data(lgu_id: int | None = None) -> dict[str, Any]:
     Uses a 10-minute cache so the page loads in ~2s instead of 14s.
     Cache is invalidated when scrapers run (via invalidate_cache()).
     """
-    global _CACHE
     now = _time.time()
-    if _CACHE["data"] is not None and (now - _CACHE["ts"]) < _CACHE_TTL:
-        return _CACHE["data"]
+    cached = _CACHE.get(lgu_id)
+    if cached is not None and (now - cached["ts"]) < _CACHE_TTL:
+        return cached["data"]
     data = _build_data(lgu_id)
-    _CACHE = {"data": data, "ts": now}
+    _CACHE[lgu_id] = {"data": data, "ts": now}
     return data
 
 
 def invalidate_cache() -> None:
     """Call this after any scraper runs so the next page load gets fresh data."""
-    global _CACHE
-    _CACHE = {"data": None, "ts": 0.0}
+    _CACHE.clear()
 
 
 def get_lgu_decision_support_data(lgu_id: int) -> dict[str, Any]:

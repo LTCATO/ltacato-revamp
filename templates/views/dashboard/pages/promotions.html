@@ -91,7 +91,7 @@ page_header %}
                         </form>
                         {% endif %}
 
-                        {% if e.approval_status == 'approved' and (e.featured_status or 'none') in ('none', 'rejected') and can_manage %}
+                        {% if e.approval_status == 'approved' and (e.featured_status or 'none') in ('none', 'rejected') and user.role == 'lgu_admin' and can_manage %}
                         <button
                             type="button"
                             class="btn btn-sm btn-outline-primary"
@@ -102,6 +102,14 @@ page_header %}
                         >
                             <i class="bx bx-star"></i> Request Featured
                         </button>
+                        {% endif %}
+
+                        {% if e.approval_status == 'approved' and (e.featured_status or 'none') in ('none', 'rejected') and user.role in ('super_admin', 'ltcato_staff') %}
+                        <form method="post" action="{{ url_for('dashboard.review_event_featured', event_id=e.id, decision='approve') }}" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-outline-primary" title="Mark Featured">
+                                <i class="bx bx-star"></i> Mark Featured
+                            </button>
+                        </form>
                         {% endif %}
 
                         {% if e.featured_status == 'requested' and user.role in ('super_admin', 'ltcato_staff') %}

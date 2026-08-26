@@ -50,8 +50,12 @@ _COUNT_KEYS = (
 
 
 def report_total_visitors(row: dict[str, Any]) -> int:
-    if (row.get("visitor_category") or "day_tour") == "overnight":
-        return int(row.get("overnight_nights") or 0)
+    """Headcount for this report, regardless of day-tour vs overnight.
+
+    overnight_nights is tracked separately as a duration stat (see
+    totals["overnight_nights"] in monthly aggregates) — it isn't a visitor
+    count and must never be substituted for one here.
+    """
     return sum(int(row.get(k) or 0) for k in _COUNT_KEYS)
 
 
@@ -75,11 +79,19 @@ def list_arrival_reports(
     require_spot: bool = False,
     limit: int = 200,
 ) -> list[dict[str, Any]]:
+    owner_spot_ids: list[int] | None = None
+    if owner_id:
+        owner_spot_ids = list(_spot_ids_for_owner(owner_id))
+        if not owner_spot_ids:
+            return []
+
     query = get_supabase().table("arrival_reports").select(REPORT_FIELDS)
     if lgu_id is not None:
         query = query.eq("lgu_id", lgu_id)
     if spot_id is not None:
         query = query.eq("tourist_spot_id", spot_id)
+    if owner_spot_ids is not None:
+        query = query.in_("tourist_spot_id", owner_spot_ids)
     if report_type:
         query = query.eq("report_type", report_type)
     if visitor_category:
@@ -98,6 +110,8 @@ def list_arrival_reports(
                 query2 = query2.eq("lgu_id", lgu_id)
             if spot_id is not None:
                 query2 = query2.eq("tourist_spot_id", spot_id)
+            if owner_spot_ids is not None:
+                query2 = query2.in_("tourist_spot_id", owner_spot_ids)
             if report_type:
                 query2 = query2.eq("report_type", report_type)
             if visitor_category:
@@ -108,11 +122,6 @@ def list_arrival_reports(
         else:
             raise
     rows = response.data or []
-    if owner_id:
-        spot_ids = _spot_ids_for_owner(owner_id)
-        if not spot_ids:
-            return []
-        rows = [r for r in rows if r.get("tourist_spot_id") in spot_ids]
     # If status column doesn't exist yet, treat all rows as submitted
     for row in rows:
         if "status" not in row:

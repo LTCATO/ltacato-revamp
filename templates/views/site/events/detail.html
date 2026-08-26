@@ -450,6 +450,7 @@ MAIN CONTENT (col-lg-8 + col-lg-4)
                         id="eventFeedbackForm"
                         action="{{ url_for('events.event_feedback', event_id=event.id) }}"
                         method="POST"
+                        enctype="multipart/form-data"
                     >
                         <input type="hidden" name="rating" value="" />
 
@@ -473,6 +474,24 @@ MAIN CONTENT (col-lg-8 + col-lg-4)
                                 rows="3"
                                 placeholder="Share your experience at this event…"
                             ></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="eventReviewImages" class="spot-review-images-label">
+                                <i class="ph ph-camera"></i> Add photos (optional, up to 5)
+                            </label>
+                            <input
+                                type="file"
+                                name="images"
+                                id="eventReviewImages"
+                                class="form-control"
+                                accept="image/*"
+                                multiple
+                            />
+                            <div
+                                class="review-image-preview"
+                                id="eventReviewImagePreview"
+                            ></div>
                         </div>
 
                         <p
@@ -550,6 +569,31 @@ MAIN CONTENT (col-lg-8 + col-lg-4)
                                 style="color: var(--muted-foreground)"
                             >
                                 {{ fb.comment }}
+                            </p>
+                            {% endif %} {% if fb.images and fb.images_approval_status == 'approved' %}
+                            <div class="spot-review-card__images">
+                                {% for img in fb.images %}
+                                <a
+                                    href="{{ img | normalize_image_url }}"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="spot-review-card__image-link"
+                                >
+                                    <img
+                                        src="{{ img | normalize_image_url }}"
+                                        alt="Review photo"
+                                        loading="lazy"
+                                    />
+                                </a>
+                                {% endfor %}
+                            </div>
+                            {% elif fb.images and fb.images_approval_status == 'pending' %}
+                            <p
+                                class="small mb-0"
+                                style="color: var(--muted-foreground)"
+                            >
+                                <i class="ph ph-clock"></i> Photos submitted —
+                                pending review before they appear.
                             </p>
                             {% endif %}
                         </div>
@@ -909,6 +953,33 @@ RELATED EVENTS ═════════════════════�
         });
 
         /* ── Feedback form ─────────────────────────────────────────── */
+        const eventReviewImagesInput = document.getElementById(
+            "eventReviewImages",
+        );
+        const eventReviewImagePreview = document.getElementById(
+            "eventReviewImagePreview",
+        );
+        let eventReviewImageUrls = [];
+        if (eventReviewImagesInput && eventReviewImagePreview) {
+            eventReviewImagesInput.addEventListener("change", () => {
+                eventReviewImageUrls.forEach((url) => URL.revokeObjectURL(url));
+                eventReviewImageUrls = [];
+                eventReviewImagePreview.innerHTML = "";
+                const files = Array.from(
+                    eventReviewImagesInput.files || [],
+                ).slice(0, 5);
+                files.forEach((file) => {
+                    const url = URL.createObjectURL(file);
+                    eventReviewImageUrls.push(url);
+                    const img = document.createElement("img");
+                    img.src = url;
+                    img.alt = file.name;
+                    img.className = "review-image-preview__thumb";
+                    eventReviewImagePreview.appendChild(img);
+                });
+            });
+        }
+
         const fbForm = document.getElementById("eventFeedbackForm");
         if (fbForm) {
             const stars = fbForm.querySelectorAll("[data-star]");

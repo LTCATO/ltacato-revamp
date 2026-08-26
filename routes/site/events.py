@@ -17,12 +17,15 @@ from services.events import (
     list_events_public,
 )
 from services.lgus import list_lgus_simple
+from services.storage import upload_gallery_files
 from services.tourist_auth import get_current_tourist
 from utils.jinja_helpers import normalize_image_url
 
 logger = logging.getLogger(__name__)
 
 events_bp = Blueprint("events", __name__)
+
+MAX_REVIEW_IMAGES = 5
 
 
 # ---------------------------------------------------------------------------
@@ -154,8 +157,14 @@ def event_feedback(event_id: int):
     if not rating or rating < 1 or rating > 5:
         return jsonify({"error": "invalid_rating"}), 400
 
+    if get_event_feedback(tourist["id"], event_id):
+        return jsonify({"error": "already_submitted"}), 409
+
+    image_files = request.files.getlist("images")[:MAX_REVIEW_IMAGES]
+    image_urls = upload_gallery_files(image_files, folder=f"feedbacks/events/{event_id}")
+
     try:
-        ok = submit_event_feedback(tourist["id"], event_id, rating, comment)
+        ok = submit_event_feedback(tourist["id"], event_id, rating, comment, image_urls)
     except Exception as exc:
         logger.exception("event_feedback error: %s", exc)
         return jsonify({"error": "server_error"}), 500

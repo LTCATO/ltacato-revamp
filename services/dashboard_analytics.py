@@ -157,20 +157,19 @@ def _top_rated_spots(lgu_id: int | None = None, *, limit: int = 5) -> list[dict[
 
 def _recent_feedbacks(lgu_id: int | None = None, *, limit: int = 5) -> list[dict[str, Any]]:
     try:
+        select_fields = "id, guest_name, rating, comments, sentiment, created_at, tourist_spots{}(name, lgus(name))".format(
+            "!inner" if lgu_id else ""
+        )
         query = (
             get_supabase()
             .table("feedbacks")
-            .select("id, guest_name, rating, comments, sentiment, created_at, tourist_spots(name, lgus(name))")
+            .select(select_fields)
             .order("created_at", desc=True)
         )
-        rows = query.limit(limit * 3).execute().data or []
         if lgu_id:
-            rows = [
-                r for r in rows
-                if (r.get("tourist_spots") or {}).get("lgu_id") == lgu_id
-                or (r.get("tourist_spots") or {}).get("lgus", {}) is not None
-            ]
-        return rows[:limit]
+            query = query.eq("tourist_spots.lgu_id", lgu_id)
+        rows = query.limit(limit).execute().data or []
+        return rows
     except Exception:
         return []
 

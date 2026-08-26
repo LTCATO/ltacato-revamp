@@ -1,4 +1,6 @@
 # pyrefly: ignore [missing-import]
+import secrets
+
 from flask import flash, jsonify, redirect, request, url_for
 
 from routes.dashboard.blueprint import dashboard_bp
@@ -584,12 +586,12 @@ def reject_event(event_id: int):
 
 @dashboard_bp.route("/actions/event/<int:event_id>/request-featured", methods=["POST"])
 @dashboard_login_required
-@role_required("lgu_admin", "super_admin", "ltcato_staff")
+@role_required("lgu_admin")
 def request_event_featured(event_id: int):
     from services.events import request_event_featured as _request_featured
 
     user = get_current_dashboard_user()
-    lgu_id = resolve_dashboard_lgu_id(user) if user["role"] == "lgu_admin" else None
+    lgu_id = resolve_dashboard_lgu_id(user)
     try:
         _request_featured(
             event_id,
@@ -740,6 +742,16 @@ def _save_arrival_report():
     return redirect(url_for("dashboard.arrivals"))
 
 
+def _generate_temp_password() -> str:
+    """A one-off temporary password for a newly created account.
+
+    Each account gets its own random value instead of a shared constant, so
+    knowing one account's temp password doesn't hand out access to every
+    other account created the same way.
+    """
+    return secrets.token_urlsafe(9)
+
+
 @dashboard_bp.route("/actions/accounts/staff", methods=["POST"])
 @dashboard_login_required
 @role_required("super_admin", "ltcato_staff")
@@ -748,12 +760,13 @@ def create_staff_account():
     last_name = request.form.get("last_name", "").strip()
     email = request.form.get("email", "").strip()
     position = request.form.get("position", "").strip()
+    temp_password = _generate_temp_password()
 
     try:
         response = get_supabase().auth.admin.create_user(
             {
                 "email": email,
-                "password": "ltcato@2026",
+                "password": temp_password,
                 "email_confirm": True,
                 "user_metadata": {
                     "first_name": first_name,
@@ -786,7 +799,8 @@ def create_staff_account():
             ).execute()
 
         flash(
-            f"LTCATO staff account created for {email} with default password ltcato@2026",
+            f"LTCATO staff account created for {email} with temporary password {temp_password} "
+            "— share it securely and ask them to change it after signing in.",
             "success",
         )
     except Exception as e:
@@ -804,12 +818,13 @@ def create_lgu_account():
     email = request.form.get("email", "").strip()
     position = request.form.get("position", "").strip()
     lgu_id = request.form.get("lgu_id")
+    temp_password = _generate_temp_password()
 
     try:
         response = get_supabase().auth.admin.create_user(
             {
                 "email": email,
-                "password": "ltcato@2026",
+                "password": temp_password,
                 "email_confirm": True,
                 "user_metadata": {
                     "first_name": first_name,
@@ -844,7 +859,8 @@ def create_lgu_account():
             ).execute()
 
         flash(
-            f"LGU account created for {email} with default password ltcato@2026",
+            f"LGU account created for {email} with temporary password {temp_password} "
+            "— share it securely and ask them to change it after signing in.",
             "success",
         )
     except Exception as e:
@@ -861,6 +877,7 @@ def create_owner_account():
     last_name = request.form.get("last_name", "").strip()
     email = request.form.get("email", "").strip()
     position = request.form.get("position", "").strip()
+    temp_password = _generate_temp_password()
 
     user = get_current_dashboard_user()
     if user["role"] == "lgu_admin":
@@ -917,13 +934,19 @@ def create_owner_account():
             ).execute()
 
         flash(
-            f"Establishment owner account created for {email} with default password ltcato@2026",
+            f"Establishment owner account created for {email} with temporary password {temp_password} "
+            "— share it securely and ask them to change it after signing in.",
             "success",
         )
     except Exception as e:
         flash(f"Failed to create owner account: {str(e)}", "danger")
 
-    return redirect(request.referrer or url_for("dashboard.tourist_spots"))
+    fallback = (
+        url_for("dashboard.tourist_spots")
+        if user["role"] == "lgu_admin"
+        else url_for("dashboard.accounts")
+    )
+    return redirect(request.referrer or fallback)
 
 
 @dashboard_bp.route("/actions/spot/register", methods=["POST"])
@@ -1134,6 +1157,109 @@ def generate_insights():
 
     invalidate_cache()
     return redirect(url_for("dashboard.decision_support"))
+
+
+# ---------------------------------------------------------------------------
+# Review photo moderation (spot & event feedback images)
+# ---------------------------------------------------------------------------
+
+
+def _lgu_admin_can_moderate(user, row_lgu_id) -> bool:
+    if user["role"] == "super_admin":
+        return True
+    if user["role"] == "lgu_admin":
+        return int(row_lgu_id or -1) == int(resolve_dashboard_lgu_id(user) or -2)
+    return False
+
+
+@dashboard_bp.route("/actions/feedback/<int:feedback_id>/approve-images", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "lgu_admin")
+def approve_feedback_images(feedback_id: int):
+    from services.feedbacks import get_feedback_for_moderation, set_feedback_images_approval
+
+    user = get_current_dashboard_user()
+    row = get_feedback_for_moderation(feedback_id)
+    if not row:
+        flash("Feedback not found.", "danger")
+        return redirect(url_for("dashboard.feedback"))
+    spot_lgu_id = (row.get("tourist_spots") or {}).get("lgu_id")
+    if not _lgu_admin_can_moderate(user, spot_lgu_id):
+        flash("You can only moderate feedback for your own LGU.", "danger")
+        return redirect(url_for("dashboard.feedback"))
+
+    set_feedback_images_approval(feedback_id, "approved")
+    flash("Review photos approved and now visible on the site.", "success")
+    return redirect(url_for("dashboard.feedback"))
+
+
+@dashboard_bp.route("/actions/feedback/<int:feedback_id>/reject-images", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "lgu_admin")
+def reject_feedback_images(feedback_id: int):
+    from services.feedbacks import get_feedback_for_moderation, set_feedback_images_approval
+
+    user = get_current_dashboard_user()
+    row = get_feedback_for_moderation(feedback_id)
+    if not row:
+        flash("Feedback not found.", "danger")
+        return redirect(url_for("dashboard.feedback"))
+    spot_lgu_id = (row.get("tourist_spots") or {}).get("lgu_id")
+    if not _lgu_admin_can_moderate(user, spot_lgu_id):
+        flash("You can only moderate feedback for your own LGU.", "danger")
+        return redirect(url_for("dashboard.feedback"))
+
+    set_feedback_images_approval(feedback_id, "rejected")
+    flash("Review photos rejected and hidden from the site.", "info")
+    return redirect(url_for("dashboard.feedback"))
+
+
+@dashboard_bp.route("/actions/event-feedback/<int:feedback_id>/approve-images", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "lgu_admin")
+def approve_event_feedback_images(feedback_id: int):
+    from services.event_engagement import (
+        get_event_feedback_for_moderation,
+        set_event_feedback_images_approval,
+    )
+
+    user = get_current_dashboard_user()
+    row = get_event_feedback_for_moderation(feedback_id)
+    if not row:
+        flash("Feedback not found.", "danger")
+        return redirect(url_for("dashboard.feedback"))
+    event_lgu_id = (row.get("events") or {}).get("lgu_id")
+    if not _lgu_admin_can_moderate(user, event_lgu_id):
+        flash("You can only moderate feedback for your own LGU.", "danger")
+        return redirect(url_for("dashboard.feedback"))
+
+    set_event_feedback_images_approval(feedback_id, "approved")
+    flash("Review photos approved and now visible on the site.", "success")
+    return redirect(url_for("dashboard.feedback"))
+
+
+@dashboard_bp.route("/actions/event-feedback/<int:feedback_id>/reject-images", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "lgu_admin")
+def reject_event_feedback_images(feedback_id: int):
+    from services.event_engagement import (
+        get_event_feedback_for_moderation,
+        set_event_feedback_images_approval,
+    )
+
+    user = get_current_dashboard_user()
+    row = get_event_feedback_for_moderation(feedback_id)
+    if not row:
+        flash("Feedback not found.", "danger")
+        return redirect(url_for("dashboard.feedback"))
+    event_lgu_id = (row.get("events") or {}).get("lgu_id")
+    if not _lgu_admin_can_moderate(user, event_lgu_id):
+        flash("You can only moderate feedback for your own LGU.", "danger")
+        return redirect(url_for("dashboard.feedback"))
+
+    set_event_feedback_images_approval(feedback_id, "rejected")
+    flash("Review photos rejected and hidden from the site.", "info")
+    return redirect(url_for("dashboard.feedback"))
 
 
 @dashboard_bp.route("/actions/analyze/sentiment", methods=["POST"])
