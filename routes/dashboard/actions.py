@@ -597,7 +597,6 @@ def request_event_featured(event_id: int):
             event_id,
             requested_by=str(user.get("id")),
             lgu_id=lgu_id,
-            payment_reference=(request.form.get("payment_reference") or "").strip() or None,
         )
         flash("Featured request submitted for LTCATO review.", "success")
     except PermissionError:
@@ -995,6 +994,8 @@ def register_establishment_spot():
             opening_hours=request.form.get("opening_hours"),
             category_id=category_id,
             code=code,
+            main_image=request.files.get("main_image"),
+            gallery_files=request.files.getlist("gallery_images"),
         )
         flash(
             "Establishment submitted for LGU approval. You can update details once approved.",

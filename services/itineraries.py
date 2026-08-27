@@ -18,7 +18,8 @@ PLANNER_SPOT_FIELDS = (
 
 ITINERARY_FIELDS = (
     "id, title, total_budget, estimated_expense, start_date, end_date, notes, "
-    "trip_purpose, starting_point, traveler_count, preferences, created_at"
+    "trip_purpose, starting_point, starting_lat, starting_lng, traveler_count, "
+    "preferences, created_at"
 )
 
 ITEM_FIELDS = (
@@ -160,6 +161,8 @@ def save_itinerary_from_plan(
         "notes": plan.get("notes") or None,
         "trip_purpose": plan.get("trip_purpose") or "vacation",
         "starting_point": plan.get("starting_point") or None,
+        "starting_lat": plan.get("starting_lat"),
+        "starting_lng": plan.get("starting_lng"),
         "traveler_count": max(1, int(plan.get("traveler_count") or 1)),
         "preferences": preferences,
     }
@@ -288,6 +291,8 @@ def plan_from_itinerary_row(row: dict[str, Any]) -> dict[str, Any]:
         "end_date": row.get("end_date"),
         "duration_days": len(days_out),
         "starting_point": row.get("starting_point"),
+        "starting_lat": row.get("starting_lat"),
+        "starting_lng": row.get("starting_lng"),
         "traveler_count": row.get("traveler_count"),
         "trip_purpose": row.get("trip_purpose"),
         "total_budget": row.get("total_budget"),

@@ -149,7 +149,7 @@ def submit_event_feedback(
             "rating": max(1, min(5, int(rating))),
             "comment": comment.strip() or None,
             "images": images or [],
-            "images_approval_status": "pending" if images else "approved",
+            "images_approval_status": "approved",
         }
     ).execute()
 

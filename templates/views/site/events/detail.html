@@ -477,14 +477,21 @@ MAIN CONTENT (col-lg-8 + col-lg-4)
                         </div>
 
                         <div class="mb-3">
-                            <label for="eventReviewImages" class="spot-review-images-label">
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-outline-secondary spot-review-images-label"
+                                data-camera-trigger
+                                data-camera-target="eventReviewImages"
+                                data-camera-preview="eventReviewImagePreview"
+                                data-camera-max="5"
+                            >
                                 <i class="ph ph-camera"></i> Add photos (optional, up to 5)
-                            </label>
+                            </button>
                             <input
                                 type="file"
                                 name="images"
                                 id="eventReviewImages"
-                                class="form-control"
+                                class="d-none"
                                 accept="image/*"
                                 multiple
                             />
@@ -885,6 +892,7 @@ RELATED EVENTS ═════════════════════�
     </div>
 </section>
 {% endif %} {% endblock %} {% block script %}
+<script src="{{ url_for('static', filename='js/review-camera.js') }}"></script>
 <script>
     document.addEventListener("DOMContentLoaded", () => {
         /* ── Thumbnail strip carousel ──────────────────────────────── */
@@ -953,33 +961,6 @@ RELATED EVENTS ═════════════════════�
         });
 
         /* ── Feedback form ─────────────────────────────────────────── */
-        const eventReviewImagesInput = document.getElementById(
-            "eventReviewImages",
-        );
-        const eventReviewImagePreview = document.getElementById(
-            "eventReviewImagePreview",
-        );
-        let eventReviewImageUrls = [];
-        if (eventReviewImagesInput && eventReviewImagePreview) {
-            eventReviewImagesInput.addEventListener("change", () => {
-                eventReviewImageUrls.forEach((url) => URL.revokeObjectURL(url));
-                eventReviewImageUrls = [];
-                eventReviewImagePreview.innerHTML = "";
-                const files = Array.from(
-                    eventReviewImagesInput.files || [],
-                ).slice(0, 5);
-                files.forEach((file) => {
-                    const url = URL.createObjectURL(file);
-                    eventReviewImageUrls.push(url);
-                    const img = document.createElement("img");
-                    img.src = url;
-                    img.alt = file.name;
-                    img.className = "review-image-preview__thumb";
-                    eventReviewImagePreview.appendChild(img);
-                });
-            });
-        }
-
         const fbForm = document.getElementById("eventFeedbackForm");
         if (fbForm) {
             const stars = fbForm.querySelectorAll("[data-star]");
@@ -1054,7 +1035,9 @@ RELATED EVENTS ═════════════════════�
                         section.innerHTML =
                             '<div class="alert alert-success d-flex align-items-center gap-2 mt-2">' +
                             '<i class="ph ph-check-circle fs-5"></i>' +
-                            "<span>Thank you for your review!</span></div>";
+                            "<span>Thank you for your review! The page will refresh shortly.</span></div>";
+                        setTimeout(() => location.reload(), 2000);
+                        return;
                     } else if (data.error === "already_submitted") {
                         section.innerHTML =
                             '<p class="small mt-2" style="color:var(--muted-foreground);">' +
