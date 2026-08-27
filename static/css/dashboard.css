@@ -973,6 +973,20 @@ body.dashboard-login-body {
   color: var(--muted-foreground);
 }
 
+.dashboard-review-photos {
+  display: flex;
+  gap: 0.3rem;
+  margin-bottom: 0.35rem;
+}
+
+.dashboard-review-photos__thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 0.35rem;
+  border: 1px solid var(--border);
+}
+
 .dashboard-kpi-list {
   list-style: none;
   padding: 0;

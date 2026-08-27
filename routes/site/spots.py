@@ -20,6 +20,7 @@ from services.spots import (
     spot_lgu_name,
 )
 from services.email_service import send_visit_scheduled_emails
+from services.storage import upload_gallery_files
 from services.supabase_client import get_supabase
 from services.tourist_auth import EMAIL_PATTERN, get_current_tourist
 from services.visit_schedules import create_visit_schedule
@@ -179,6 +180,8 @@ def spot_engage(spot_id: int):
 # Spot feedback submission (rating + comment, once per tourist)
 # ---------------------------------------------------------------------------
 
+MAX_REVIEW_IMAGES = 5
+
 
 @spots_bp.route("/spots/<int:spot_id>/feedback", methods=["POST"])
 def spot_feedback(spot_id: int):
@@ -199,8 +202,11 @@ def spot_feedback(spot_id: int):
 
     guest_name = tourist.get("name") or "Visitor"
 
+    image_files = request.files.getlist("images")[:MAX_REVIEW_IMAGES]
+    image_urls = upload_gallery_files(image_files, folder=f"feedbacks/spots/{spot_id}")
+
+    sb = get_supabase()
     try:
-        sb = get_supabase()
         sb.table("feedbacks").insert(
             {
                 "tourist_spot_id": spot_id,
@@ -210,10 +216,17 @@ def spot_feedback(spot_id: int):
                 "comments": comment or None,
                 "suggestions": suggestions or None,
                 "source": "website",
+                "images": image_urls,
+                "images_approval_status": "approved",
             }
         ).execute()
+    except Exception as exc:
+        logger.exception("spot_feedback error: %s", exc)
+        return jsonify({"error": "server_error"}), 500
 
-        # Recompute running average and review count on the spots row
+    # The review is already saved at this point — a failure recomputing the
+    # spot's running average must not be reported back as a submission error.
+    try:
         rows = (
             sb.table("feedbacks")
             .select("rating")
@@ -230,8 +243,7 @@ def spot_feedback(spot_id: int):
                 }
             ).eq("id", spot_id).execute()
     except Exception as exc:
-        logger.exception("spot_feedback error: %s", exc)
-        return jsonify({"error": "server_error"}), 500
+        logger.warning("Failed to update spot rating for spot %s: %s", spot_id, exc)
 
     return jsonify({"ok": True})
 

@@ -130,6 +130,7 @@ def submit_event_feedback(
     event_id: int,
     rating: int,
     comment: str,
+    images: list[str] | None = None,
 ) -> bool:
     """Insert a new feedback row.
 
@@ -147,6 +148,8 @@ def submit_event_feedback(
             "event_id": event_id,
             "rating": max(1, min(5, int(rating))),
             "comment": comment.strip() or None,
+            "images": images or [],
+            "images_approval_status": "approved",
         }
     ).execute()
 
@@ -168,6 +171,41 @@ def submit_event_feedback(
         )
 
     return True
+
+
+def list_event_feedbacks_for_dashboard(
+    *, lgu_id: int | None = None, limit: int = 100
+) -> list[dict[str, Any]]:
+    """Return event feedback rows for the dashboard reviews page, newest first."""
+    events_join = "events{}(id, title, lgu_id, lgus(id, name))".format(
+        "!inner" if lgu_id else ""
+    )
+    query = get_supabase().table("event_feedbacks").select(
+        "id, event_id, rating, comment, images, images_approval_status, created_at, "
+        "profiles(first_name, last_name), " + events_join
+    )
+    if lgu_id:
+        query = query.eq("events.lgu_id", lgu_id)
+    response = query.order("created_at", desc=True).limit(limit).execute()
+    return response.data or []
+
+
+def get_event_feedback_for_moderation(feedback_id: int) -> dict[str, Any] | None:
+    """Return an event feedback row with its event's lgu_id, for permission checks."""
+    rows = (
+        get_supabase()
+        .table("event_feedbacks")
+        .select("id, event_id, events(lgu_id)")
+        .eq("id", feedback_id)
+        .execute()
+    ).data or []
+    return rows[0] if rows else None
+
+
+def set_event_feedback_images_approval(feedback_id: int, status: str) -> None:
+    get_supabase().table("event_feedbacks").update(
+        {"images_approval_status": status}
+    ).eq("id", feedback_id).execute()
 
 
 def get_user_saved_events(tourist_id: str, limit: int = 24) -> list[dict]:

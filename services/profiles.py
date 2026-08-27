@@ -6,7 +6,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from services.supabase_client import get_supabase
+# pyrefly: ignore [missing-import]
+from postgrest.exceptions import APIError
+
+from services.supabase_client import get_supabase, reset_supabase
+
+# PostgREST's code for ".single() matched zero rows" — the only case that
+# genuinely means "no profile exists". Any other error (timeout, connection
+# reset, etc.) is a real failure and must not be treated the same way.
+_NO_ROWS_CODE = "PGRST116"
 
 PROFILE_FIELDS = (
     "id, first_name, last_name, middle_name, email, role_id, lgu_id, position, "
@@ -100,18 +108,39 @@ TOURIST_PROFILE_FIELDS = (
 
 
 def get_tourist_profile(user_id: str) -> dict[str, Any] | None:
-    try:
-        response = (
-            get_supabase()
-            .table("profiles")
-            .select(TOURIST_PROFILE_FIELDS)
-            .eq("id", user_id)
-            .single()
-            .execute()
-        )
-        return response.data
-    except Exception:
-        return None
+    """Returns None only when the tourist genuinely has no profile row.
+    Any other failure (e.g. a transient connection error) raises, so callers
+    don't mistake "the query failed" for "this account has no profile" and
+    bounce a real user home.
+
+    The shared Supabase client's connection has been observed to go bad for
+    this specific query on a long-running process while a brand-new client
+    succeeds immediately — so a failure that isn't "genuinely not found" gets
+    one retry against a freshly-built client before giving up."""
+    for attempt in (1, 2):
+        try:
+            response = (
+                get_supabase()
+                .table("profiles")
+                .select(TOURIST_PROFILE_FIELDS)
+                .eq("id", user_id)
+                .single()
+                .execute()
+            )
+            return response.data
+        except APIError as exc:
+            if exc.code == _NO_ROWS_CODE:
+                return None
+            if attempt == 1:
+                reset_supabase()
+                continue
+            raise
+        except Exception:
+            if attempt == 1:
+                reset_supabase()
+                continue
+            raise
+    return None  # unreachable, keeps type-checkers happy
 
 
 def update_tourist_profile(

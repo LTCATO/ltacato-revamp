@@ -4,17 +4,33 @@ Events / promotions from Supabase.
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
+# pyrefly: ignore [missing-import]
+from postgrest.exceptions import APIError
+
 from services.supabase_client import get_supabase
+
+logger = logging.getLogger(__name__)
+
+# PostgREST's code for ".single() matched zero rows" — the only case that
+# genuinely means "this event doesn't exist". Any other error (timeout,
+# connection reset, etc.) is a real failure and shouldn't be logged as if
+# it were a routine 404.
+_NO_ROWS_CODE = "PGRST116"
 
 EVENT_SELECT = "*, lgus(id, name)"
 
 APPROVED = "approved"
 EVENT_STATUSES = ("draft", "upcoming", "ongoing", "finished")
-VISIBILITIES = ("public", "private", "featured")
+# "featured" used to be offered here but nothing in the app ever branched on
+# it — actual featuring is the separate paid request_event_featured() /
+# review_event_featured() workflow below. Dropped to stop staff from
+# picking it and believing it features the event.
+VISIBILITIES = ("public", "private")
 
 
 def _slugify(title: str) -> str:
@@ -87,6 +103,8 @@ def get_event(event_id: int, *, public_only: bool = False) -> dict[str, Any] | N
         event = response.data
         if event and public_only and (event.get("visibility") or "public") == "private":
             return None
+        if event and public_only and _compute_event_status(event) == "draft":
+            return None
         if event:
             event["exhibitors"] = list_event_exhibitors(event_id)
             try:
@@ -100,9 +118,15 @@ def get_event(event_id: int, *, public_only: bool = False) -> dict[str, Any] | N
                 )
                 event["event_analytics"] = ana.data[0] if ana.data else {}
             except Exception:
+                logger.exception("Failed to fetch analytics for event %s", event_id)
                 event["event_analytics"] = {}
         return event
+    except APIError as exc:
+        if exc.code != _NO_ROWS_CODE:
+            logger.exception("Failed to fetch event %s", event_id)
+        return None
     except Exception:
+        logger.exception("Failed to fetch event %s", event_id)
         return None
 
 
@@ -118,6 +142,7 @@ def list_event_exhibitors(event_id: int) -> list[dict[str, Any]]:
         )
         return response.data or []
     except Exception:
+        logger.exception("Failed to fetch exhibitors for event %s", event_id)
         return []
 
 
@@ -130,11 +155,34 @@ def _filter_active_public_events(rows: list[dict[str, Any]]) -> list[dict[str, A
     return active
 
 
+def _apply_home_spotlight(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Put the LGU-paid Featured event in the middle "spotlight" card.
+
+    Only events that went through the paid LGU request_event_featured() flow
+    qualify (identified by featured_requested_at being set) — an event a
+    super_admin/ltcato_staff marked Featured directly on their own authority
+    doesn't get to claim the spotlight over a paying LGU's placement. With
+    several LGU-featured events in the running, the soonest one wins.
+    Home only ever renders 3 cards, so this only matters at that length.
+    """
+    if len(events) != 3:
+        return events
+    candidates = [
+        e for e in events if e.get("is_featured_now") and e.get("featured_requested_at")
+    ]
+    if not candidates:
+        return events
+    spotlight = min(candidates, key=lambda e: e.get("start_date") or "9999-12-31")
+    others = [e for e in events if e is not spotlight]
+    return [others[0], spotlight, others[1]]
+
+
 def list_home_events(limit: int = 3) -> list[dict[str, Any]]:
     """Enriched upcoming/ongoing events for the home page."""
     raw = list_events(public_approved_only=True, limit=100)
     active = _filter_active_public_events(raw)
-    return [enrich_event_for_display(e) for e in active[:limit]]
+    enriched = [enrich_event_for_display(e) for e in active[:limit]]
+    return _apply_home_spotlight(enriched)
 
 
 def list_lgu_public_events(lgu_id: int, limit: int = 4) -> list[dict[str, Any]]:
@@ -157,6 +205,10 @@ def list_events_public(
         limit=200,
         category=category,
     )
+    # Drafts are never public regardless of which status filter (if any) is
+    # selected — get_event() enforces the same exclusion on the detail page,
+    # so a draft slipping through here would list but 404 on click.
+    events = [e for e in events if _compute_event_status(e) != "draft"]
     if status:
         events = [e for e in events if _compute_event_status(e) == status]
     if q:
@@ -184,9 +236,9 @@ def get_event_lgu_name(event: dict[str, Any]) -> str:
 
 def _compute_event_status(event: dict[str, Any]) -> str:
     explicit = (event.get("event_status") or "").lower()
-    # Published lifecycle statuses are authoritative; draft/missing uses dates.
-    if explicit in ("upcoming", "ongoing", "finished"):
-        return explicit
+    # Draft is a manual editorial state, not derivable from dates.
+    if explicit == "draft":
+        return "draft"
     today = date.today()
     start_raw = event.get("start_date")
     end_raw = event.get("end_date")
@@ -194,33 +246,47 @@ def _compute_event_status(event: dict[str, Any]) -> str:
         start = date.fromisoformat(str(start_raw)[:10]) if start_raw else None
         end = date.fromisoformat(str(end_raw)[:10]) if end_raw else start
     except ValueError:
-        return "upcoming"
-    if start and today < start:
-        return "upcoming"
-    if end and today > end:
-        return "finished"
-    if start and (not end or start <= today <= end):
-        return "ongoing"
-    return "upcoming"
+        start = end = None
+    # Dates are authoritative whenever available, so a stale manual status
+    # (e.g. "finished" left over after an event was rescheduled) can't hide
+    # an event whose actual dates are upcoming/ongoing.
+    if start or end:
+        if start and today < start:
+            return "upcoming"
+        if end and today > end:
+            return "finished"
+        if start and (not end or start <= today <= end):
+            return "ongoing"
+    if explicit in ("upcoming", "ongoing", "finished"):
+        return explicit
+    # No usable dates and no explicit status: treat as draft rather than
+    # letting it sit on public listings as "upcoming" forever. This hides
+    # any legacy/imported row with a null or corrupt start_date that used
+    # to render as "upcoming" — logged so such rows are findable rather
+    # than silently disappearing from the public site.
+    if event.get("id") is not None:
+        logger.warning(
+            "Event %s has no usable dates and no explicit status; treating as draft",
+            event.get("id"),
+        )
+    return "draft"
 
 
 def is_event_currently_featured(event: dict[str, Any]) -> bool:
-    """Featured is a computed window, not a permanent flag: it only shows
-    from the event's start date through 5 days after it ends, and only
-    once a Featured request has been approved."""
+    """Featured is a computed window, not a permanent flag: once a Featured
+    request is approved it shows immediately (so LGUs can promote an event
+    ahead of time) and keeps showing through 5 days after the event ends."""
     if (event.get("featured_status") or "none") != "approved":
         return False
-    start_raw = event.get("start_date")
-    if not start_raw:
+    end_raw = event.get("end_date") or event.get("start_date")
+    if not end_raw:
         return False
     try:
-        start = date.fromisoformat(str(start_raw)[:10])
-        end_raw = event.get("end_date") or start_raw
         end = date.fromisoformat(str(end_raw)[:10])
     except ValueError:
         return False
     today = date.today()
-    return start <= today <= end + timedelta(days=5)
+    return today <= end + timedelta(days=5)
 
 
 def _parse_event_date(date_str: str | None) -> tuple[str, str]:
@@ -333,11 +399,15 @@ def build_event_payload_from_form(
     title = _strip(form.get("title")) or ""
     if not title:
         raise ValueError("Event title is required.")
+    if not _strip(form.get("start_date")):
+        raise ValueError("Event start date is required.")
 
     slug = _strip(form.get("slug")) or _slugify(title)
-    event_status = _strip(form.get("event_status")) or "draft"
-    if event_status not in EVENT_STATUSES:
-        event_status = "draft"
+    # The dashboard only offers a draft/publish toggle now — "upcoming" is
+    # just a non-draft placeholder that _compute_event_status() immediately
+    # overrides from start_date/end_date on every read (see that function's
+    # docstring). The stored value only still matters as the draft gate.
+    event_status = "draft" if (_strip(form.get("event_status")) or "draft") == "draft" else "upcoming"
     visibility = _strip(form.get("visibility")) or "public"
     if visibility not in VISIBILITIES:
         visibility = "public"
@@ -475,7 +545,52 @@ def create_event_from_request(
     if not response.data:
         raise RuntimeError("Event was not saved.")
     event = response.data[0]
-    _save_exhibitors_from_form(event["id"], form)
+    try:
+        _save_exhibitors_from_form(event["id"], form)
+    except Exception:
+        # The event itself is already committed at this point, so don't fail
+        # the whole request (the user would otherwise resubmit and create a
+        # duplicate event) — just flag it so the caller can warn instead.
+        logger.exception("Failed to save exhibitors for event %s", event["id"])
+        event["_exhibitor_save_failed"] = True
+    return event
+
+
+def update_event_from_request(
+    event_id: int,
+    form,
+    files,
+    *,
+    forced_lgu_id: int | None = None,
+    approval_status: str = "approved",
+) -> dict[str, Any]:
+    payload = build_event_payload_from_form(
+        form, files, forced_lgu_id=forced_lgu_id, approval_status=approval_status
+    )
+    response = get_supabase().table("events").update(payload).eq("id", event_id).execute()
+    if not response.data:
+        raise RuntimeError("Event was not updated.")
+    event = response.data[0]
+    try:
+        # Exhibitors are replaced wholesale rather than merged — the edit
+        # form always resubmits the full current list. Insert the new rows
+        # *before* removing the old ones: if the insert fails partway, the
+        # pre-edit exhibitors are still there instead of already gone from
+        # a delete-first approach.
+        existing = (
+            get_supabase()
+            .table("event_exhibitors")
+            .select("id")
+            .eq("event_id", event_id)
+            .execute()
+        )
+        old_ids = [row["id"] for row in (existing.data or [])]
+        _save_exhibitors_from_form(event_id, form)
+        if old_ids:
+            get_supabase().table("event_exhibitors").delete().in_("id", old_ids).execute()
+    except Exception:
+        logger.exception("Failed to update exhibitors for event %s", event_id)
+        event["_exhibitor_save_failed"] = True
     return event
 
 
@@ -552,10 +667,11 @@ def request_event_featured(
     *,
     requested_by: str,
     lgu_id: int | None = None,
-    payment_reference: str | None = None,
 ) -> None:
-    """LGU (or LTCATO staff, payment-free) requests an approved event be
-    made Featured. Goes to featured_status='requested' pending LTCATO review."""
+    """An LGU requests an approved event be made Featured.
+    Goes to featured_status='requested' pending LTCATO review. LTCATO staff
+    and super_admin don't request — they mark events Featured directly via
+    review_event_featured()."""
     response = (
         get_supabase()
         .table("events")
@@ -578,7 +694,6 @@ def request_event_featured(
     get_supabase().table("events").update(
         {
             "featured_status": "requested",
-            "featured_payment_reference": payment_reference,
             "featured_requested_at": datetime.now(timezone.utc).isoformat(),
             "featured_reviewed_at": None,
             "featured_reviewed_by": None,

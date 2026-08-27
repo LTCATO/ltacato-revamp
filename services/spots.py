@@ -215,6 +215,8 @@ def create_tourist_spot_for_owner(
     opening_hours: str | None = None,
     category_id: int | None = None,
     code: int | None = None,
+    main_image=None,
+    gallery_files=None,
 ) -> dict[str, Any]:
     row: dict[str, Any] = {
         "name": name.strip(),
@@ -230,6 +232,17 @@ def create_tourist_spot_for_owner(
         row["category_id"] = category_id
     if code:
         row["code"] = code
+
+    from services.storage import upload_gallery_files, upload_optional_file
+
+    main_image_url = upload_optional_file(main_image, folder="spots/covers", kind="image")
+    if main_image_url:
+        row["main_image_url"] = main_image_url
+
+    gallery_urls = upload_gallery_files(gallery_files or [], folder="spots/gallery")
+    if gallery_urls:
+        row["gallery_images"] = gallery_urls
+
     response = get_supabase().table("tourist_spots").insert(row).execute()
     data = response.data or []
     if not data:
@@ -327,7 +340,8 @@ def get_spot_feedbacks(spot_id: int, limit: int = 20) -> list[dict[str, Any]]:
         get_supabase()
         .table("feedbacks")
         .select(
-            "id, guest_name, rating, comments, suggestions, sentiment, source, created_at"
+            "id, guest_name, rating, comments, suggestions, sentiment, source, "
+            "images, images_approval_status, created_at"
         )
         .eq("tourist_spot_id", spot_id)
         .order("created_at", desc=True)

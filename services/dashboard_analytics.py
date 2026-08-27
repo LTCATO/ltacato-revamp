@@ -5,6 +5,7 @@ Role-scoped: super_admin, ltcato_staff, lgu_admin, establishment_owner.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from services.arrival_reports import arrival_summary_by_lgu, list_arrival_reports
@@ -13,6 +14,8 @@ from services.feedbacks import list_feedbacks
 from services.lgus import list_lgus_simple
 from services.spots import APPROVED_STATUS, list_spots, list_spots_for_dashboard
 from services.supabase_client import get_supabase
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -154,20 +157,19 @@ def _top_rated_spots(lgu_id: int | None = None, *, limit: int = 5) -> list[dict[
 
 def _recent_feedbacks(lgu_id: int | None = None, *, limit: int = 5) -> list[dict[str, Any]]:
     try:
+        select_fields = "id, guest_name, rating, comments, sentiment, created_at, tourist_spots{}(name, lgus(name))".format(
+            "!inner" if lgu_id else ""
+        )
         query = (
             get_supabase()
             .table("feedbacks")
-            .select("id, guest_name, rating, comments, sentiment, created_at, tourist_spots(name, lgus(name))")
+            .select(select_fields)
             .order("created_at", desc=True)
         )
-        rows = query.limit(limit * 3).execute().data or []
         if lgu_id:
-            rows = [
-                r for r in rows
-                if (r.get("tourist_spots") or {}).get("lgu_id") == lgu_id
-                or (r.get("tourist_spots") or {}).get("lgus", {}) is not None
-            ]
-        return rows[:limit]
+            query = query.eq("tourist_spots.lgu_id", lgu_id)
+        rows = query.limit(limit).execute().data or []
+        return rows
     except Exception:
         return []
 
@@ -187,16 +189,31 @@ def _spot_approval_breakdown(lgu_id: int | None = None) -> dict[str, int]:
 
 
 def _event_status_breakdown(lgu_id: int | None = None) -> dict[str, int]:
+    from services.events import _compute_event_status
+
+    # Status is computed from dates rather than stored, so it can't be
+    # pushed into a DB-side count() the way approval_status can — this has
+    # to fetch rows and tally in Python. Capped so one LGU's event count
+    # can never turn a dashboard load into an unbounded table scan; if the
+    # cap is ever hit the breakdown undercounts, which is logged so it's
+    # diagnosable instead of silently wrong.
+    ROW_CAP = 2000
     statuses = ["draft", "upcoming", "ongoing", "finished"]
-    result = {}
-    for s in statuses:
-        try:
-            q = get_supabase().table("events").select("id", count="exact").eq("event_status", s)
-            if lgu_id:
-                q = q.eq("lgu_id", lgu_id)
-            result[s] = q.limit(1).execute().count or 0
-        except Exception:
-            result[s] = 0
+    result = {s: 0 for s in statuses}
+    try:
+        q = get_supabase().table("events").select("id, start_date, end_date, event_status")
+        if lgu_id:
+            q = q.eq("lgu_id", lgu_id)
+        rows = q.limit(ROW_CAP).execute().data or []
+        if len(rows) >= ROW_CAP:
+            logger.warning(
+                "_event_status_breakdown hit its %s-row cap; counts are undercounted", ROW_CAP
+            )
+        for row in rows:
+            status = _compute_event_status(row)
+            result[status] = result.get(status, 0) + 1
+    except Exception:
+        pass
     return result
 
 
