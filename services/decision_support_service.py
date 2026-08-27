@@ -26,6 +26,7 @@ from services.scrapers.sentiment_analyzer import (
     get_event_feedback_sentiment as get_event_sentiment_summary,
 )
 from services.scrapers.sentiment_analyzer import (
+    classify_review_source,
     get_external_review_sentiment_summary,
     get_feedback_sentiment_summary,
 )
@@ -120,18 +121,22 @@ def _get_event_sentiment_for_lgu(lgu_id: int) -> dict[str, Any]:
     }
 
 
-def _get_ext_sentiment_for_lgu(lgu_id: int) -> dict[str, Any]:
-    """External review sentiment scoped to spots in a single LGU."""
+def _get_ext_sentiment_for_lgu(lgu_id: int, source_type: str | None = None) -> dict[str, Any]:
+    """External review sentiment scoped to spots in a single LGU.
+    source_type="social" restricts to Facebook posts only, excluding Google
+    News coverage — see classify_review_source() in sentiment_analyzer.py."""
     try:
         rows = (
             get_supabase()
             .table("external_reviews")
-            .select("sentiment, tourist_spots(lgu_id)")
+            .select("sentiment, source, tourist_spots(lgu_id)")
             .execute()
             .data
             or []
         )
         rows = [r for r in rows if (r.get("tourist_spots") or {}).get("lgu_id") == lgu_id]
+        if source_type:
+            rows = [r for r in rows if classify_review_source(r.get("source")) == source_type]
     except Exception:
         rows = []
     total = len(rows)
@@ -231,6 +236,7 @@ def _build_data(lgu_id: int | None = None) -> dict[str, Any]:
     event_sentiment = get_event_sentiment_summary()
     fb_sentiment = get_feedback_sentiment_summary(lgu_id)
     ext_sentiment = get_external_review_sentiment_summary()
+    social_sentiment = get_external_review_sentiment_summary(source_type="social")
 
     spot_insights = get_spot_insights()
     event_insights = get_event_insights()
@@ -262,7 +268,7 @@ def _build_data(lgu_id: int | None = None) -> dict[str, Any]:
 
     recommendations = _build_recommendations(
         fb_sentiment=fb_sentiment,
-        ext_sentiment=ext_sentiment,
+        social_sentiment=social_sentiment,
         event_sentiment=event_sentiment,
     )
 
@@ -318,6 +324,7 @@ def get_lgu_decision_support_data(lgu_id: int) -> dict[str, Any]:
     fb_sentiment = get_feedback_sentiment_summary(lgu_id)
     event_sentiment = _get_event_sentiment_for_lgu(lgu_id)
     ext_sentiment = _get_ext_sentiment_for_lgu(lgu_id)
+    social_sentiment = _get_ext_sentiment_for_lgu(lgu_id, source_type="social")
 
     spot_combined_sentiment = {
         "total": fb_sentiment["total"] + ext_sentiment["total"],
@@ -351,7 +358,7 @@ def get_lgu_decision_support_data(lgu_id: int) -> dict[str, Any]:
 
     recommendations = _build_recommendations(
         fb_sentiment=fb_sentiment,
-        ext_sentiment=ext_sentiment,
+        social_sentiment=social_sentiment,
         event_sentiment=event_sentiment,
     )
 
@@ -408,7 +415,7 @@ def get_owner_decision_support_data(owner_id: str) -> dict[str, Any]:
 
     recommendations = _build_recommendations(
         fb_sentiment=fb_sentiment,
-        ext_sentiment=ext_sentiment,
+        social_sentiment=ext_sentiment,
         event_sentiment=event_sentiment,
     )
 
@@ -429,22 +436,28 @@ def get_owner_decision_support_data(owner_id: str) -> dict[str, Any]:
     }
 
 
-def _build_recommendations(fb_sentiment, ext_sentiment, event_sentiment) -> list[dict]:
+# A percentage computed from too few reviews is noise, not signal — a
+# threshold below is only allowed to trigger a recommendation once its
+# source has at least this many reviews.
+_MIN_SAMPLE = 10
+
+
+def _build_recommendations(fb_sentiment, social_sentiment, event_sentiment) -> list[dict]:
     recs: list[dict] = []
-    if fb_sentiment.get("negative_pct", 0) > 30:
+    if fb_sentiment.get("total", 0) >= _MIN_SAMPLE and fb_sentiment.get("negative_pct", 0) > 30:
         recs.append(
             {
                 "priority": "high",
                 "icon": "bx-error-circle",
                 "color": "warning",
                 "title": "High negative internal feedback",
-                "text": f"{fb_sentiment['negative_pct']}% of spot feedback is negative. Review complaints.",
+                "text": f"{fb_sentiment['negative_pct']}% of spot feedback is negative ({fb_sentiment['total']} reviews). Review complaints.",
                 "action": "View Spot Feedback",
                 "action_url": "#spot-feedback",
             }
         )
     if (
-        event_sentiment.get("total", 0) > 0
+        event_sentiment.get("total", 0) >= _MIN_SAMPLE
         and event_sentiment.get("negative_pct", 0) > 25
     ):
         recs.append(
@@ -453,31 +466,31 @@ def _build_recommendations(fb_sentiment, ext_sentiment, event_sentiment) -> list
                 "icon": "bx-calendar-event",
                 "color": "warning",
                 "title": "Negative event feedback",
-                "text": f"{event_sentiment['negative_pct']}% of event feedback is negative.",
+                "text": f"{event_sentiment['negative_pct']}% of event feedback is negative ({event_sentiment['total']} reviews).",
                 "action": "View Event Feedback",
                 "action_url": "#event-feedback",
             }
         )
-    if ext_sentiment.get("total", 0) > 0 and ext_sentiment.get("negative_pct", 0) > 25:
+    if social_sentiment.get("total", 0) >= _MIN_SAMPLE and social_sentiment.get("negative_pct", 0) > 25:
         recs.append(
             {
                 "priority": "high",
                 "icon": "bx-globe",
                 "color": "warning",
-                "title": "Negative online reviews",
-                "text": f"{ext_sentiment['negative_pct']}% of scraped online reviews are negative.",
+                "title": "Negative social media mentions",
+                "text": f"{social_sentiment['negative_pct']}% of scraped Facebook posts about your spots are negative ({social_sentiment['total']} posts).",
                 "action": "View Online Reviews",
                 "action_url": "#online-reviews",
             }
         )
-    if fb_sentiment.get("positive_pct", 0) >= 70:
+    if fb_sentiment.get("total", 0) >= _MIN_SAMPLE and fb_sentiment.get("positive_pct", 0) >= 70:
         recs.append(
             {
                 "priority": "low",
                 "icon": "bx-trophy",
                 "color": "success",
                 "title": "Strong tourist satisfaction",
-                "text": f"{fb_sentiment['positive_pct']}% positive feedback. Feature top spots.",
+                "text": f"{fb_sentiment['positive_pct']}% positive feedback ({fb_sentiment['total']} reviews). Feature top spots.",
                 "action": "View Analytics",
                 "action_url": "/dashboard/analytics",
             }

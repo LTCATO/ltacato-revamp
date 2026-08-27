@@ -169,14 +169,33 @@ def get_feedback_sentiment_summary(lgu_id: int | None = None) -> dict[str, Any]:
     }
 
 
-def get_external_review_sentiment_summary() -> dict[str, Any]:
+def classify_review_source(source: str | None) -> str:
+    """'social' for a scraped Facebook post (closer to an actual visitor
+    opinion) vs 'media' for Google News article/blog coverage (press
+    sentiment, not visitor sentiment). See services/scrapers/social_scraper.py
+    (always writes a source starting with "Facebook") and
+    services/scrapers/reviews_scraper.py (writes the news outlet's name)."""
+    return "social" if (source or "").startswith("Facebook") else "media"
+
+
+def get_external_review_sentiment_summary(source_type: str | None = None) -> dict[str, Any]:
+    """source_type=None returns every scraped row (Facebook + Google News
+    combined) — used for display totals. Pass "social" to restrict to
+    Facebook posts only, which is what should drive recommendations, since
+    Google News coverage reflects press sentiment, not visitors'."""
     try:
         rows = (
-            get_supabase().table("external_reviews").select("sentiment").execute().data
+            get_supabase()
+            .table("external_reviews")
+            .select("sentiment, source")
+            .execute()
+            .data
             or []
         )
     except Exception:
         rows = []
+    if source_type:
+        rows = [r for r in rows if classify_review_source(r.get("source")) == source_type]
     total = len(rows)
     positive = sum(1 for r in rows if r.get("sentiment") == "positive")
     negative = sum(1 for r in rows if r.get("sentiment") == "negative")
