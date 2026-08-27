@@ -667,9 +667,8 @@ def request_event_featured(
     *,
     requested_by: str,
     lgu_id: int | None = None,
-    payment_reference: str | None = None,
 ) -> None:
-    """An LGU requests an approved event be made Featured (a paid promotion).
+    """An LGU requests an approved event be made Featured.
     Goes to featured_status='requested' pending LTCATO review. LTCATO staff
     and super_admin don't request — they mark events Featured directly via
     review_event_featured()."""
@@ -695,7 +694,6 @@ def request_event_featured(
     get_supabase().table("events").update(
         {
             "featured_status": "requested",
-            "featured_payment_reference": payment_reference,
             "featured_requested_at": datetime.now(timezone.utc).isoformat(),
             "featured_reviewed_at": None,
             "featured_reviewed_by": None,

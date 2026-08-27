@@ -265,6 +265,12 @@ def generate_plan(
             "error": "Select at least one tourist spot to build your itinerary.",
         }
 
+    if not starting_point.strip():
+        return {
+            "ok": False,
+            "error": "Enter your starting point so we can plan travel time and directions.",
+        }
+
     if duration_days < 1:
         return {
             "ok": False,

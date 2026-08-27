@@ -217,7 +217,7 @@ def spot_feedback(spot_id: int):
                 "suggestions": suggestions or None,
                 "source": "website",
                 "images": image_urls,
-                "images_approval_status": "pending" if image_urls else "approved",
+                "images_approval_status": "approved",
             }
         ).execute()
     except Exception as exc:

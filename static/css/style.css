@@ -1722,6 +1722,51 @@ main {
     border: 1px solid var(--border);
 }
 
+.review-image-preview__item {
+    position: relative;
+    display: inline-flex;
+}
+
+.review-image-preview__remove {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 20px;
+    height: 20px;
+    line-height: 1;
+    border-radius: 50%;
+    border: none;
+    background: var(--destructive, #dc3545);
+    color: #fff;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+}
+
+.camera-capture-viewport {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: #000;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.camera-capture-viewport video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.camera-capture-thumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
 .spot-sidebar {
     position: sticky;
     top: calc(var(--site-header-offset) + 1rem);

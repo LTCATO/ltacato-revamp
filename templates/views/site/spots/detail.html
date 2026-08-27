@@ -256,14 +256,21 @@ ensure_list %} {% set driving = spot.driving_guide | ensure_list %}
                             rows="1"
                             placeholder="Any suggestions? (optional)"
                         ></textarea>
-                        <label for="spotReviewImages" class="spot-review-images-label">
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-outline-secondary spot-review-images-label"
+                            data-camera-trigger
+                            data-camera-target="spotReviewImages"
+                            data-camera-preview="spotReviewImagePreview"
+                            data-camera-max="5"
+                        >
                             <i class="ph ph-camera"></i> Add photos (optional, up to 5)
-                        </label>
+                        </button>
                         <input
                             type="file"
                             name="images"
                             id="spotReviewImages"
-                            class="form-control mb-2"
+                            class="d-none"
                             accept="image/*"
                             multiple
                         />
@@ -501,6 +508,7 @@ ensure_list %} {% set driving = spot.driving_guide | ensure_list %}
     </div>
 </section>
 {% endif %} {% endblock %} {% block script %}
+<script src="{{ url_for('static', filename='js/review-camera.js') }}"></script>
 <script>
     document.addEventListener("DOMContentLoaded", () => {
         const el = document.querySelector(".spot-gallery-swiper");
@@ -587,32 +595,6 @@ ensure_list %} {% set driving = spot.driving_guide | ensure_list %}
                 selectedRating = parseInt(s.dataset.star);
                 if (spotRatingInput) spotRatingInput.value = selectedRating;
                 refreshStars(selectedRating);
-            });
-        });
-    }
-
-    const spotReviewImagesInput = document.getElementById("spotReviewImages");
-    const spotReviewImagePreview = document.getElementById(
-        "spotReviewImagePreview",
-    );
-    let spotReviewImageUrls = [];
-    if (spotReviewImagesInput && spotReviewImagePreview) {
-        spotReviewImagesInput.addEventListener("change", () => {
-            spotReviewImageUrls.forEach((url) => URL.revokeObjectURL(url));
-            spotReviewImageUrls = [];
-            spotReviewImagePreview.innerHTML = "";
-            const files = Array.from(spotReviewImagesInput.files || []).slice(
-                0,
-                5,
-            );
-            files.forEach((file) => {
-                const url = URL.createObjectURL(file);
-                spotReviewImageUrls.push(url);
-                const img = document.createElement("img");
-                img.src = url;
-                img.alt = file.name;
-                img.className = "review-image-preview__thumb";
-                spotReviewImagePreview.appendChild(img);
             });
         });
     }

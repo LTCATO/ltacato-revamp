@@ -15,6 +15,25 @@ from supabase_auth.errors import AuthApiError
 from services.supabase_client import get_supabase
 
 TOURIST_ROLE = "tourist"
+
+
+def _anon_auth_client():
+    """A throwaway client for auth calls (sign-in/sign-up/sign-out) so the
+    global service_role client's session is never mutated. supabase-py swaps
+    a client's postgrest auth header to the signed-in user's JWT as a side
+    effect of auth.sign_in_with_password()/sign_up() — doing that on the
+    shared get_supabase() client would downgrade every subsequent query on
+    the server from service_role to that user's RLS-restricted session."""
+    import os
+
+    from supabase import create_client
+
+    url = os.getenv("SUPABASE_URL")
+    anon_key = os.getenv("SUPABASE_KEY")
+    if not url or not anon_key:
+        raise RuntimeError("SUPABASE_URL and SUPABASE_KEY must be set in environment")
+    return create_client(url, anon_key)
+
 EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 SESSION_KEYS = (
@@ -82,10 +101,6 @@ def _set_session(user: Any, auth_session: Any = None) -> None:
 
 
 def logout_tourist() -> None:
-    try:
-        get_supabase().auth.sign_out()
-    except Exception:
-        pass
     for key in SESSION_KEYS:
         session.pop(key, None)
 
@@ -135,8 +150,9 @@ def validate_register(
 
 def login_tourist(email: str, password: str) -> tuple[bool, str | None]:
     email = email.strip().lower()
+    auth_client = _anon_auth_client()
     try:
-        response = get_supabase().auth.sign_in_with_password(
+        response = auth_client.auth.sign_in_with_password(
             {"email": email, "password": password}
         )
     except AuthApiError as exc:
@@ -149,10 +165,6 @@ def login_tourist(email: str, password: str) -> tuple[bool, str | None]:
         return False, "Sign in failed. Please check your credentials."
 
     if not _is_tourist(user):
-        try:
-            get_supabase().auth.sign_out()
-        except Exception:
-            pass
         return (
             False,
             "This account is not a tourist profile. Tourist accounts must be created "
@@ -178,8 +190,9 @@ def register_tourist(
     middle_name = (middle_name or "").strip()
     email = email.strip().lower()
 
+    auth_client = _anon_auth_client()
     try:
-        response = get_supabase().auth.sign_up(
+        response = auth_client.auth.sign_up(
             {
                 "email": email,
                 "password": password,

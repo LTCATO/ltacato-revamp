@@ -131,7 +131,7 @@
 <div class="modal fade" id="registerSpotModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form method="post" action="{{ url_for('dashboard.register_establishment_spot') }}">
+      <form method="post" action="{{ url_for('dashboard.register_establishment_spot') }}" enctype="multipart/form-data">
         <div class="modal-header">
           <h5 class="modal-title">Register your establishment</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -152,6 +152,14 @@
           <div class="col-md-6">
             <label class="form-label">Opening hours</label>
             <input name="opening_hours" class="form-control" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Main photo</label>
+            <input type="file" name="main_image" class="form-control" accept="image/*" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Gallery photos</label>
+            <input type="file" name="gallery_images" class="form-control" accept="image/*" multiple />
           </div>
           {% if categories %}
           <div class="col-md-6">
