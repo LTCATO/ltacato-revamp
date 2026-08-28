@@ -1,5 +1,5 @@
 {% extends "dashboard-base.html" %} {% from "include/dashboard/macros.html"
-import status_badge %} {% block title %}{{ page_title }}{% endblock %} {% block
+import status_badge, insight_card, insight_group_summary %} {% block title %}{{ page_title }}{% endblock %} {% block
 page_header %}
 <h1>{{ page_title }}</h1>
 <p>{{ page_description }}</p>
@@ -165,6 +165,53 @@ page_header %}
         color: var(--muted-foreground);
         margin: 0;
     }
+
+    .ds-lgu-groups {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+    }
+    .ds-lgu-group {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+    }
+    .ds-lgu-group[open] {
+        padding-bottom: 0.85rem;
+    }
+    .ds-lgu-group__summary {
+        list-style: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.65rem 0.85rem;
+        background: var(--muted);
+        font-size: 0.85rem;
+    }
+    .ds-lgu-group__summary::-webkit-details-marker {
+        display: none;
+    }
+    .ds-lgu-group__name {
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+    }
+    .ds-lgu-group__name::before {
+        content: "\25B8";
+        display: inline-block;
+        margin-right: 0.4rem;
+        transition: transform 0.15s ease;
+        color: var(--muted-foreground);
+    }
+    .ds-lgu-group[open] > .ds-lgu-group__summary .ds-lgu-group__name::before {
+        transform: rotate(90deg);
+    }
+    .ds-lgu-group > .row {
+        padding: 0 0.85rem;
+    }
 </style>
 {% endblock %} {% block content %}
 <div
@@ -244,46 +291,32 @@ page_header %}
         {% else %}AI-generated from internal + online feedback per spot. Cached in the database — use Generate Insights only for new data.{% endif %}
       </p>
     </div>
-    {% if ds.scope not in ('lgu', 'owner') %}
     <form method="post" action="{{ url_for('dashboard.generate_insights') }}" class="ds-async-form ms-auto" data-ds-loading="Generating AI insights from feedback…">
       <button type="submit" class="btn btn-sm dashboard-btn-primary">
         <i class="bx bx-bulb"></i> Generate Insights
       </button>
     </form>
-    {% endif %}
   </div>
-  {% if ds.spot_insights %}
-  <div class="row g-3">
-    {% for ins in ds.spot_insights %}
-    <div class="col-12 col-lg-6">
-      <div class="p-3 rounded border" style="border-color:var(--border)!important;background:#fff;">
-        <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-1">
-          <div>
-            <strong style="font-size:.88rem;">{{ ins.spot_name }}</strong>
-            <span class="text-muted small ms-1">— {{ ins.lgu_name }}</span>
-          </div>
-          <div class="d-flex gap-1 flex-wrap">
-            <span class="badge" style="background:var(--muted);color:var(--foreground);font-size:.65rem;">{{ ins.total_feedback }} feedback{{ 's' if ins.total_feedback != 1 else '' }}</span>
-            {% if ins.negative_pct > 50 %}<span class="badge bg-danger" style="font-size:.65rem;">{{ ins.negative_pct }}% negative</span>
-            {% elif ins.negative_pct > 25 %}<span class="badge bg-warning text-dark" style="font-size:.65rem;">{{ ins.negative_pct }}% negative</span>
-            {% else %}<span class="badge bg-secondary" style="font-size:.65rem;">{{ ins.negative_pct }}% negative</span>{% endif %}
-            {% if ins.avg_rating %}<span class="badge" style="background:#fef3c7;color:#92400e;font-size:.65rem;">{{ ins.avg_rating }}★</span>{% endif %}
-          </div>
-        </div>
-        {% for issue in ins.issues %}
-        <div class="d-flex gap-2 align-items-start mt-2 p-2 rounded" style="background:{{ '#fff5f5' if issue.color=='danger' else '#fffbeb' if issue.color=='warning' else '#eff6ff' }};border-left:3px solid {{ '#dc3545' if issue.color=='danger' else '#fd7e14' if issue.color=='warning' else '#0dcaf0' }};">
-          <i class="bx {{ issue.icon }} mt-1 flex-shrink-0" style="color:{{ '#dc3545' if issue.color=='danger' else '#fd7e14' if issue.color=='warning' else '#0dcaf0' }};font-size:1.1rem;"></i>
-          <div style="flex:1 1 0;">
-            <div class="d-flex align-items-center gap-2 mb-1">
-              <span style="font-weight:600;font-size:.79rem;">{{ issue.label }}</span>
-              <span class="badge" style="font-size:.58rem;text-transform:uppercase;background:{{ '#f8d7da' if issue.priority=='high' else '#ffe5d0' if issue.priority=='normal' else '#d1e7dd' }};color:{{ '#842029' if issue.priority=='high' else '#7f3000' if issue.priority=='normal' else '#0a3622' }};">{{ issue.priority }}</span>
-            </div>
-            <p class="mb-0" style="font-size:.75rem;color:#57534e;"><i class="bx bx-right-arrow-alt me-1"></i>{{ issue.suggestion }}</p>
-          </div>
-        </div>
+  {% if ds.scope not in ('lgu', 'owner') and ds.spot_insights_by_lgu %}
+  <div class="ds-lgu-groups">
+    {% for grp in ds.spot_insights_by_lgu %}
+    <details class="ds-lgu-group" {% if loop.first %}open{% endif %}>
+      <summary class="ds-lgu-group__summary">
+        <span class="ds-lgu-group__name"><i class="bx bx-map-pin me-1"></i>{{ grp.lgu_name }}</span>
+        <span class="d-flex gap-1 flex-wrap">{{ insight_group_summary(grp, 'spot') }}</span>
+      </summary>
+      <div class="row g-3 mt-1">
+        {% for ins in grp.entries %}
+        <div class="col-12 col-lg-6">{{ insight_card(ins, 'spot') }}</div>
         {% endfor %}
       </div>
-    </div>
+    </details>
+    {% endfor %}
+  </div>
+  {% elif ds.spot_insights %}
+  <div class="row g-3">
+    {% for ins in ds.spot_insights %}
+    <div class="col-12 col-lg-6">{{ insight_card(ins, 'spot') }}</div>
     {% endfor %}
   </div>
   {% else %}
@@ -304,38 +337,26 @@ page_header %}
       <p class="text-muted small mb-0">AI-generated from event feedback + online/social reviews. Use <strong>Generate Insights</strong> after scraping new reviews.</p>
     </div>
   </div>
-  {% if ds.event_insights %}
-  <div class="row g-3">
-    {% for ins in ds.event_insights %}
-    <div class="col-12 col-lg-6">
-      <div class="p-3 rounded border" style="border-color:var(--border)!important;background:#fff;">
-        <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-1">
-          <div>
-            <strong style="font-size:.88rem;">{{ ins.event_title }}</strong>
-            <span class="text-muted small ms-1">— {{ ins.lgu_name }}</span>
-          </div>
-          <div class="d-flex gap-1 flex-wrap">
-            <span class="badge" style="background:var(--muted);color:var(--foreground);font-size:.65rem;">{{ ins.total_feedback }} feedback{{ 's' if ins.total_feedback != 1 else '' }}</span>
-            {% if ins.event_status %}<span class="badge" style="font-size:.65rem;background:{{ '#d1e7dd' if ins.event_status=='finished' else '#cff4fc' if ins.event_status=='upcoming' else '#fff3cd' }};color:{{ '#0a3622' if ins.event_status=='finished' else '#055160' if ins.event_status=='upcoming' else '#664d03' }};">{{ ins.event_status }}</span>{% endif %}
-            {% if ins.negative_pct > 50 %}<span class="badge bg-danger" style="font-size:.65rem;">{{ ins.negative_pct }}% negative</span>
-            {% elif ins.negative_pct > 25 %}<span class="badge bg-warning text-dark" style="font-size:.65rem;">{{ ins.negative_pct }}% negative</span>
-            {% else %}<span class="badge bg-secondary" style="font-size:.65rem;">{{ ins.negative_pct }}% negative</span>{% endif %}
-          </div>
-        </div>
-        {% for issue in ins.issues %}
-        <div class="d-flex gap-2 align-items-start mt-2 p-2 rounded" style="background:{{ '#fff5f5' if issue.color=='danger' else '#fffbeb' if issue.color=='warning' else '#eff6ff' }};border-left:3px solid {{ '#dc3545' if issue.color=='danger' else '#fd7e14' if issue.color=='warning' else '#0dcaf0' }};">
-          <i class="bx {{ issue.icon }} mt-1 flex-shrink-0" style="color:{{ '#dc3545' if issue.color=='danger' else '#fd7e14' if issue.color=='warning' else '#0dcaf0' }};font-size:1.1rem;"></i>
-          <div style="flex:1 1 0;">
-            <div class="d-flex align-items-center gap-2 mb-1">
-              <span style="font-weight:600;font-size:.79rem;">{{ issue.label }}</span>
-              <span class="badge" style="font-size:.58rem;text-transform:uppercase;background:{{ '#f8d7da' if issue.priority=='high' else '#ffe5d0' if issue.priority=='normal' else '#d1e7dd' }};color:{{ '#842029' if issue.priority=='high' else '#7f3000' if issue.priority=='normal' else '#0a3622' }};">{{ issue.priority }}</span>
-            </div>
-            <p class="mb-0" style="font-size:.75rem;color:#57534e;"><i class="bx bx-right-arrow-alt me-1"></i>{{ issue.suggestion }}</p>
-          </div>
-        </div>
+  {% if ds.scope not in ('lgu', 'owner') and ds.event_insights_by_lgu %}
+  <div class="ds-lgu-groups">
+    {% for grp in ds.event_insights_by_lgu %}
+    <details class="ds-lgu-group" {% if loop.first %}open{% endif %}>
+      <summary class="ds-lgu-group__summary">
+        <span class="ds-lgu-group__name"><i class="bx bx-map-pin me-1"></i>{{ grp.lgu_name }}</span>
+        <span class="d-flex gap-1 flex-wrap">{{ insight_group_summary(grp, 'event') }}</span>
+      </summary>
+      <div class="row g-3 mt-1">
+        {% for ins in grp.entries %}
+        <div class="col-12 col-lg-6">{{ insight_card(ins, 'event') }}</div>
         {% endfor %}
       </div>
-    </div>
+    </details>
+    {% endfor %}
+  </div>
+  {% elif ds.event_insights %}
+  <div class="row g-3">
+    {% for ins in ds.event_insights %}
+    <div class="col-12 col-lg-6">{{ insight_card(ins, 'event') }}</div>
     {% endfor %}
   </div>
   {% else %}
@@ -592,20 +613,20 @@ page_header %}
                 {% endif %}
             </p>
         </div>
-        {% if ds.scope not in ('lgu', 'owner') %}
         <div class="d-flex gap-2 flex-wrap">
             <form method="post" action="{{ url_for('dashboard.scrape_reviews') }}">
                 <button type="submit" class="btn btn-sm dashboard-btn-primary">
                     <i class="bx bx-refresh"></i> Scrape Online + Social Media
                 </button>
             </form>
+            {% if ds.scope not in ('lgu', 'owner') %}
             <form method="post" action="{{ url_for('dashboard.run_sentiment_analysis') }}">
                 <button type="submit" class="btn btn-sm dashboard-btn-outline">
                     <i class="bx bx-brain"></i> Analyze Sentiment
                 </button>
             </form>
+            {% endif %}
         </div>
-        {% endif %}
     </div>
 
     <ul class="nav nav-tabs mb-3" role="tablist">

@@ -79,11 +79,11 @@
               <input type="checkbox" name="remember" {% if form_data.remember %}checked{% endif %} />
               <span>Keep me signed in</span>
             </label>
-            <span class="auth-link auth-link--muted small">Forgot password? (coming soon)</span>
+            <a href="{{ url_for('auth.forgot_password') }}" class="auth-link auth-link--muted small">Forgot password?</a>
           </div>
 
           <button type="submit" class="btn ltcato-btn-pill auth-form__submit w-100">
-            <i class="ph ph-sign-in"></i> Sign in as tourist
+            <i class="ph ph-sign-in"></i> Sign in
           </button>
         </form>
 

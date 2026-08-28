@@ -23,6 +23,7 @@ from services.email_service import send_visit_scheduled_emails
 from services.storage import upload_gallery_files
 from services.supabase_client import get_supabase
 from services.tourist_auth import EMAIL_PATTERN, get_current_tourist
+from services.visit_schedules import ORIGINS as VISIT_ORIGINS
 from services.visit_schedules import create_visit_schedule
 from utils.jinja_helpers import ensure_list, normalize_image_url
 
@@ -205,6 +206,16 @@ def spot_feedback(spot_id: int):
     image_files = request.files.getlist("images")[:MAX_REVIEW_IMAGES]
     image_urls = upload_gallery_files(image_files, folder=f"feedbacks/spots/{spot_id}")
 
+    # Sentiment is labeled at submission time (not a separate admin-triggered
+    # batch step) so spot feedback shows up analyzed in Decision Support the
+    # same way event feedback already does. Falls back to "neutral" on any
+    # analyzer failure (e.g. translation service down) rather than blocking
+    # the review from being saved.
+    from services.scrapers.sentiment_analyzer import analyze_sentiment
+
+    sentiment_text = " ".join(filter(None, [comment, suggestions])).strip()
+    sentiment_label = analyze_sentiment(sentiment_text)[0] if sentiment_text else "neutral"
+
     sb = get_supabase()
     try:
         sb.table("feedbacks").insert(
@@ -216,6 +227,7 @@ def spot_feedback(spot_id: int):
                 "comments": comment or None,
                 "suggestions": suggestions or None,
                 "source": "website",
+                "sentiment": sentiment_label,
                 "images": image_urls,
                 "images_approval_status": "approved",
             }
@@ -276,6 +288,9 @@ def schedule_visit(spot_id: int):
     if visitor_category not in ("day_tour", "overnight"):
         visitor_category = "day_tour"
     overnight_nights = request.form.get("overnight_nights", type=int) or 0
+    origin = request.form.get("origin") or None
+    male_count = request.form.get("male_count", type=int)
+    female_count = request.form.get("female_count", type=int)
 
     if not visitor_name or not visit_date_raw or not visit_time_raw:
         return jsonify({"error": "invalid_input"}), 400
@@ -284,6 +299,10 @@ def schedule_visit(spot_id: int):
     if party_size < 1:
         return jsonify({"error": "invalid_input"}), 400
     if visitor_category == "overnight" and overnight_nights < 1:
+        return jsonify({"error": "invalid_input"}), 400
+    if origin not in VISIT_ORIGINS:
+        return jsonify({"error": "invalid_input"}), 400
+    if male_count is None or female_count is None:
         return jsonify({"error": "invalid_input"}), 400
 
     try:
@@ -309,6 +328,9 @@ def schedule_visit(spot_id: int):
                 "notes": notes or None,
                 "visitor_category": visitor_category,
                 "overnight_nights": overnight_nights if visitor_category == "overnight" else 0,
+                "origin": origin,
+                "male_count": male_count,
+                "female_count": female_count,
             }
         )
     except ValueError:

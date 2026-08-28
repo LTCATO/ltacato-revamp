@@ -30,6 +30,29 @@
 <div class="tab-content">
   <!-- TAB: Requests (online Schedule Visit submissions) -->
   <div class="tab-pane fade{{ '' if logs_tab_active else ' show active' }}" id="requestsTab" role="tabpanel">
+    <div class="dashboard-card mb-4">
+      <form method="get" class="row g-2 align-items-end p-3">
+        <div class="col-md-6">
+          <label class="form-label small mb-1">Search visitor (name or email)</label>
+          <input type="text" name="rq" class="form-control" value="{{ rq }}" placeholder="e.g. Juan Dela Cruz" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small mb-1">Status</label>
+          <select name="r_status" class="form-select">
+            <option value="" {{ 'selected' if not r_status else '' }}>All statuses</option>
+            <option value="pending" {{ 'selected' if r_status == 'pending' else '' }}>Pending</option>
+            <option value="confirmed" {{ 'selected' if r_status == 'confirmed' else '' }}>Confirmed</option>
+            <option value="declined" {{ 'selected' if r_status == 'declined' else '' }}>Declined</option>
+            <option value="completed" {{ 'selected' if r_status == 'completed' else '' }}>Completed</option>
+            <option value="cancelled" {{ 'selected' if r_status == 'cancelled' else '' }}>Cancelled</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-outline-secondary w-100"><i class="bx bx-filter-alt"></i> Filter</button>
+        </div>
+      </form>
+    </div>
+
     <div class="dashboard-card">
       <div class="table-responsive">
         <table class="table dashboard-table mb-0">
@@ -98,7 +121,7 @@
               </td>
             </tr>
             {% else %}
-            <tr><td colspan="7" class="text-center text-muted py-3">No visit requests yet.</td></tr>
+            <tr><td colspan="7" class="text-center text-muted py-3">{{ 'No visit requests match your search.' if rq or r_status else 'No visit requests yet.' }}</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -267,6 +290,7 @@
                 <option value="other_province">Other province</option>
                 <option value="foreign">Foreign</option>
               </select>
+              <p class="form-text text-muted small mb-0">For a mixed group, pick where most of the party is from.</p>
             </div>
             <div class="col-md-6 d-none" id="manualLogGenderWrap">
               <label class="form-label d-block">Visitor is <span class="text-danger">*</span></label>

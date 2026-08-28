@@ -174,7 +174,8 @@
             <input type="checkbox" name="terms" {% if form_data.terms %}checked{% endif %} required />
             <span>
               I confirm I am registering as a <strong>tourist / visitor</strong> and agree to LTCATO's
-              <a href="#" class="auth-link">Terms of Use</a> and <a href="#" class="auth-link">Privacy Policy</a>.
+              <a href="{{ url_for('public.terms_use') }}" class="auth-link" target="_blank" rel="noopener">Terms of Use</a> and
+              <a href="{{ url_for('public.privacy_policy') }}" class="auth-link" target="_blank" rel="noopener">Privacy Policy</a>.
             </span>
           </label>
 

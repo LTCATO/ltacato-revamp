@@ -35,18 +35,22 @@ FALLBACK_QUERIES: list[str] = [
 _session_seen: set[str] = set()
 
 
-def _get_approved_spots() -> list[dict]:
+def _get_approved_spots(spot_ids: list[int] | None = None) -> list[dict]:
+    """spot_ids=None scrapes up to 25 province-wide approved spots
+    (super_admin/ltcato_staff). Pass an explicit list to scope the scrape to
+    one LGU's or one owner's own spots — an empty list means nothing to do."""
+    if spot_ids is not None and not spot_ids:
+        return []
     try:
-        return (
+        query = (
             get_supabase()
             .table("tourist_spots")
             .select("id, name")
             .eq("approval_status", "approved")
-            .limit(25)
-            .execute()
-            .data
-            or []
         )
+        if spot_ids is not None:
+            query = query.in_("id", spot_ids)
+        return query.limit(25).execute().data or []
     except Exception:
         return []
 
@@ -146,12 +150,24 @@ def _fetch_reviews_for_query(query: str, spot_id: int | None) -> tuple[int, list
     return inserted, errors
 
 
-def scrape_online_reviews() -> dict[str, Any]:
-    """Scrape real online reviews for all approved tourist spots."""
+def scrape_online_reviews(
+    *, spot_ids: list[int] | None = None, include_fallback: bool = True
+) -> dict[str, Any]:
+    """Scrape real online reviews for approved tourist spots.
+
+    spot_ids=None scrapes up to 25 province-wide approved spots
+    (super_admin/ltcato_staff). Pass an explicit list — an LGU's spots or an
+    owner's own spots — to scope the scrape instead.
+
+    include_fallback controls the generic Laguna-wide queries (not tied to
+    any spot, inserted with tourist_spot_id=None) — these only make sense on
+    a province-wide run since a scoped LGU/owner run would never see them
+    (Decision Support filters reviews by spot's lgu_id/owner).
+    """
     global _session_seen
     _session_seen = set()  # Reset session cache each run
 
-    spots = _get_approved_spots()
+    spots = _get_approved_spots(spot_ids)
     inserted = 0
     errors: list[str] = []
 
@@ -166,11 +182,12 @@ def scrape_online_reviews() -> dict[str, Any]:
         errors.extend(e)
         time.sleep(0.4)
 
-    for query in FALLBACK_QUERIES:
-        n, e = _fetch_reviews_for_query(query, None)
-        inserted += n
-        errors.extend(e)
-        time.sleep(0.3)
+    if include_fallback:
+        for query in FALLBACK_QUERIES:
+            n, e = _fetch_reviews_for_query(query, None)
+            inserted += n
+            errors.extend(e)
+            time.sleep(0.3)
 
     return {"ok": True, "inserted": inserted, "errors": errors}
 
@@ -223,7 +240,7 @@ def get_online_reviews_for_display(limit: int = 60) -> list[dict]:
             .table("external_reviews")
             .select(
                 "id, source, reviewer_name, review_text, sentiment, "
-                "review_date, scraped_at, tourist_spots(id, name, lgus(id, name))"
+                "review_date, scraped_at, tourist_spots(id, name, lgu_id, lgus(id, name))"
             )
             .order("scraped_at", desc=True)
             .limit(limit)

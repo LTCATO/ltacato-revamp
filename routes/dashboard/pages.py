@@ -701,7 +701,10 @@ def visit_schedules():
     from services.visit_schedules import list_logs_for_owner, list_visits_for_owner
 
     user = get_current_dashboard_user()
-    visits = list_visits_for_owner(str(user.get("id")), limit=200)
+
+    rq = request.args.get("rq") or None
+    r_status = request.args.get("r_status") or None
+    visits = list_visits_for_owner(str(user.get("id")), status=r_status, q=rq, limit=200)
 
     q = request.args.get("q") or None
     date_from = request.args.get("date_from") or None
@@ -715,6 +718,8 @@ def visit_schedules():
         visits=visits,
         logs=logs,
         spots=spots,
+        rq=rq or "",
+        r_status=r_status or "",
         q=q or "",
         date_from=date_from or "",
         date_to=date_to or "",
