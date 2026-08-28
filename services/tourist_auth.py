@@ -239,10 +239,44 @@ def register_tourist(
     return True, None, email_confirmation_required
 
 
+def request_password_reset(email: str, redirect_to: str) -> tuple[bool, str | None]:
+    email = (email or "").strip().lower()
+    if not email or not EMAIL_PATTERN.match(email):
+        return False, "Enter a valid email address."
+
+    auth_client = _anon_auth_client()
+    try:
+        auth_client.auth.reset_password_for_email(email, {"redirect_to": redirect_to})
+    except AuthApiError as exc:
+        return False, _friendly_auth_error(exc)
+    except Exception:
+        return False, "Unable to send a reset link right now. Please try again later."
+    return True, None
+
+
+def reset_password(access_token: str, refresh_token: str, new_password: str) -> tuple[bool, str | None]:
+    if not access_token or not refresh_token:
+        return False, "This password reset link is invalid or has expired. Please request a new one."
+    if len(new_password or "") < 8:
+        return False, "Password must be at least 8 characters."
+
+    auth_client = _anon_auth_client()
+    try:
+        auth_client.auth.set_session(access_token, refresh_token)
+        auth_client.auth.update_user({"password": new_password})
+    except AuthApiError as exc:
+        return False, _friendly_auth_error(exc)
+    except Exception:
+        return False, "Unable to reset your password. The link may have expired — please request a new one."
+    return True, None
+
+
 def _friendly_auth_error(exc: AuthApiError) -> str:
     message = str(exc).lower()
     if "invalid login credentials" in message or "invalid credentials" in message:
         return "Incorrect email or password."
+    if "expired" in message or "invalid" in message and "token" in message:
+        return "This password reset link is invalid or has expired. Please request a new one."
     if "already registered" in message or "already been registered" in message:
         return "An account with this email already exists. Try signing in instead."
     if "password" in message and "weak" in message:

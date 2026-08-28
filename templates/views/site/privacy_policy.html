@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Privacy Policy{% endblock %}
+
+{% block content %}
+<section class="page-hero page-hero--spots">
+  <div class="container-xl">
+    <nav class="page-breadcrumb" aria-label="Breadcrumb">
+      <a href="{{ url_for('public.home') }}">Home</a>
+      <i class="ph ph-caret-right"></i>
+      <span>Privacy Policy</span>
+    </nav>
+    <span class="section-eyebrow">Legal</span>
+    <h1 class="page-hero__title">Privacy Policy</h1>
+    <p class="page-hero__lead">Last updated: August 28, 2026</p>
+  </div>
+</section>
+
+<section class="home-section">
+  <div class="container-xl">
+    <div class="row justify-content-center">
+      <div class="col-lg-9">
+        <p class="section-lead mb-4">
+          The Laguna Tourism, Culture, Arts and Trade Office (LTCATO) values your privacy. This Privacy
+          Policy explains how we collect, use, and protect your personal information when you use this
+          platform, in accordance with the Data Privacy Act of 2012 (Republic Act No. 10173) and its
+          implementing rules and regulations.
+        </p>
+
+        <h2 class="section-title fs-4 mb-3">1. Information we collect</h2>
+        <p class="text-muted mb-2">When you create a tourist account, we collect:</p>
+        <ul class="text-muted mb-4">
+          <li>Your name (first, middle, and last name)</li>
+          <li>Your email address</li>
+          <li>Your account password (stored in encrypted/hashed form)</li>
+          <li>Activity on the platform, such as saved spots, itineraries, and reviews you submit</li>
+        </ul>
+
+        <h2 class="section-title fs-4 mb-3">2. How we use your information</h2>
+        <p class="text-muted mb-4">
+          We use your information to create and manage your account, verify your identity, personalize
+          your experience (such as saved destinations and itineraries), respond to your inquiries, and
+          improve our tourism programs and services.
+        </p>
+
+        <h2 class="section-title fs-4 mb-3">3. Sharing of information</h2>
+        <p class="text-muted mb-4">
+          We do not sell your personal information. We may share limited information with other offices
+          of the Provincial Government of Laguna or partner local government units for purposes directly
+          related to tourism services, or when required by law.
+        </p>
+
+        <h2 class="section-title fs-4 mb-3">4. Data security</h2>
+        <p class="text-muted mb-4">
+          We implement reasonable organizational, physical, and technical safeguards to protect your
+          personal information against unauthorized access, alteration, disclosure, or destruction.
+        </p>
+
+        <h2 class="section-title fs-4 mb-3">5. Data retention</h2>
+        <p class="text-muted mb-4">
+          We retain your personal information for as long as your account remains active or as needed to
+          provide you services, comply with legal obligations, resolve disputes, and enforce our
+          agreements.
+        </p>
+
+        <h2 class="section-title fs-4 mb-3">6. Your rights</h2>
+        <p class="text-muted mb-4">
+          Under the Data Privacy Act, you have the right to be informed, to access, to object, to
+          correct, to erase or block, to data portability, and to file a complaint. To exercise these
+          rights or request the deletion of your account, please contact us using the details on our
+          <a href="{{ url_for('public.about') }}" class="auth-link">About</a> page.
+        </p>
+
+        <h2 class="section-title fs-4 mb-3">7. Changes to this policy</h2>
+        <p class="text-muted mb-4">
+          We may update this Privacy Policy from time to time to reflect changes in our practices or for
+          legal, operational, or regulatory reasons. Material changes will be posted on this page.
+        </p>
+
+        <div class="d-flex flex-wrap gap-3 mt-5">
+          <a href="{{ url_for('public.terms_use') }}" class="btn ltcato-btn-pill"><i class="ph ph-file-text"></i> View Terms of Use</a>
+          <a href="{{ url_for('public.home') }}" class="btn ltcato-btn-outline-lg">Back to Home</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

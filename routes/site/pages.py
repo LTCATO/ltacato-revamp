@@ -39,6 +39,16 @@ def governor():
     return render_template("views/site/governor.html", governor=GOVERNOR)
 
 
+@public_bp.route("/terms-use")
+def terms_use():
+    return render_template("views/site/terms_use.html")
+
+
+@public_bp.route("/privacy-policy")
+def privacy_policy():
+    return render_template("views/site/privacy_policy.html")
+
+
 @public_bp.route("/api/lara/chat", methods=["POST"])
 def lara_chat():
     """LARA AI chatbot endpoint — role-aware, intent-scoped, Gemini-powered."""

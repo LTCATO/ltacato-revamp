@@ -44,7 +44,7 @@
   <div class="modal fade" id="siteModal-{{ spot.id }}" tabindex="-1">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
-        <form method="post" action="{{ url_for('dashboard.form_save_stub') }}">
+        <form method="post" action="{{ url_for('dashboard.form_save_stub') }}" enctype="multipart/form-data">
           <input type="hidden" name="form_type" value="site_update" />
           <input type="hidden" name="spot_id" value="{{ spot.id }}" />
           <div class="modal-header">
@@ -59,6 +59,42 @@
             <div class="col-12"><label class="form-label">Hook text</label><textarea name="hook_text" class="form-control" rows="2">{{ spot.hook_text or '' }}</textarea></div>
             <div class="col-12"><label class="form-label">Entrance fees</label><textarea name="entrance_fees" class="form-control" rows="2">{{ spot.entrance_fees or '' }}</textarea></div>
             <div class="col-12"><label class="form-label">What to bring</label><textarea name="what_to_bring" class="form-control" rows="2">{{ spot.what_to_bring or '' }}</textarea></div>
+
+            <div class="col-12"><hr class="my-1" /></div>
+
+            <div class="col-md-6">
+              <label class="form-label">Replace main photo</label>
+              {% if spot.main_image_url %}
+              <img src="{{ spot.main_image_url|normalize_image_url }}" alt="{{ spot.name }}" class="img-fluid rounded mb-2 d-block" style="max-height: 100px;" />
+              <div class="form-check mb-2">
+                <input type="checkbox" name="remove_main_image" value="1" class="form-check-input" id="removeMainImage-{{ spot.id }}" />
+                <label class="form-check-label small text-danger" for="removeMainImage-{{ spot.id }}">
+                  Remove current photo (e.g. if it's broken)
+                </label>
+              </div>
+              {% endif %}
+              <input type="file" name="main_image" class="form-control" accept="image/*" />
+              <div class="form-text">Uploading a new photo replaces the current one.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Gallery photos</label>
+              {% set gallery_images = spot.gallery_images|ensure_list %}
+              {% if gallery_images %}
+              <div class="d-flex flex-wrap gap-2 mb-2">
+                {% for img in gallery_images %}
+                <div class="text-center">
+                  <img src="{{ img|normalize_image_url }}" alt="{{ spot.name }} gallery" class="rounded d-block mb-1" style="width: 56px; height: 56px; object-fit: cover;" />
+                  <label class="d-flex align-items-center justify-content-center gap-1 small text-danger mb-0" style="cursor: pointer;">
+                    <input type="checkbox" name="remove_gallery_images" value="{{ img }}" class="form-check-input m-0" />
+                    Remove
+                  </label>
+                </div>
+                {% endfor %}
+              </div>
+              {% endif %}
+              <input type="file" name="gallery_images" class="form-control" accept="image/*" multiple />
+              <div class="form-text">New photos are added to the existing gallery. Check "Remove" under a broken photo to delete it.</div>
+            </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>

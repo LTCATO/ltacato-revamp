@@ -13,6 +13,7 @@ REJECTED_STATUS = "rejected"
 
 SPOT_LIST_FIELDS = (
     "id, name, code, description, hook_title, hook_text, address, main_image_url, "
+    "gallery_images, opening_hours, entrance_fees, what_to_bring, "
     "rating, reviews_count, lgu_id, approval_status, is_featured, best_time_to_visit, "
     "latitude, longitude, "
     "attraction_categories(id, name, code), lgus(id, name)"
@@ -294,6 +295,10 @@ def update_tourist_spot_for_owner(
     *,
     owner_id: str,
     fields: dict[str, Any],
+    main_image=None,
+    gallery_files=None,
+    remove_main_image: bool = False,
+    remove_gallery_images: list[str] | None = None,
 ) -> None:
     allowed = {
         "description",
@@ -305,6 +310,31 @@ def update_tourist_spot_for_owner(
         "what_to_bring",
     }
     payload = {k: fields[k] for k in allowed if k in fields}
+
+    from services.storage import upload_gallery_files, upload_optional_file
+
+    main_image_url = upload_optional_file(main_image, folder="spots/covers", kind="image")
+    if main_image_url:
+        payload["main_image_url"] = main_image_url
+    elif remove_main_image:
+        payload["main_image_url"] = None
+
+    new_gallery_urls = upload_gallery_files(gallery_files or [], folder="spots/gallery")
+    remove_set = set(remove_gallery_images or [])
+    if new_gallery_urls or remove_set:
+        existing = (
+            get_supabase()
+            .table("tourist_spots")
+            .select("gallery_images")
+            .eq("id", spot_id)
+            .eq("owner_id", owner_id)
+            .limit(1)
+            .execute()
+        )
+        existing_gallery = (existing.data[0].get("gallery_images") or []) if existing.data else []
+        remaining_gallery = [img for img in existing_gallery if img not in remove_set]
+        payload["gallery_images"] = remaining_gallery + new_gallery_urls
+
     if not payload:
         return
     (

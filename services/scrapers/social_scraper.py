@@ -116,22 +116,27 @@ def _store_post(post: dict, tourist_spot_id: int | None, event_id: int | None) -
         return False
 
 
-def scrape_spots_social() -> dict[str, Any]:
+def scrape_spots_social(*, spot_ids: list[int] | None = None) -> dict[str, Any]:
     """
     Search Facebook for posts about each approved tourist spot.
     Stores results in external_reviews with tourist_spot_id set.
+
+    spot_ids=None searches up to 20 province-wide approved spots. Pass an
+    explicit list to scope to one LGU's or one owner's own spots — an empty
+    list means nothing to do.
     """
+    if spot_ids is not None and not spot_ids:
+        return {"ok": True, "inserted": 0, "errors": []}
     try:
-        spots = (
+        query = (
             get_supabase()
             .table("tourist_spots")
             .select("id, name, lgus(name)")
             .eq("approval_status", "approved")
-            .limit(20)
-            .execute()
-            .data
-            or []
         )
+        if spot_ids is not None:
+            query = query.in_("id", spot_ids)
+        spots = query.limit(20).execute().data or []
     except Exception:
         return {"ok": False, "error": "Could not fetch spots", "inserted": 0}
 
@@ -160,24 +165,29 @@ def scrape_spots_social() -> dict[str, Any]:
     return {"ok": True, "inserted": inserted, "errors": errors}
 
 
-def scrape_events_social() -> dict[str, Any]:
+def scrape_events_social(*, event_ids: list[int] | None = None) -> dict[str, Any]:
     """
     Search Facebook for posts about approved events.
     Stores results in external_reviews with event_id set.
     Requires event_id column in external_reviews (run SQL migration).
+
+    event_ids=None searches up to 15 province-wide approved events. Pass an
+    explicit list to scope to one LGU's events — an empty list (e.g. an
+    establishment owner, who has no events) means nothing to do.
     """
+    if event_ids is not None and not event_ids:
+        return {"ok": True, "inserted": 0, "errors": []}
     try:
-        events = (
+        query = (
             get_supabase()
             .table("events")
             .select("id, title, event_status, lgus(name)")
             .eq("approval_status", "approved")
             .in_("event_status", ["finished", "ongoing", "upcoming"])
-            .limit(15)
-            .execute()
-            .data
-            or []
         )
+        if event_ids is not None:
+            query = query.in_("id", event_ids)
+        events = query.limit(15).execute().data or []
     except Exception:
         return {"ok": False, "error": "Could not fetch events", "inserted": 0}
 
@@ -206,7 +216,9 @@ def scrape_events_social() -> dict[str, Any]:
     return {"ok": True, "inserted": inserted, "errors": errors}
 
 
-def scrape_social_all() -> dict[str, Any]:
+def scrape_social_all(
+    *, spot_ids: list[int] | None = None, event_ids: list[int] | None = None
+) -> dict[str, Any]:
     """Run both spot and event social media scraping in sequence."""
     if not RAPIDAPI_KEY:
         return {
@@ -215,8 +227,8 @@ def scrape_social_all() -> dict[str, Any]:
             "inserted": 0,
             "errors": [],
         }
-    r1 = scrape_spots_social()
-    r2 = scrape_events_social()
+    r1 = scrape_spots_social(spot_ids=spot_ids)
+    r2 = scrape_events_social(event_ids=event_ids)
     return {
         "ok": True,
         "spots_inserted": r1.get("inserted", 0),

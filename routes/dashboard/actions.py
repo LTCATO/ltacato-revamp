@@ -1070,7 +1070,15 @@ def _save_site_update():
         )
     }
     try:
-        update_tourist_spot_for_owner(spot_id, owner_id=owner_id, fields=fields)
+        update_tourist_spot_for_owner(
+            spot_id,
+            owner_id=owner_id,
+            fields=fields,
+            main_image=request.files.get("main_image"),
+            gallery_files=request.files.getlist("gallery_images"),
+            remove_main_image=request.form.get("remove_main_image") == "1",
+            remove_gallery_images=request.form.getlist("remove_gallery_images"),
+        )
         flash("Establishment listing updated.", "success")
     except Exception as exc:
         flash(f"Could not save updates: {exc}", "danger")
@@ -1084,9 +1092,69 @@ def _save_site_update():
 
 @dashboard_bp.route("/actions/scrape/reviews", methods=["POST"])
 @dashboard_login_required
-@role_required("super_admin", "ltcato_staff")
+@role_required("super_admin", "ltcato_staff", "lgu_admin", "establishment_owner")
 def scrape_reviews():
     """Scrape online reviews from Google News + Facebook for spots AND events."""
+    from services.decision_support_service import get_scrape_cooldown_remaining_minutes
+
+    # Scope the scrape to what the requesting role can actually see —
+    # otherwise an lgu_admin's or owner's run scrapes 25 random province-wide
+    # spots (or the un-scoped fallback queries), which insert with a
+    # tourist_spot_id the Decision Support page's LGU/owner filters then
+    # exclude, so the "N new reviews" the button reports never actually show
+    # up for them.
+    user = get_current_dashboard_user()
+    role = user["role"]
+    spot_ids: list[int] | None = None
+    event_ids: list[int] | None = None
+    include_fallback = True
+    cooldown_lgu_id: int | None = None
+    cooldown_owner_id: str | None = None
+
+    if role == "lgu_admin":
+        include_fallback = False
+        lgu_id = resolve_dashboard_lgu_id(user)
+        cooldown_lgu_id = lgu_id
+        if lgu_id:
+            from services.events import list_events
+            from services.spots import list_spots_for_dashboard
+
+            spot_ids = [
+                int(s["id"])
+                for s in list_spots_for_dashboard(lgu_id=lgu_id, approval_status="approved", limit=100)
+                if s.get("id") is not None
+            ]
+            event_ids = [
+                int(e["id"])
+                for e in list_events(lgu_id=lgu_id, approval_status="approved", limit=100)
+                if e.get("id") is not None
+            ]
+        else:
+            spot_ids, event_ids = [], []
+    elif role == "establishment_owner":
+        include_fallback = False
+        owner_id = str(user.get("id") or "")
+        cooldown_owner_id = owner_id
+        from services.spots import list_spots_for_dashboard
+
+        spot_ids = [
+            int(s["id"])
+            for s in list_spots_for_dashboard(owner_id=owner_id, approval_status="approved", limit=50)
+            if s.get("id") is not None
+        ]
+        event_ids = []  # establishment owners don't run events
+
+    remaining = get_scrape_cooldown_remaining_minutes(
+        lgu_id=cooldown_lgu_id, owner_id=cooldown_owner_id
+    )
+    if remaining > 0:
+        flash(
+            f"Reviews were refreshed recently — please try again in about "
+            f"{remaining} minute{'s' if remaining != 1 else ''}.",
+            "info",
+        )
+        return redirect(url_for("dashboard.decision_support"))
+
     try:
         from services.scrapers.reviews_scraper import scrape_online_reviews
         from services.scrapers.social_scraper import scrape_social_all
@@ -1096,8 +1164,8 @@ def scrape_reviews():
             analyze_all_feedbacks,
         )
 
-        r1 = scrape_online_reviews()
-        r2 = scrape_social_all()
+        r1 = scrape_online_reviews(spot_ids=spot_ids, include_fallback=include_fallback)
+        r2 = scrape_social_all(spot_ids=spot_ids, event_ids=event_ids)
         total = r1.get("inserted", 0) + r2.get("inserted", 0)
         errors = r1.get("errors", []) + r2.get("errors", [])
         s1 = analyze_all_feedbacks(force=False)
@@ -1122,7 +1190,7 @@ def scrape_reviews():
 
 @dashboard_bp.route("/actions/generate/insights", methods=["POST"])
 @dashboard_login_required
-@role_required("super_admin", "ltcato_staff")
+@role_required("super_admin", "ltcato_staff", "lgu_admin", "establishment_owner")
 def generate_insights():
     """AI-generate spot/event insights for entities not yet cached."""
     try:

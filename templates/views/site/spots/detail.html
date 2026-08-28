@@ -668,6 +668,48 @@ ensure_list %} {% set driving = spot.driving_guide | ensure_list %}
         });
     }
 
+    const scheduleVisitPartySize = document.getElementById("scheduleVisitPartySize");
+    const scheduleVisitGenderWrap = document.getElementById("scheduleVisitGenderWrap");
+    const scheduleVisitMaleWrap = document.getElementById("scheduleVisitMaleWrap");
+    const scheduleVisitFemaleWrap = document.getElementById("scheduleVisitFemaleWrap");
+    const scheduleVisitMaleCount = document.getElementById("scheduleVisitMaleCount");
+    const scheduleVisitFemaleCount = document.getElementById("scheduleVisitFemaleCount");
+    const scheduleVisitGenderMale = document.getElementById("scheduleVisitGenderMale");
+    const scheduleVisitGenderFemale = document.getElementById("scheduleVisitGenderFemale");
+    const scheduleVisitOriginHint = document.getElementById("scheduleVisitOriginHint");
+
+    function syncScheduleVisitGenderMode() {
+        if (!scheduleVisitPartySize) return;
+        const isSingle = (parseInt(scheduleVisitPartySize.value, 10) || 1) === 1;
+        scheduleVisitGenderWrap.classList.toggle("d-none", !isSingle);
+        scheduleVisitMaleWrap.classList.toggle("d-none", isSingle);
+        scheduleVisitFemaleWrap.classList.toggle("d-none", isSingle);
+        scheduleVisitMaleCount.required = !isSingle;
+        scheduleVisitFemaleCount.required = !isSingle;
+        scheduleVisitGenderMale.required = isSingle;
+        scheduleVisitGenderFemale.required = isSingle;
+        if (scheduleVisitOriginHint) {
+            scheduleVisitOriginHint.classList.toggle("d-none", isSingle);
+        }
+    }
+
+    function applyScheduleVisitGenderSelection() {
+        if (scheduleVisitGenderMale.checked) {
+            scheduleVisitMaleCount.value = 1;
+            scheduleVisitFemaleCount.value = 0;
+        } else if (scheduleVisitGenderFemale.checked) {
+            scheduleVisitMaleCount.value = 0;
+            scheduleVisitFemaleCount.value = 1;
+        }
+    }
+
+    if (scheduleVisitPartySize) {
+        scheduleVisitPartySize.addEventListener("input", syncScheduleVisitGenderMode);
+        scheduleVisitGenderMale.addEventListener("change", applyScheduleVisitGenderSelection);
+        scheduleVisitGenderFemale.addEventListener("change", applyScheduleVisitGenderSelection);
+        syncScheduleVisitGenderMode();
+    }
+
     const scheduleVisitForm = document.getElementById("scheduleVisitForm");
     if (scheduleVisitForm) {
         scheduleVisitForm.addEventListener("submit", async (e) => {

@@ -227,6 +227,28 @@ def _get_sentiment_for_spot_ids(spot_ids: set) -> dict[str, Any]:
     }
 
 
+def _group_insights_by_lgu(insights: list[dict]) -> list[dict[str, Any]]:
+    """Group province-wide insight cards by LGU so super_admin/ltcato_staff
+    get a scannable per-LGU breakdown instead of one long flat list — the
+    LGU with the most severe issues sorts first."""
+    groups: dict[str, dict[str, Any]] = {}
+    for ins in insights:
+        lgu_name = ins.get("lgu_name") or "Unknown"
+        grp = groups.setdefault(
+            lgu_name,
+            {"lgu_name": lgu_name, "entries": [], "count": 0, "total_issues": 0, "high_negative_count": 0},
+        )
+        grp["entries"].append(ins)
+        grp["count"] += 1
+        grp["total_issues"] += len(ins.get("issues") or [])
+        if (ins.get("negative_pct") or 0) > 50:
+            grp["high_negative_count"] += 1
+    return sorted(
+        groups.values(),
+        key=lambda g: (-g["high_negative_count"], -g["total_issues"], g["lgu_name"]),
+    )
+
+
 def _build_data(lgu_id: int | None = None) -> dict[str, Any]:
     """Build the full decision support data dict (called at most once per 10 min)."""
     event_feedbacks = get_event_feedbacks_for_display(limit=50)
@@ -282,6 +304,8 @@ def _build_data(lgu_id: int | None = None) -> dict[str, Any]:
         "spot_combined_sentiment": spot_combined_sentiment,
         "spot_insights": spot_insights,
         "event_insights": event_insights,
+        "spot_insights_by_lgu": _group_insights_by_lgu(spot_insights),
+        "event_insights_by_lgu": _group_insights_by_lgu(event_insights),
         "recommendations": recommendations,
         "scraper_status": {
             "reviews_ok": bool(online_reviews),
@@ -534,3 +558,76 @@ def get_scraper_last_run() -> dict[str, str | None]:
     return {
         "reviews": _latest("external_reviews"),
     }
+
+
+# Scraping loops over every spot in-scope with a network call per spot and
+# hits a rate-limited third-party API (RapidAPI for Facebook), so opening
+# the trigger to all dashboard roles needs a cooldown — otherwise several
+# people clicking around the same time would each kick off a multi-minute
+# scrape concurrently. The cooldown is scoped to match what scrape_reviews()
+# actually scrapes (see routes/dashboard/actions.py): an lgu_admin's run
+# only locks their own LGU, an owner's run only locks their own spots, and
+# only the province-wide run (super_admin/ltcato_staff) locks everyone —
+# otherwise one LGU's small scrape would block every unrelated LGU/owner too.
+# Backed by external_reviews.scraped_at (not an in-memory timer) so it holds
+# across multiple app workers/processes, not just within one.
+SCRAPE_COOLDOWN_MINUTES = 20
+
+
+def _latest_scraped_at(*, lgu_id: int | None = None, owner_id: str | None = None) -> str | None:
+    """Latest external_reviews.scraped_at for the given scope.
+    owner_id: one owner's spots. lgu_id: an LGU's spots + events (owners
+    have no events, so owner_id never checks events). Both None: every row
+    (province-wide)."""
+    if lgu_id is None and owner_id is None:
+        queries = [get_supabase().table("external_reviews").select("scraped_at")]
+    elif owner_id is not None:
+        queries = [
+            get_supabase()
+            .table("external_reviews")
+            .select("scraped_at, tourist_spots!inner(owner_id)")
+            .eq("tourist_spots.owner_id", owner_id)
+        ]
+    else:
+        queries = [
+            get_supabase()
+            .table("external_reviews")
+            .select("scraped_at, tourist_spots!inner(lgu_id)")
+            .eq("tourist_spots.lgu_id", lgu_id),
+            get_supabase()
+            .table("external_reviews")
+            .select("scraped_at, events!inner(lgu_id)")
+            .eq("events.lgu_id", lgu_id),
+        ]
+
+    latest: str | None = None
+    for q in queries:
+        try:
+            rows = q.order("scraped_at", desc=True).limit(1).execute().data or []
+        except Exception:
+            continue
+        if rows:
+            ts = str(rows[0].get("scraped_at") or "")
+            if ts and (latest is None or ts > latest):
+                latest = ts
+    return latest
+
+
+def get_scrape_cooldown_remaining_minutes(
+    *, lgu_id: int | None = None, owner_id: str | None = None
+) -> int:
+    """Minutes until Scrape Reviews may run again for this scope, or 0 if
+    it's fine now. Pass the same lgu_id/owner_id the scrape itself will be
+    scoped to; omit both for the province-wide check."""
+    last_run = _latest_scraped_at(lgu_id=lgu_id, owner_id=owner_id)
+    if not last_run:
+        return 0
+    try:
+        from datetime import datetime, timezone
+
+        ts = last_run[:19].replace("T", " ")
+        last_dt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        elapsed_minutes = (datetime.now(timezone.utc) - last_dt).total_seconds() / 60
+    except ValueError:
+        return 0
+    return max(0, round(SCRAPE_COOLDOWN_MINUTES - elapsed_minutes))
