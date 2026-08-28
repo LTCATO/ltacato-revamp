@@ -68,9 +68,12 @@ _CREATE_ALLOWED = {
     "notes",
     "visitor_category",
     "overnight_nights",
+    "origin",
+    "male_count",
+    "female_count",
 }
 
-_MANUAL_LOG_ALLOWED = _CREATE_ALLOWED | {"origin", "male_count", "female_count"}
+_MANUAL_LOG_ALLOWED = _CREATE_ALLOWED
 
 _DEMOGRAPHICS_ALLOWED = {
     "visitor_category",
@@ -91,6 +94,22 @@ def _normalize_visit_row(row: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
+def _apply_demographics(row: dict[str, Any], payload: dict[str, Any]) -> None:
+    """Validate and set origin + gender counts — shared by the tourist-facing
+    "Schedule Visit" request and the owner's manual walk-in log, since LTCATO
+    needs this breakdown for arrival reports either way (see
+    aggregate_logs_for_report)."""
+    if payload.get("origin") not in ORIGINS:
+        raise ValueError("Please tell us where the visitor is coming from.")
+    if payload.get("male_count") in (None, ""):
+        raise ValueError("Male count is required.")
+    if payload.get("female_count") in (None, ""):
+        raise ValueError("Female count is required.")
+    row["origin"] = payload["origin"]
+    row["male_count"] = int(payload["male_count"])
+    row["female_count"] = int(payload["female_count"])
+
+
 def _insert_visit_row(row: dict[str, Any]):
     """Insert into visit_schedules, tolerating a not-yet-migrated `source`
     column (pre-arrival_reports_v2.sql) by retrying without it."""
@@ -106,6 +125,9 @@ def _insert_visit_row(row: dict[str, Any]):
 def create_visit_schedule(payload: dict[str, Any]) -> dict[str, Any]:
     row = {k: payload[k] for k in _CREATE_ALLOWED if k in payload}
     row = _normalize_visit_row(row)
+    if not row["visitor_name"]:
+        raise ValueError("Visitor name is required.")
+    _apply_demographics(row, payload)
     row["status"] = "pending"
     row["source"] = "scheduled"
 
@@ -144,15 +166,7 @@ def create_manual_log(payload: dict[str, Any], *, owner_id: str) -> dict[str, An
     row = _normalize_visit_row(row)
     if not row["visitor_name"]:
         raise ValueError("Visitor name is required.")
-    if payload.get("origin") not in ORIGINS:
-        raise ValueError("Origin is required.")
-    if payload.get("male_count") in (None, ""):
-        raise ValueError("Male count is required.")
-    if payload.get("female_count") in (None, ""):
-        raise ValueError("Female count is required.")
-    row["origin"] = payload["origin"]
-    row["male_count"] = int(payload["male_count"])
-    row["female_count"] = int(payload["female_count"])
+    _apply_demographics(row, payload)
     row["status"] = "completed"
     row["is_manual"] = True
     row["source"] = "walk_in"
@@ -189,7 +203,11 @@ def _spot_ids_for_owner(owner_id: str) -> set[int]:
 
 
 def list_visits_for_owner(
-    owner_id: str, *, status: str | None = None, limit: int = 200
+    owner_id: str,
+    *,
+    status: str | None = None,
+    q: str | None = None,
+    limit: int = 200,
 ) -> list[dict[str, Any]]:
     """Online 'Schedule Visit' requests only (excludes manual walk-in logs —
     those belong on the Logs page, see list_logs_for_owner)."""
@@ -205,6 +223,10 @@ def list_visits_for_owner(
     )
     if status:
         query = query.eq("status", status)
+    if q:
+        term = q.strip()
+        if term:
+            query = query.or_(f"visitor_name.ilike.%{term}%,visitor_email.ilike.%{term}%")
     response = query.order("visit_date", desc=True).limit(limit).execute()
     return response.data or []
 

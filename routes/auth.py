@@ -7,6 +7,8 @@ from services.tourist_auth import (
     login_tourist,
     logout_tourist,
     register_tourist,
+    request_password_reset,
+    reset_password as complete_password_reset,
     validate_login,
     validate_register,
 )
@@ -112,6 +114,49 @@ def register():
         benefits=TOURIST_BENEFITS,
         form_data=form_data,
     )
+
+
+@auth_bp.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if get_current_tourist():
+        return redirect(url_for("public.home"))
+
+    form_data = {"email": ""}
+
+    if request.method == "POST":
+        email = _form_value("email")
+        form_data = {"email": email}
+
+        # Always show the same message whether or not the email exists,
+        # so this endpoint can't be used to enumerate registered accounts.
+        request_password_reset(email, url_for("auth.reset_password", _external=True))
+        flash(
+            "If an account exists for that email, we've sent a link to reset your password.",
+            "info",
+        )
+        return redirect(url_for("auth.login"))
+
+    return render_template("views/auth/forgot_password.html", form_data=form_data)
+
+
+@auth_bp.route("/reset-password", methods=["GET", "POST"])
+def reset_password():
+    if request.method == "POST":
+        access_token = request.form.get("access_token") or ""
+        refresh_token = request.form.get("refresh_token") or ""
+        new_password = request.form.get("password") or ""
+        confirm_password = request.form.get("confirm_password") or ""
+
+        if new_password != confirm_password:
+            flash("Passwords do not match.", "danger")
+        else:
+            ok, error = complete_password_reset(access_token, refresh_token, new_password)
+            if ok:
+                flash("Your password has been reset. Please sign in.", "success")
+                return redirect(url_for("auth.login"))
+            flash(error or "Unable to reset your password.", "danger")
+
+    return render_template("views/auth/reset_password.html")
 
 
 @auth_bp.route("/logout", methods=["POST"])

@@ -59,6 +59,7 @@
                             <input
                                 type="number"
                                 name="party_size"
+                                id="scheduleVisitPartySize"
                                 class="form-control"
                                 min="1"
                                 value="1"
@@ -112,6 +113,67 @@
                                 class="form-control"
                                 min="1"
                                 value="1"
+                            />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"
+                                >Where is your group mostly from? <span class="text-danger">*</span></label
+                            >
+                            <select name="origin" class="form-select" required>
+                                <option value="" disabled selected>Select origin</option>
+                                <option value="this_city">This city/municipality</option>
+                                <option value="other_city">Other city/municipality</option>
+                                <option value="other_province">Other province</option>
+                                <option value="foreign">Foreign</option>
+                            </select>
+                            <p class="form-text text-muted small mb-0" id="scheduleVisitOriginHint">
+                                Traveling with people from different places? Pick where most of your
+                                party is from — this only affects tourism statistics, not your booking.
+                            </p>
+                        </div>
+                        <div class="col-md-6" id="scheduleVisitGenderWrap">
+                            <label class="form-label d-block"
+                                >You are <span class="text-danger">*</span></label
+                            >
+                            <div class="btn-group w-100" role="group">
+                                <input
+                                    type="radio"
+                                    class="btn-check"
+                                    name="gender_single"
+                                    id="scheduleVisitGenderMale"
+                                    value="male"
+                                    autocomplete="off"
+                                />
+                                <label class="btn btn-outline-secondary" for="scheduleVisitGenderMale">Male</label>
+                                <input
+                                    type="radio"
+                                    class="btn-check"
+                                    name="gender_single"
+                                    id="scheduleVisitGenderFemale"
+                                    value="female"
+                                    autocomplete="off"
+                                />
+                                <label class="btn btn-outline-secondary" for="scheduleVisitGenderFemale">Female</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 d-none" id="scheduleVisitMaleWrap">
+                            <label class="form-label">Male count <span class="text-danger">*</span></label>
+                            <input
+                                type="number"
+                                name="male_count"
+                                id="scheduleVisitMaleCount"
+                                class="form-control"
+                                min="0"
+                            />
+                        </div>
+                        <div class="col-md-6 d-none" id="scheduleVisitFemaleWrap">
+                            <label class="form-label">Female count <span class="text-danger">*</span></label>
+                            <input
+                                type="number"
+                                name="female_count"
+                                id="scheduleVisitFemaleCount"
+                                class="form-control"
+                                min="0"
                             />
                         </div>
                         <div class="col-12">

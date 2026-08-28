@@ -123,6 +123,7 @@ MAIN CONTENT (col-lg-8 + col-lg-4)
                             alt="{{ event.title }} — photo 1"
                             class="event-mosaic__img"
                             loading="lazy"
+                            data-lightbox-index="0"
                         />
                     </div>
                     <div class="event-mosaic__side">
@@ -131,6 +132,7 @@ MAIN CONTENT (col-lg-8 + col-lg-4)
                             alt="{{ event.title }} — photo 2"
                             class="event-mosaic__img"
                             loading="lazy"
+                            data-lightbox-index="1"
                         />
                     </div>
                     <div class="event-mosaic__side">
@@ -139,6 +141,7 @@ MAIN CONTENT (col-lg-8 + col-lg-4)
                             alt="{{ event.title }} — photo 3"
                             class="event-mosaic__img"
                             loading="lazy"
+                            data-lightbox-index="2"
                         />
                     </div>
 
@@ -149,6 +152,7 @@ MAIN CONTENT (col-lg-8 + col-lg-4)
                             alt="{{ event.title }} — photo 1"
                             class="event-mosaic__img"
                             loading="lazy"
+                            data-lightbox-index="0"
                         />
                     </div>
                     <div>
@@ -157,6 +161,7 @@ MAIN CONTENT (col-lg-8 + col-lg-4)
                             alt="{{ event.title }} — photo 2"
                             class="event-mosaic__img"
                             loading="lazy"
+                            data-lightbox-index="1"
                         />
                     </div>
 
@@ -167,6 +172,7 @@ MAIN CONTENT (col-lg-8 + col-lg-4)
                             alt="{{ event.title }}"
                             class="event-mosaic__img event-mosaic__img--wide"
                             loading="lazy"
+                            data-lightbox-index="0"
                         />
                     </div>
                     {% endif %}
@@ -206,14 +212,71 @@ MAIN CONTENT (col-lg-8 + col-lg-4)
                                     src="{{ img }}"
                                     alt="{{ event.title }} — photo {{ loop.index }}"
                                     loading="lazy"
+                                    data-lightbox-index="{{ loop.index0 }}"
                                 />
                             </div>
                             {% endfor %}
                         </div>
                     </div>
                 </div>
-                {% endif %} {% endif %} {# end if gallery #} {# ── About this
-                event ──────────────────────── #}
+                {% endif %} {% endif %} {# end if gallery #} {# ── Photo
+                lightbox ────────────────────────────────── #}
+                <div
+                    class="modal fade"
+                    id="eventLightboxModal"
+                    tabindex="-1"
+                    aria-hidden="true"
+                >
+                    <div class="modal-dialog modal-dialog-centered modal-xl">
+                        <div class="modal-content bg-dark border-0">
+                            <button
+                                type="button"
+                                class="btn-close btn-close-white position-absolute top-0 end-0 m-3"
+                                style="z-index: 2"
+                                data-bs-dismiss="modal"
+                                aria-label="Close"
+                            ></button>
+                            <div
+                                class="modal-body p-0 d-flex align-items-center justify-content-center position-relative"
+                                style="min-height: 60vh"
+                            >
+                                <button
+                                    type="button"
+                                    id="eventLightboxPrev"
+                                    class="btn btn-light btn-sm rounded-circle position-absolute start-0 ms-3"
+                                    style="z-index: 2; width: 40px; height: 40px"
+                                    aria-label="Previous photo"
+                                >
+                                    <i class="ph ph-caret-left"></i>
+                                </button>
+                                <img
+                                    id="eventLightboxImg"
+                                    src=""
+                                    alt=""
+                                    style="
+                                        max-width: 100%;
+                                        max-height: 85vh;
+                                        object-fit: contain;
+                                    "
+                                />
+                                <button
+                                    type="button"
+                                    id="eventLightboxNext"
+                                    class="btn btn-light btn-sm rounded-circle position-absolute end-0 me-3"
+                                    style="z-index: 2; width: 40px; height: 40px"
+                                    aria-label="Next photo"
+                                >
+                                    <i class="ph ph-caret-right"></i>
+                                </button>
+                            </div>
+                            <div
+                                class="text-center text-white-50 small pb-3"
+                                id="eventLightboxCounter"
+                            ></div>
+                        </div>
+                    </div>
+                </div>
+                {# ── About this event ──────────────────────── #}
                 <div class="spot-detail-block">
                     <h2 class="spot-detail-block__title">About this event</h2>
                     {% if event.full_description %}
@@ -905,6 +968,63 @@ RELATED EVENTS ═════════════════════�
                     nextEl: ".event-thumbs-next",
                     prevEl: ".event-thumbs-prev",
                 },
+            });
+        }
+
+        /* ── Photo lightbox ─────────────────────────────────────────── */
+        const eventGalleryImages = {{ gallery | tojson }};
+        const lightboxModalEl = document.getElementById("eventLightboxModal");
+        const lightboxImg = document.getElementById("eventLightboxImg");
+        const lightboxCounter = document.getElementById("eventLightboxCounter");
+        let lightboxIndex = 0;
+        let lightboxModal;
+
+        function showLightboxImage(index) {
+            if (!eventGalleryImages.length) return;
+            lightboxIndex =
+                (index + eventGalleryImages.length) % eventGalleryImages.length;
+            lightboxImg.src = eventGalleryImages[lightboxIndex];
+            lightboxImg.alt = "{{ event.title }} — photo " + (lightboxIndex + 1);
+            if (lightboxCounter) {
+                lightboxCounter.textContent =
+                    (lightboxIndex + 1) + " / " + eventGalleryImages.length;
+            }
+        }
+
+        if (lightboxModalEl && eventGalleryImages.length) {
+            document.querySelectorAll("[data-lightbox-index]").forEach((el) => {
+                el.setAttribute("role", "button");
+                el.setAttribute("tabindex", "0");
+                const open = () => {
+                    showLightboxImage(parseInt(el.dataset.lightboxIndex, 10) || 0);
+                    if (!lightboxModal && typeof bootstrap !== "undefined") {
+                        lightboxModal = new bootstrap.Modal(lightboxModalEl);
+                    }
+                    lightboxModal?.show();
+                };
+                el.addEventListener("click", open);
+                el.addEventListener("keydown", (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        open();
+                    }
+                });
+            });
+
+            document
+                .getElementById("eventLightboxPrev")
+                ?.addEventListener("click", () =>
+                    showLightboxImage(lightboxIndex - 1),
+                );
+            document
+                .getElementById("eventLightboxNext")
+                ?.addEventListener("click", () =>
+                    showLightboxImage(lightboxIndex + 1),
+                );
+
+            lightboxModalEl.addEventListener("keydown", (e) => {
+                if (e.key === "ArrowLeft") showLightboxImage(lightboxIndex - 1);
+                if (e.key === "ArrowRight") showLightboxImage(lightboxIndex + 1);
             });
         }
 

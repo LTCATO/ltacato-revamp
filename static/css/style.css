@@ -4121,6 +4121,7 @@ main {
     object-fit: cover;
     display: block;
     aspect-ratio: 4 / 3;
+    cursor: pointer;
     transition: filter 0.25s ease;
 }
 
