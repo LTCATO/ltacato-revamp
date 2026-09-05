@@ -13,6 +13,30 @@ from services.dashboard_auth import (
 from services.supabase_client import get_supabase
 
 
+@dashboard_bp.route("/actions/service-requests/<int:request_id>/update", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def update_service_request(request_id: int):
+    from services.service_requests import update_service_request_status
+
+    user = get_current_dashboard_user()
+    status = request.form.get("status") or "submitted"
+    staff_response = request.form.get("staff_response")
+    try:
+        update_service_request_status(
+            request_id,
+            status=status,
+            staff_response=staff_response,
+            handled_by=str(user["id"]),
+        )
+        flash("Request updated.", "success")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    except Exception:
+        flash("Couldn't update that request right now.", "danger")
+    return redirect(url_for("dashboard.service_requests"))
+
+
 @dashboard_bp.route("/actions/chatbot/<int:entry_id>/approve", methods=["POST"])
 @dashboard_login_required
 @role_required("super_admin")

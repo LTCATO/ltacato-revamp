@@ -659,6 +659,30 @@ def feedback():
     )
 
 
+@dashboard_bp.route("/service-requests")
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff")
+def service_requests():
+    from services.service_requests import STATUSES, list_service_requests
+
+    user = get_current_dashboard_user()
+    status = request.args.get("status") or None
+    division = request.args.get("division") or None
+    items = list_service_requests(status=status, division=division)
+    return render_dashboard(
+        "views/dashboard/pages/service_requests.html",
+        user,
+        requests=items,
+        statuses=STATUSES,
+        status=status or "",
+        division=division or "",
+        page_title="Service requests",
+        page_description="Citizen requests for LTCATO's Citizen's Charter services — Tourism and "
+        "History, Arts & Culture Division alike.",
+        page_icon="bx-envelope",
+    )
+
+
 @dashboard_bp.route("/lgu-management")
 @dashboard_login_required
 @role_required("ltcato_staff")
