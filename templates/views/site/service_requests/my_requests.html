@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}My Requests{% endblock %}
+
+{% block content %}
+<section class="page-hero page-hero--spots">
+  <div class="container-xl">
+    <nav class="page-breadcrumb" aria-label="Breadcrumb">
+      <a href="{{ url_for('public.home') }}">Home</a>
+      <i class="ph ph-caret-right"></i>
+      <span>My Requests</span>
+    </nav>
+    <span class="section-eyebrow">Citizen's Charter</span>
+    <h1 class="page-hero__title">My Service Requests</h1>
+    <p class="page-hero__lead">Requests you've submitted to LTCATO and their current status.</p>
+  </div>
+</section>
+
+<section class="home-section">
+  <div class="container-xl">
+    <div class="d-flex justify-content-end mb-4">
+      <a href="{{ url_for('service_requests.new_request') }}" class="btn ltcato-btn-pill">
+        <i class="ph ph-plus"></i> New request
+      </a>
+    </div>
+
+    {% if not requests %}
+    <div class="text-center py-5">
+      <p class="text-muted mb-3">You haven't submitted any service requests yet.</p>
+      <a href="{{ url_for('service_requests.new_request') }}" class="btn ltcato-btn-outline-lg">Request a service</a>
+    </div>
+    {% else %}
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead>
+          <tr>
+            <th>Service</th>
+            <th>Division</th>
+            <th>Submitted</th>
+            <th>Status</th>
+            <th>LTCATO's response</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in requests %}
+          <tr>
+            <td>{{ r.service_number }}. {{ r.service_title }}</td>
+            <td>{{ r.division }}</td>
+            <td>{{ r.created_at[:10] if r.created_at else '' }}</td>
+            <td>
+              <span class="badge {{ 'bg-secondary' if r.status == 'submitted' else 'bg-warning text-dark' if r.status == 'under_review' else 'bg-success' }}">
+                {{ r.status.replace('_', ' ') | title }}
+              </span>
+            </td>
+            <td>{{ r.staff_response or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

@@ -5,6 +5,15 @@ from routes.site.itinerary import itinerary_bp
 from routes.site.lgu import lgu_bp
 from routes.site.pages import public_bp
 from routes.site.profile import profile_bp
+from routes.site.service_requests import service_requests_bp
 from routes.site.spots import spots_bp
 
-__all__ = ["public_bp", "spots_bp", "events_bp", "lgu_bp", "itinerary_bp", "profile_bp"]
+__all__ = [
+    "public_bp",
+    "spots_bp",
+    "events_bp",
+    "lgu_bp",
+    "itinerary_bp",
+    "profile_bp",
+    "service_requests_bp",
+]

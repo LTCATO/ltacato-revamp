@@ -1,0 +1,80 @@
+{% extends "dashboard-base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_header %}<h1>{{ page_title }}</h1><p>{{ page_description }}</p>{% endblock %}
+
+{% block content %}
+{% include "include/dashboard/module_header.html" %}
+
+<div class="dashboard-card mb-4">
+  <form method="get" class="d-flex flex-wrap gap-3 align-items-end p-3">
+    <div>
+      <label class="form-label small mb-1">Status</label>
+      <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+        <option value="" {{ 'selected' if not status }}>All statuses</option>
+        {% for s in statuses %}
+        <option value="{{ s }}" {{ 'selected' if status == s }}>{{ s.replace('_', ' ')|title }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="form-label small mb-1">Division</label>
+      <select name="division" class="form-select form-select-sm" onchange="this.form.submit()">
+        <option value="" {{ 'selected' if not division }}>All divisions</option>
+        <option value="Tourism" {{ 'selected' if division == 'Tourism' }}>Tourism</option>
+        <option value="History, Arts & Culture" {{ 'selected' if division == 'History, Arts & Culture' }}>History, Arts &amp; Culture</option>
+      </select>
+    </div>
+  </form>
+</div>
+
+<div class="dashboard-card">
+  <div class="dashboard-card__header">
+    <h3 class="dashboard-card__title mb-0">Citizen requests</h3>
+    <p class="text-muted small mb-0">Digitized letter-of-request intake for all 8 Citizen's Charter services.</p>
+  </div>
+  <div class="table-responsive">
+    <table class="table dashboard-table mb-0">
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>Division</th>
+          <th>Requester</th>
+          <th>Message</th>
+          <th>Submitted</th>
+          <th>Status &amp; response</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in requests %}
+        <tr>
+          <td><strong>{{ r.service_number }}. {{ r.service_title }}</strong></td>
+          <td>
+            <span class="dashboard-badge dashboard-badge--{{ 'warning' if r.division == 'Tourism' else 'muted' }}">{{ r.division }}</span>
+          </td>
+          <td>
+            {{ r.requester_name }}<br />
+            <span class="text-muted small">{{ r.requester_email }}{% if r.requester_phone %} · {{ r.requester_phone }}{% endif %}</span>
+          </td>
+          <td class="small">{{ r.message|truncate_text(120) if r.message else '—' }}</td>
+          <td class="small text-muted">{{ (r.created_at or '')[:10] }}</td>
+          <td style="min-width: 260px;">
+            <form method="post" action="{{ url_for('dashboard.update_service_request', request_id=r.id) }}" class="d-flex flex-column gap-2">
+              <select name="status" class="form-select form-select-sm">
+                {% for s in statuses %}
+                <option value="{{ s }}" {{ 'selected' if r.status == s }}>{{ s.replace('_', ' ')|title }}</option>
+                {% endfor %}
+              </select>
+              <textarea name="staff_response" class="form-control form-control-sm" rows="2" placeholder="Response to the requester (optional)">{{ r.staff_response or '' }}</textarea>
+              <button type="submit" class="btn btn-sm dashboard-btn-primary align-self-start">Save</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No service requests yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

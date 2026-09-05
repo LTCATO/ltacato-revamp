@@ -1,6 +1,14 @@
 from .auth import auth_bp
 from .dashboard import dashboard_bp
-from .site import events_bp, itinerary_bp, lgu_bp, profile_bp, public_bp, spots_bp
+from .site import (
+    events_bp,
+    itinerary_bp,
+    lgu_bp,
+    profile_bp,
+    public_bp,
+    service_requests_bp,
+    spots_bp,
+)
 
 
 def register_blueprints(app):
@@ -10,5 +18,6 @@ def register_blueprints(app):
     app.register_blueprint(lgu_bp)
     app.register_blueprint(itinerary_bp)
     app.register_blueprint(profile_bp)
+    app.register_blueprint(service_requests_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
