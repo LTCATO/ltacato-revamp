@@ -21,6 +21,7 @@ CHARTER_SECTIONS: list[dict[str, Any]] = [
                     "which will benefit both parties."
                 ),
                 "office": "LTCATO",
+                "division": "Tourism",
                 "classification": "Simple",
                 "transaction_type": "G2C, G2G, G2B",
                 "who_may_avail": "All (LGUs, Private and Business Entity)",
@@ -62,6 +63,7 @@ CHARTER_SECTIONS: list[dict[str, Any]] = [
                     "The seminar/training may be conducted through webinar zoom."
                 ),
                 "office": "LTCATO – Tourism Division (Planning, Development and Tourism Standards Unit & Promotions, Marketing and Creative Unit)",
+                "division": "Tourism",
                 "classification": "Simple",
                 "transaction_type": "G2C, G2B, G2G",
                 "who_may_avail": "LGUs, Primary and Secondary Enterprises",
@@ -103,6 +105,7 @@ CHARTER_SECTIONS: list[dict[str, Any]] = [
                     "relies on the electronic mail, social media and calls."
                 ),
                 "office": "LTCATO – Tourism Division (Planning, Development and Tourism Standards Unit & Promotions, Marketing and Creative Unit)",
+                "division": "Tourism",
                 "classification": "Simple",
                 "transaction_type": "G2B, G2G",
                 "who_may_avail": "LGUs, Department of Tourism, Tourism Council and Association of Tourism Officers of the Philippines (ATOP)",
@@ -152,6 +155,7 @@ CHARTER_SECTIONS: list[dict[str, Any]] = [
                     "with the health protocol prescribed by the state."
                 ),
                 "office": "LTCATO – History, Arts and Culture Division",
+                "division": "History, Arts & Culture",
                 "classification": "Simple (1–3 Research Topics) · Complex (4–7) · Highly Technical (8+)",
                 "transaction_type": "G2C, G2B, G2G",
                 "who_may_avail": "LGUs, artists, cultural workers, the academe, students, government agencies",
@@ -178,6 +182,7 @@ CHARTER_SECTIONS: list[dict[str, Any]] = [
                     "is utilized for seminars when personal gatherings are limited."
                 ),
                 "office": "LTCATO – History, Arts and Culture Division",
+                "division": "History, Arts & Culture",
                 "classification": "Simple",
                 "transaction_type": "G2C, G2B, G2G",
                 "who_may_avail": "LGUs, artists, cultural workers, the academe, students, government agencies",
@@ -204,6 +209,7 @@ CHARTER_SECTIONS: list[dict[str, Any]] = [
                     "country, respect for our heroes and pride in our people's achievements."
                 ),
                 "office": "LTCATO – History, Arts and Culture Division",
+                "division": "History, Arts & Culture",
                 "classification": "Simple (1–3 Research Topics)",
                 "transaction_type": "G2C, G2B, G2G",
                 "who_may_avail": "LGUs, artists, cultural workers, the academe, students, government agencies",
@@ -230,6 +236,7 @@ CHARTER_SECTIONS: list[dict[str, Any]] = [
                     "promote and popularize the tourism of the province through electronic social media."
                 ),
                 "office": "LTCATO – Tourism Division (Planning, Development and Tourism Standards Unit & Promotions, Marketing and Creative Unit)",
+                "division": "Tourism",
                 "classification": "Simple",
                 "transaction_type": "G2C, G2G, G2B",
                 "who_may_avail": "Government Agencies, Private Companies, Students, Academe, Tourists, Tourism Officers",
@@ -267,6 +274,7 @@ CHARTER_SECTIONS: list[dict[str, Any]] = [
                     "offers a safer, faster and more creative communication approach in delivering needed public services."
                 ),
                 "office": "LTCATO – Tourism Division (Planning, Development and Tourism Standards Unit & Promotions, Marketing and Creative Unit)",
+                "division": "Tourism",
                 "classification": "Simple",
                 "transaction_type": "G2G, G2B, G2C",
                 "who_may_avail": "Government Agencies, Private Companies, Students, Academe, Tourists, Tourism Officers",

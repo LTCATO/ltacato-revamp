@@ -63,6 +63,13 @@
                                 >Planner</a
                             >
                         </li>
+                        <li class="nav-item">
+                            <a
+                                class="nav-link"
+                                href="{{ url_for('service_requests.new_request') }}"
+                                >Request a Service</a
+                            >
+                        </li>
 
                         <li class="nav-item">
                             <a
@@ -129,6 +136,14 @@
                                         href="{{ url_for('itinerary.my_itineraries') }}"
                                     >
                                         <i class="ph ph-suitcase"></i> My trips
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        class="dropdown-item"
+                                        href="{{ url_for('service_requests.my_requests') }}"
+                                    >
+                                        <i class="ph ph-envelope-simple"></i> My requests
                                     </a>
                                 </li>
                                 <li><hr class="dropdown-divider my-1" /></li>
