@@ -27,7 +27,7 @@ from services.dashboard_pages import get_dashboard_overview, get_workflow_cards
 from services.event_engagement import list_event_feedbacks_for_dashboard
 from services.events import _compute_event_status, list_events
 from services.external_reviews import list_external_reviews
-from services.feedbacks import list_feedbacks
+from services.feedbacks import list_feedbacks, list_feedbacks_for_owner
 from services.lgus import list_lgus_simple
 from services.profiles import list_profiles
 from services.spots import (
@@ -751,6 +751,28 @@ def visit_schedules():
         page_description="Manage visit requests and browse logs — activity here is automatically "
         "included in your LGU's arrival reporting.",
         page_icon="bx-calendar-check",
+    )
+
+
+@dashboard_bp.route("/reviews")
+@dashboard_login_required
+@role_required("establishment_owner")
+def reviews():
+    user = get_current_dashboard_user()
+    spot_id = request.args.get("spot_id", type=int)
+    items = list_feedbacks_for_owner(str(user.get("id")), spot_id=spot_id)
+    spots = list_spots_for_dashboard(owner_id=user.get("id"), limit=20)
+
+    return render_dashboard(
+        "views/dashboard/pages/reviews.html",
+        user,
+        feedbacks=items,
+        spots=spots,
+        spot_id=spot_id,
+        page_title="Reviews",
+        page_description="Guest reviews on your establishment. Hide anything that "
+        "shouldn't be shown publicly — it stays on record but comes off your spot's page.",
+        page_icon="bx-star",
     )
 
 

@@ -668,46 +668,68 @@ ensure_list %} {% set driving = spot.driving_guide | ensure_list %}
         });
     }
 
+    // Party size drives how many companion (name + origin + sex) rows are
+    // shown — person #1 is the "Full name"/origin/sex fields above.
     const scheduleVisitPartySize = document.getElementById("scheduleVisitPartySize");
-    const scheduleVisitGenderWrap = document.getElementById("scheduleVisitGenderWrap");
-    const scheduleVisitMaleWrap = document.getElementById("scheduleVisitMaleWrap");
-    const scheduleVisitFemaleWrap = document.getElementById("scheduleVisitFemaleWrap");
-    const scheduleVisitMaleCount = document.getElementById("scheduleVisitMaleCount");
-    const scheduleVisitFemaleCount = document.getElementById("scheduleVisitFemaleCount");
-    const scheduleVisitGenderMale = document.getElementById("scheduleVisitGenderMale");
-    const scheduleVisitGenderFemale = document.getElementById("scheduleVisitGenderFemale");
-    const scheduleVisitOriginHint = document.getElementById("scheduleVisitOriginHint");
+    const scheduleVisitCompanionsWrap = document.getElementById("scheduleVisitCompanionsWrap");
+    const scheduleVisitCompanionsList = document.getElementById("scheduleVisitCompanionsList");
 
-    function syncScheduleVisitGenderMode() {
-        if (!scheduleVisitPartySize) return;
-        const isSingle = (parseInt(scheduleVisitPartySize.value, 10) || 1) === 1;
-        scheduleVisitGenderWrap.classList.toggle("d-none", !isSingle);
-        scheduleVisitMaleWrap.classList.toggle("d-none", isSingle);
-        scheduleVisitFemaleWrap.classList.toggle("d-none", isSingle);
-        scheduleVisitMaleCount.required = !isSingle;
-        scheduleVisitFemaleCount.required = !isSingle;
-        scheduleVisitGenderMale.required = isSingle;
-        scheduleVisitGenderFemale.required = isSingle;
-        if (scheduleVisitOriginHint) {
-            scheduleVisitOriginHint.classList.toggle("d-none", isSingle);
-        }
+    function scheduleVisitCompanionRowHtml(i) {
+        return `
+            <div class="border rounded-3 p-3 companion-row" data-companion-index="${i}">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-5">
+                        <label class="form-label small mb-1">Name <span class="text-danger">*</span></label>
+                        <input type="text" name="companion_name[]" class="form-control form-control-sm" required />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small mb-1">Origin <span class="text-danger">*</span></label>
+                        <select name="companion_origin[]" class="form-select form-select-sm" required>
+                            <option value="" disabled selected>Select origin</option>
+                            <option value="this_city">This city/municipality</option>
+                            <option value="other_city">Other city/municipality</option>
+                            <option value="other_province">Other province</option>
+                            <option value="foreign">Foreign</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small mb-1 d-block">Sex <span class="text-danger">*</span></label>
+                        <div class="btn-group btn-group-sm w-100" role="group">
+                            <input type="radio" class="btn-check" name="companion_gender_${i}" id="scheduleVisitCompM${i}" value="male" autocomplete="off" required />
+                            <label class="btn btn-outline-secondary" for="scheduleVisitCompM${i}">M</label>
+                            <input type="radio" class="btn-check" name="companion_gender_${i}" id="scheduleVisitCompF${i}" value="female" autocomplete="off" required />
+                            <label class="btn btn-outline-secondary" for="scheduleVisitCompF${i}">F</label>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
     }
 
-    function applyScheduleVisitGenderSelection() {
-        if (scheduleVisitGenderMale.checked) {
-            scheduleVisitMaleCount.value = 1;
-            scheduleVisitFemaleCount.value = 0;
-        } else if (scheduleVisitGenderFemale.checked) {
-            scheduleVisitMaleCount.value = 0;
-            scheduleVisitFemaleCount.value = 1;
+    function syncScheduleVisitCompanions() {
+        if (!scheduleVisitPartySize || !scheduleVisitCompanionsList) return;
+        const partySize = Math.max(1, parseInt(scheduleVisitPartySize.value, 10) || 1);
+        const companionCount = partySize - 1;
+        const existingRows = scheduleVisitCompanionsList.querySelectorAll(".companion-row");
+        if (companionCount > existingRows.length) {
+            for (let i = existingRows.length; i < companionCount; i++) {
+                scheduleVisitCompanionsList.insertAdjacentHTML(
+                    "beforeend",
+                    scheduleVisitCompanionRowHtml(i)
+                );
+            }
+        } else if (companionCount < existingRows.length) {
+            existingRows.forEach((row) => {
+                if (parseInt(row.dataset.companionIndex, 10) >= companionCount) row.remove();
+            });
+        }
+        if (scheduleVisitCompanionsWrap) {
+            scheduleVisitCompanionsWrap.classList.toggle("d-none", companionCount <= 0);
         }
     }
 
     if (scheduleVisitPartySize) {
-        scheduleVisitPartySize.addEventListener("input", syncScheduleVisitGenderMode);
-        scheduleVisitGenderMale.addEventListener("change", applyScheduleVisitGenderSelection);
-        scheduleVisitGenderFemale.addEventListener("change", applyScheduleVisitGenderSelection);
-        syncScheduleVisitGenderMode();
+        scheduleVisitPartySize.addEventListener("input", syncScheduleVisitCompanions);
+        syncScheduleVisitCompanions();
     }
 
     const scheduleVisitForm = document.getElementById("scheduleVisitForm");
@@ -717,7 +739,19 @@ ensure_list %} {% set driving = spot.driving_guide | ensure_list %}
             const msg = document.getElementById("scheduleVisitMsg");
             const spotId = scheduleVisitForm.dataset.spotId;
             const formData = new FormData(scheduleVisitForm);
+            scheduleVisitForm.querySelectorAll(".companion-row").forEach((row) => {
+                const idx = row.dataset.companionIndex;
+                const checked = row.querySelector(`input[name="companion_gender_${idx}"]:checked`);
+                formData.append("companion_gender[]", checked ? checked.value : "");
+            });
             if (msg) msg.classList.add("d-none");
+            const submitBtn = scheduleVisitForm.querySelector('button[type="submit"]');
+            const originalBtnHtml = submitBtn ? submitBtn.innerHTML : "";
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML =
+                    '<i class="ph ph-spinner ph-spin me-1"></i> Requesting…';
+            }
             try {
                 const resp = await fetch(`/spots/${spotId}/schedule-visit`, {
                     method: "POST",
@@ -731,15 +765,20 @@ ensure_list %} {% set driving = spot.driving_guide | ensure_list %}
                         const modalEl = document.getElementById("scheduleVisitModal");
                         bootstrap.Modal.getInstance(modalEl)?.hide();
                     }, 2000);
+                    return;
                 } else {
                     if (msg) {
                         msg.textContent =
-                            "Please check the form and try again.";
+                            data.message || "Please check the form and try again.";
                         msg.classList.remove("d-none");
                     }
                 }
             } catch (e) {
                 console.error(e);
+            }
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnHtml;
             }
         });
     }

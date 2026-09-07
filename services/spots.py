@@ -366,18 +366,31 @@ def get_spot(spot_id: int, *, public_only: bool = True) -> dict[str, Any] | None
 
 
 def get_spot_feedbacks(spot_id: int, limit: int = 20) -> list[dict[str, Any]]:
-    response = (
-        get_supabase()
-        .table("feedbacks")
-        .select(
-            "id, guest_name, rating, comments, suggestions, sentiment, source, "
-            "images, images_approval_status, created_at"
+    def base_query():
+        return (
+            get_supabase()
+            .table("feedbacks")
+            .select(
+                "id, guest_name, rating, comments, suggestions, sentiment, source, "
+                "images, images_approval_status, is_hidden, created_at"
+            )
+            .eq("tourist_spot_id", spot_id)
         )
-        .eq("tourist_spot_id", spot_id)
-        .order("created_at", desc=True)
-        .limit(limit)
-        .execute()
-    )
+
+    try:
+        response = (
+            base_query()
+            .eq("is_hidden", False)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+    except Exception as exc:
+        if "is_hidden" not in str(exc):
+            raise
+        # sql/feedback_hide.sql not migrated yet — show everything rather
+        # than erroring the whole spot page.
+        response = base_query().order("created_at", desc=True).limit(limit).execute()
     return response.data or []
 
 

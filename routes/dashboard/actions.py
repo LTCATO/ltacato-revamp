@@ -300,9 +300,17 @@ def undo_check_in(visit_id: int):
 @role_required("establishment_owner")
 def add_manual_log():
     """Record a walk-in visitor who didn't schedule online."""
-    from services.visit_schedules import create_manual_log
+    from services.visit_schedules import build_visitor_payload, create_manual_log
 
     user = get_current_dashboard_user()
+    visitors = build_visitor_payload(
+        primary_name=request.form.get("visitor_name", ""),
+        primary_origin=request.form.get("origin") or None,
+        primary_gender=request.form.get("gender_single") or None,
+        companion_names=request.form.getlist("companion_name[]"),
+        companion_origins=request.form.getlist("companion_origin[]"),
+        companion_genders=request.form.getlist("companion_gender[]"),
+    )
     try:
         create_manual_log(
             {
@@ -315,9 +323,7 @@ def add_manual_log():
                 "visit_time": request.form.get("visit_time") or "00:00",
                 "visitor_category": request.form.get("visitor_category") or "day_tour",
                 "overnight_nights": request.form.get("overnight_nights", type=int) or 0,
-                "origin": request.form.get("origin") or None,
-                "male_count": request.form.get("male_count", type=int),
-                "female_count": request.form.get("female_count", type=int),
+                "visitors": visitors,
                 "notes": (request.form.get("notes") or "").strip() or None,
             },
             owner_id=str(user.get("id")),
@@ -1305,6 +1311,46 @@ def reject_feedback_images(feedback_id: int):
     set_feedback_images_approval(feedback_id, "rejected")
     flash("Review photos rejected and hidden from the site.", "info")
     return redirect(url_for("dashboard.feedback"))
+
+
+@dashboard_bp.route("/actions/feedback/<int:feedback_id>/hide", methods=["POST"])
+@dashboard_login_required
+@role_required("establishment_owner")
+def hide_feedback(feedback_id: int):
+    """Let an establishment owner hide a bad review from their spot's public
+    page — kept on record, just excluded from get_spot_feedbacks()."""
+    from services.feedbacks import set_feedback_hidden
+
+    user = get_current_dashboard_user()
+    try:
+        set_feedback_hidden(feedback_id, True, owner_id=str(user.get("id")))
+        flash("Review hidden from your spot's public page.", "success")
+    except PermissionError:
+        flash("You can only manage reviews for your own establishment.", "danger")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    except Exception as exc:
+        flash(f"Could not hide review: {exc}", "danger")
+    return redirect(url_for("dashboard.reviews", spot_id=request.form.get("spot_id", type=int)))
+
+
+@dashboard_bp.route("/actions/feedback/<int:feedback_id>/unhide", methods=["POST"])
+@dashboard_login_required
+@role_required("establishment_owner")
+def unhide_feedback(feedback_id: int):
+    from services.feedbacks import set_feedback_hidden
+
+    user = get_current_dashboard_user()
+    try:
+        set_feedback_hidden(feedback_id, False, owner_id=str(user.get("id")))
+        flash("Review restored to your spot's public page.", "success")
+    except PermissionError:
+        flash("You can only manage reviews for your own establishment.", "danger")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    except Exception as exc:
+        flash(f"Could not restore review: {exc}", "danger")
+    return redirect(url_for("dashboard.reviews", spot_id=request.form.get("spot_id", type=int)))
 
 
 @dashboard_bp.route("/actions/event-feedback/<int:feedback_id>/approve-images", methods=["POST"])

@@ -22,15 +22,19 @@ instead of being typed by hand.
 
 from __future__ import annotations
 
+import logging
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from services.supabase_client import get_supabase
 
+logger = logging.getLogger(__name__)
+
 VISIT_STATUSES = ("pending", "confirmed", "declined", "completed", "cancelled")
 ACTIVE_STATUSES = ("pending", "confirmed")
 VISITOR_CATEGORIES = ("day_tour", "overnight")
 ORIGINS = ("this_city", "other_city", "other_province", "foreign")
+VISITOR_GENDERS = ("male", "female")
 
 _ALLOWED_TRANSITIONS = {
     "pending": ("confirmed", "declined"),
@@ -48,12 +52,19 @@ _ORIGIN_COUNT_KEYS_FLAT = tuple(
     key for pair in _ORIGIN_COUNT_KEYS.values() for key in pair
 )
 
-VISIT_FIELDS = (
+VISIT_FIELDS_BASE = (
     "id, tourist_spot_id, tourist_id, visitor_name, visitor_email, visitor_phone, "
     "visit_date, visit_time, party_size, notes, status, "
     "visitor_category, overnight_nights, origin, male_count, female_count, "
     "arrived_at, is_manual, logged_by, created_at, updated_at, "
     "tourist_spots(id, name, owner_id, lgu_id)"
+)
+# Per-visitor roster (name/origin/sex for every person in the party — see
+# sql/visit_schedule_visitors.sql). Reads fall back to VISIT_FIELDS_BASE via
+# _run_visit_query() if that table hasn't been migrated yet.
+VISIT_FIELDS = (
+    VISIT_FIELDS_BASE
+    + ", visit_schedule_visitors(id, full_name, origin, gender, sort_order)"
 )
 
 _CREATE_ALLOWED = {
@@ -94,20 +105,129 @@ def _normalize_visit_row(row: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
-def _apply_demographics(row: dict[str, Any], payload: dict[str, Any]) -> None:
-    """Validate and set origin + gender counts — shared by the tourist-facing
-    "Schedule Visit" request and the owner's manual walk-in log, since LTCATO
-    needs this breakdown for arrival reports either way (see
-    aggregate_logs_for_report)."""
-    if payload.get("origin") not in ORIGINS:
-        raise ValueError("Please tell us where the visitor is coming from.")
-    if payload.get("male_count") in (None, ""):
-        raise ValueError("Male count is required.")
-    if payload.get("female_count") in (None, ""):
-        raise ValueError("Female count is required.")
-    row["origin"] = payload["origin"]
-    row["male_count"] = int(payload["male_count"])
-    row["female_count"] = int(payload["female_count"])
+def build_visitor_payload(
+    *,
+    primary_name: str,
+    primary_origin: str | None,
+    primary_gender: str | None,
+    companion_names: list[str],
+    companion_origins: list[str],
+    companion_genders: list[str],
+) -> list[dict[str, Any]]:
+    """Assemble the raw per-visitor list from a form submission: the primary
+    contact (visitor #1) plus however many companions the party-size-driven
+    UI collected. Shared shape for both the public booking form and the
+    owner's manual walk-in log."""
+    visitors = [
+        {"name": primary_name, "origin": primary_origin, "gender": primary_gender}
+    ]
+    for i, name in enumerate(companion_names):
+        visitors.append(
+            {
+                "name": name,
+                "origin": companion_origins[i] if i < len(companion_origins) else None,
+                "gender": companion_genders[i] if i < len(companion_genders) else None,
+            }
+        )
+    return visitors
+
+
+def _normalize_visitors(
+    raw_visitors: list[dict[str, Any]], party_size: int
+) -> list[dict[str, Any]]:
+    """Validate the full visitor roster — every person in the party needs a
+    name, an origin, and a sex on record, since that's what makes the log
+    useful for tracing who was actually on site (e.g. after an accident)."""
+    visitors: list[dict[str, Any]] = []
+    for item in raw_visitors:
+        name = (item.get("name") or "").strip()
+        origin = item.get("origin")
+        gender = item.get("gender")
+        if not name:
+            raise ValueError("Every visitor needs a name.")
+        if origin not in ORIGINS:
+            raise ValueError(f"Please select where {name} is coming from.")
+        if gender not in VISITOR_GENDERS:
+            raise ValueError(f"Please select {name}'s sex.")
+        visitors.append({"full_name": name, "origin": origin, "gender": gender})
+
+    if not visitors:
+        raise ValueError("At least one visitor is required.")
+    if len(visitors) != party_size:
+        raise ValueError(
+            f"You listed {len(visitors)} visitor(s) but the party size is "
+            f"{party_size}. Please list everyone in the group."
+        )
+    return visitors
+
+
+def _derive_demographics(visitors: list[dict[str, Any]]) -> dict[str, Any]:
+    """Roll the per-visitor roster up into the aggregate origin/male_count/
+    female_count columns the arrivals dashboard and DTA3 export already read
+    (see aggregate_visits_by_spot / aggregate_logs_for_report), so those
+    reports keep working unchanged. For a mixed-origin party, the group is
+    attributed to whichever origin has the most visitors, ties going to the
+    first person listed (the primary contact)."""
+    male_count = sum(1 for v in visitors if v["gender"] == "male")
+    female_count = sum(1 for v in visitors if v["gender"] == "female")
+
+    origin_counts: dict[str, int] = {}
+    for v in visitors:
+        origin_counts[v["origin"]] = origin_counts.get(v["origin"], 0) + 1
+    best_origin = visitors[0]["origin"]
+    best_count = 0
+    for v in visitors:
+        count = origin_counts[v["origin"]]
+        if count > best_count:
+            best_count = count
+            best_origin = v["origin"]
+
+    return {"origin": best_origin, "male_count": male_count, "female_count": female_count}
+
+
+def _insert_visitors(visit_schedule_id: int, visitors: list[dict[str, Any]]) -> None:
+    rows = [
+        {
+            "visit_schedule_id": visit_schedule_id,
+            "full_name": v["full_name"],
+            "origin": v["origin"],
+            "gender": v["gender"],
+            "sort_order": idx,
+        }
+        for idx, v in enumerate(visitors)
+    ]
+    try:
+        get_supabase().table("visit_schedule_visitors").insert(rows).execute()
+    except Exception as exc:
+        logger.warning(
+            "Could not save per-visitor roster for visit %s (table may not be "
+            "migrated yet — see sql/visit_schedule_visitors.sql): %s",
+            visit_schedule_id,
+            exc,
+        )
+
+
+def _run_visit_query(build_query):
+    """build_query(fields) returns a supabase query (pre-.execute()) selecting
+    `fields`. Tries VISIT_FIELDS (includes the per-visitor roster embed) and
+    falls back to VISIT_FIELDS_BASE if visit_schedule_visitors hasn't been
+    migrated yet, same defensive idiom as _insert_visit_row's `source` retry."""
+    try:
+        response = build_query(VISIT_FIELDS).execute()
+    except Exception as exc:
+        if "visit_schedule_visitors" not in str(exc):
+            raise
+        response = build_query(VISIT_FIELDS_BASE).execute()
+        for row in response.data or []:
+            row.setdefault("visit_schedule_visitors", [])
+        return response
+
+    for row in response.data or []:
+        row["visit_schedule_visitors"] = sorted(
+            row.get("visit_schedule_visitors") or [],
+            key=lambda v: v.get("sort_order") or 0,
+        )
+    return response
 
 
 def _insert_visit_row(row: dict[str, Any]):
@@ -127,7 +247,8 @@ def create_visit_schedule(payload: dict[str, Any]) -> dict[str, Any]:
     row = _normalize_visit_row(row)
     if not row["visitor_name"]:
         raise ValueError("Visitor name is required.")
-    _apply_demographics(row, payload)
+    visitors = _normalize_visitors(payload.get("visitors") or [], row["party_size"])
+    row.update(_derive_demographics(visitors))
     row["status"] = "pending"
     row["source"] = "scheduled"
 
@@ -135,7 +256,9 @@ def create_visit_schedule(payload: dict[str, Any]) -> dict[str, Any]:
     data = response.data or []
     if not data:
         raise RuntimeError("Failed to save visit schedule.")
-    return data[0]
+    visit = data[0]
+    _insert_visitors(visit["id"], visitors)
+    return visit
 
 
 def _verify_spot_owner(spot_id: int, owner_id: str) -> dict[str, Any]:
@@ -166,7 +289,8 @@ def create_manual_log(payload: dict[str, Any], *, owner_id: str) -> dict[str, An
     row = _normalize_visit_row(row)
     if not row["visitor_name"]:
         raise ValueError("Visitor name is required.")
-    _apply_demographics(row, payload)
+    visitors = _normalize_visitors(payload.get("visitors") or [], row["party_size"])
+    row.update(_derive_demographics(visitors))
     row["status"] = "completed"
     row["is_manual"] = True
     row["source"] = "walk_in"
@@ -177,21 +301,26 @@ def create_manual_log(payload: dict[str, Any], *, owner_id: str) -> dict[str, An
     data = response.data or []
     if not data:
         raise RuntimeError("Failed to save manual log.")
-    return data[0]
+    visit = data[0]
+    _insert_visitors(visit["id"], visitors)
+    return visit
 
 
 def list_visits_for_spot(
     spot_id: int, *, status: str | None = None, limit: int = 200
 ) -> list[dict[str, Any]]:
-    query = (
-        get_supabase()
-        .table("visit_schedules")
-        .select(VISIT_FIELDS)
-        .eq("tourist_spot_id", spot_id)
-    )
-    if status:
-        query = query.eq("status", status)
-    response = query.order("visit_date", desc=True).limit(limit).execute()
+    def build(fields: str):
+        query = (
+            get_supabase()
+            .table("visit_schedules")
+            .select(fields)
+            .eq("tourist_spot_id", spot_id)
+        )
+        if status:
+            query = query.eq("status", status)
+        return query.order("visit_date", desc=True).limit(limit)
+
+    response = _run_visit_query(build)
     return response.data or []
 
 
@@ -214,20 +343,24 @@ def list_visits_for_owner(
     spot_ids = _spot_ids_for_owner(owner_id)
     if not spot_ids:
         return []
-    query = (
-        get_supabase()
-        .table("visit_schedules")
-        .select(VISIT_FIELDS)
-        .in_("tourist_spot_id", list(spot_ids))
-        .eq("is_manual", False)
-    )
-    if status:
-        query = query.eq("status", status)
-    if q:
-        term = q.strip()
-        if term:
-            query = query.or_(f"visitor_name.ilike.%{term}%,visitor_email.ilike.%{term}%")
-    response = query.order("visit_date", desc=True).limit(limit).execute()
+
+    def build(fields: str):
+        query = (
+            get_supabase()
+            .table("visit_schedules")
+            .select(fields)
+            .in_("tourist_spot_id", list(spot_ids))
+            .eq("is_manual", False)
+        )
+        if status:
+            query = query.eq("status", status)
+        if q:
+            term = q.strip()
+            if term:
+                query = query.or_(f"visitor_name.ilike.%{term}%,visitor_email.ilike.%{term}%")
+        return query.order("visit_date", desc=True).limit(limit)
+
+    response = _run_visit_query(build)
     return response.data or []
 
 
@@ -245,21 +378,25 @@ def list_logs_for_owner(
         spot_ids &= {int(spot_id)}
     if not spot_ids:
         return []
-    query = (
-        get_supabase()
-        .table("visit_schedules")
-        .select(VISIT_FIELDS)
-        .in_("tourist_spot_id", list(spot_ids))
-    )
-    if q:
-        term = q.strip()
-        if term:
-            query = query.or_(f"visitor_name.ilike.%{term}%,visitor_email.ilike.%{term}%")
-    if date_from:
-        query = query.gte("visit_date", date_from)
-    if date_to:
-        query = query.lte("visit_date", date_to)
-    response = query.order("visit_date", desc=True).limit(limit).execute()
+
+    def build(fields: str):
+        query = (
+            get_supabase()
+            .table("visit_schedules")
+            .select(fields)
+            .in_("tourist_spot_id", list(spot_ids))
+        )
+        if q:
+            term = q.strip()
+            if term:
+                query = query.or_(f"visitor_name.ilike.%{term}%,visitor_email.ilike.%{term}%")
+        if date_from:
+            query = query.gte("visit_date", date_from)
+        if date_to:
+            query = query.lte("visit_date", date_to)
+        return query.order("visit_date", desc=True).limit(limit)
+
+    response = _run_visit_query(build)
     return response.data or []
 
 
@@ -267,15 +404,18 @@ def list_visits_for_tourist(
     tourist_id: str, email: str, *, limit: int = 100
 ) -> list[dict[str, Any]]:
     email = (email or "").strip().lower()
-    response = (
-        get_supabase()
-        .table("visit_schedules")
-        .select(VISIT_FIELDS)
-        .or_(f"tourist_id.eq.{tourist_id},visitor_email.eq.{email}")
-        .order("visit_date", desc=True)
-        .limit(limit)
-        .execute()
-    )
+
+    def build(fields: str):
+        return (
+            get_supabase()
+            .table("visit_schedules")
+            .select(fields)
+            .or_(f"tourist_id.eq.{tourist_id},visitor_email.eq.{email}")
+            .order("visit_date", desc=True)
+            .limit(limit)
+        )
+
+    response = _run_visit_query(build)
     return response.data or []
 
 
