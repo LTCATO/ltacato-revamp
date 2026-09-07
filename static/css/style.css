@@ -57,8 +57,13 @@
     box-sizing: border-box;
 }
 
+html {
+    overflow-x: hidden;
+}
+
 body {
     margin: 0;
+    overflow-x: hidden;
     font-family: var(--font-sans);
     color: var(--foreground);
     background: var(--background);
@@ -195,8 +200,9 @@ main {
     align-items: flex-start;
     gap: 5px;
     width: 100%;
+    max-width: 100%;
     padding: 0 0.25rem;
-    overflow: visible;
+    overflow: hidden;
 }
 
 .pennant-strip--nav {
