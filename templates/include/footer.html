@@ -75,52 +75,54 @@
           <div class="footer-menu">
             <h5 style="color: #e2e8f0; font-weight: 800; font-size: 1rem; margin-bottom: 1.25rem;">Explore</h5>
             <ul class="list-unstyled" style="line-height: 2;">
-              <li><a href="/destinations" style="color: white; text-decoration: none; transition: color 0.3s ease;">Destinations</a></li>
-              <li><a href="/accommodations" style="color: white; text-decoration: none; transition: color 0.3s ease;">Accommodations</a></li>
-              <li><a href="/culture-arts" style="color: white; text-decoration: none; transition: color 0.3s ease;">Culture & Arts</a></li>
-              <li><a href="/local-cuisine" style="color: white; text-decoration: none; transition: color 0.3s ease;">Local Cuisine</a></li>
-              <li><a href="/events-festivals" style="color: white; text-decoration: none; transition: color 0.3s ease;">Events</a></li>
+              <li><a href="{{ url_for('spots.spots_list') }}" style="color: white; text-decoration: none; transition: color 0.3s ease;">Tourist Spots</a></li>
+              <li><a href="{{ url_for('events.events_list') }}" style="color: white; text-decoration: none; transition: color 0.3s ease;">Events</a></li>
+              <li><a href="{{ url_for('lgu.lgu_list') }}" style="color: white; text-decoration: none; transition: color 0.3s ease;">Local Government Units</a></li>
+              <li><a href="{{ url_for('public.about') }}" style="color: white; text-decoration: none; transition: color 0.3s ease;">About Laguna</a></li>
             </ul>
           </div>
         </div>
-  
+
         <!-- Plan Your Trip -->
         <div class="col-lg-2 col-md-3 col-6 mb-4">
           <div class="footer-menu">
             <h5 style="color: #e2e8f0; font-weight: 800; font-size: 1rem; margin-bottom: 1.25rem;">Plan Your Trip</h5>
             <ul class="list-unstyled" style="line-height: 2;">
-              <li><a href="/travel-guide" style="color: white; text-decoration: none; transition: color 0.3s ease;">Travel Guide</a></li>
-              <li><a href="/getting-around" style="color: white; text-decoration: none; transition: color 0.3s ease;">Getting Around</a></li>
-              <li><a href="/where-to-stay" style="color: white; text-decoration: none; transition: color 0.3s ease;">Where to Stay</a></li>
-              <li><a href="/visitor-tips" style="color: white; text-decoration: none; transition: color 0.3s ease;">Visitor Tips</a></li>
-              <li><a href="/weather-climate" style="color: white; text-decoration: none; transition: color 0.3s ease;">Weather</a></li>
+              <li><a href="{{ url_for('itinerary.planner') }}" style="color: white; text-decoration: none; transition: color 0.3s ease;">Trip Planner</a></li>
+              <li><a href="{{ url_for('service_requests.new_request') }}" style="color: white; text-decoration: none; transition: color 0.3s ease;">Request a Service</a></li>
             </ul>
           </div>
         </div>
-  
+
         <!-- About LTCATO -->
         <div class="col-lg-2 col-md-3 col-6 mb-4">
           <div class="footer-menu">
             <h5 style="color: #e2e8f0; font-weight: 800; font-size: 1rem; margin-bottom: 1.25rem;">About</h5>
             <ul class="list-unstyled" style="line-height: 2;">
-              <li><a href="/about-us" style="color: white; text-decoration: none; transition: color 0.3s ease;">About Us</a></li>
-              <li><a href="/mission-vision" style="color: white; text-decoration: none; transition: color 0.3s ease;">Mission</a></li>
-              <li><a href="/tourism-office" style="color: white; text-decoration: none; transition: color 0.3s ease;">Office</a></li>
-              <li><a href="/news-updates" style="color: white; text-decoration: none; transition: color 0.3s ease;">News</a></li>
-              <li><a href="/contact-us" style="color: white; text-decoration: none; transition: color 0.3s ease;">Contact</a></li>
+              <li><a href="{{ url_for('public.about') }}" style="color: white; text-decoration: none; transition: color 0.3s ease;">About Us</a></li>
+              <li><a href="{{ url_for('public.governor') }}" style="color: white; text-decoration: none; transition: color 0.3s ease;">The Governor</a></li>
+              <li><a href="{{ url_for('public.privacy_policy') }}" style="color: white; text-decoration: none; transition: color 0.3s ease;">Privacy Policy</a></li>
+              <li><a href="{{ url_for('public.terms_use') }}" style="color: white; text-decoration: none; transition: color 0.3s ease;">Terms of Use</a></li>
             </ul>
           </div>
         </div>
-  
-        <!-- Platform Modules -->
+
+        <!-- Account -->
         <div class="col-lg-2 col-md-3 col-6 mb-4">
           <div class="footer-menu">
-            <h5 style="color: #e2e8f0; font-weight: 800; font-size: 1rem; margin-bottom: 1.25rem;">Modules</h5>
+            <h5 style="color: #e2e8f0; font-weight: 800; font-size: 1rem; margin-bottom: 1.25rem;">Account</h5>
             <ul class="list-unstyled" style="line-height: 2;">
-              <li><a href="/feedback-system" style="color: white; text-decoration: none; transition: color 0.3s ease;">Feedback</a></li>
-              <li><a href="/arrivals-log" style="color: white; text-decoration: none; transition: color 0.3s ease;">Arrivals</a></li>
-              <li><a href="/trade-directory" style="color: white; text-decoration: none; transition: color 0.3s ease;">Directory</a></li>
-              <li><a href="/cultural-registry" style="color: white; text-decoration: none; transition: color 0.3s ease;">Registry</a></li>
+              {% if current_tourist %}
+              <li><a href="{{ url_for('profile.tourist_profile') }}" style="color: white; text-decoration: none; transition: color 0.3s ease;">My Profile</a></li>
+              <li>
+                <form method="post" action="{{ url_for('auth.logout') }}" class="m-0 p-0" style="display: inline;">
+                  <button type="submit" class="btn btn-link p-0 border-0" style="color: white; text-decoration: none; font: inherit;">Sign Out</button>
+                </form>
+              </li>
+              {% else %}
+              <li><a href="{{ url_for('auth.login') }}" style="color: white; text-decoration: none; transition: color 0.3s ease;">Login</a></li>
+              <li><a href="{{ url_for('auth.register') }}" style="color: white; text-decoration: none; transition: color 0.3s ease;">Sign Up</a></li>
+              {% endif %}
             </ul>
           </div>
         </div>
@@ -137,10 +139,10 @@
         </div>
         <div class="col-md-6 text-md-end">
           <div class="footer-links d-flex flex-wrap justify-content-center justify-content-md-end gap-3">
+            <a href="{{ url_for('public.home') }}" style="color: white; text-decoration: none; font-size: 0.875rem; transition: color 0.3s ease;">Home</a>
             <a href="{{ url_for('public.privacy_policy') }}" style="color: white; text-decoration: none; font-size: 0.875rem; transition: color 0.3s ease;">Privacy Policy</a>
             <a href="{{ url_for('public.terms_use') }}" style="color: white; text-decoration: none; font-size: 0.875rem; transition: color 0.3s ease;">Terms of Use</a>
-            <a href="/accessibility" style="color: white; text-decoration: none; font-size: 0.875rem; transition: color 0.3s ease;">Accessibility</a>
-            <a href="/sitemap" style="color: white; text-decoration: none; font-size: 0.875rem; transition: color 0.3s ease;">Sitemap</a>
+            <a href="mailto:info@laguna.gov.ph" style="color: white; text-decoration: none; font-size: 0.875rem; transition: color 0.3s ease;">Contact</a>
           </div>
         </div>
       </div>
