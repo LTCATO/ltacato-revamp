@@ -23,8 +23,7 @@ from services.email_service import send_visit_scheduled_emails
 from services.storage import upload_gallery_files
 from services.supabase_client import get_supabase
 from services.tourist_auth import EMAIL_PATTERN, get_current_tourist
-from services.visit_schedules import ORIGINS as VISIT_ORIGINS
-from services.visit_schedules import create_visit_schedule
+from services.visit_schedules import build_visitor_payload, create_visit_schedule
 from utils.jinja_helpers import ensure_list, normalize_image_url
 
 logger = logging.getLogger(__name__)
@@ -288,9 +287,15 @@ def schedule_visit(spot_id: int):
     if visitor_category not in ("day_tour", "overnight"):
         visitor_category = "day_tour"
     overnight_nights = request.form.get("overnight_nights", type=int) or 0
-    origin = request.form.get("origin") or None
-    male_count = request.form.get("male_count", type=int)
-    female_count = request.form.get("female_count", type=int)
+
+    visitors = build_visitor_payload(
+        primary_name=visitor_name,
+        primary_origin=request.form.get("origin") or None,
+        primary_gender=request.form.get("gender_single") or None,
+        companion_names=request.form.getlist("companion_name[]"),
+        companion_origins=request.form.getlist("companion_origin[]"),
+        companion_genders=request.form.getlist("companion_gender[]"),
+    )
 
     if not visitor_name or not visit_date_raw or not visit_time_raw:
         return jsonify({"error": "invalid_input"}), 400
@@ -299,10 +304,6 @@ def schedule_visit(spot_id: int):
     if party_size < 1:
         return jsonify({"error": "invalid_input"}), 400
     if visitor_category == "overnight" and overnight_nights < 1:
-        return jsonify({"error": "invalid_input"}), 400
-    if origin not in VISIT_ORIGINS:
-        return jsonify({"error": "invalid_input"}), 400
-    if male_count is None or female_count is None:
         return jsonify({"error": "invalid_input"}), 400
 
     try:
@@ -328,13 +329,11 @@ def schedule_visit(spot_id: int):
                 "notes": notes or None,
                 "visitor_category": visitor_category,
                 "overnight_nights": overnight_nights if visitor_category == "overnight" else 0,
-                "origin": origin,
-                "male_count": male_count,
-                "female_count": female_count,
+                "visitors": visitors,
             }
         )
-    except ValueError:
-        return jsonify({"error": "invalid_input"}), 400
+    except ValueError as exc:
+        return jsonify({"error": "invalid_input", "message": str(exc)}), 400
     except Exception as exc:
         logger.exception("schedule_visit error: %s", exc)
         return jsonify({"error": "server_error"}), 500

@@ -62,6 +62,7 @@
               <th>Contact</th>
               <th>Date / time</th>
               <th>Party size</th>
+              <th>Visitors</th>
               <th>Notes</th>
               <th>Status</th>
               <th></th>
@@ -81,6 +82,13 @@
               </td>
               <td>{{ v.visit_date }} <span class="text-muted small">{{ v.visit_time }}</span></td>
               <td>{{ v.party_size }}</td>
+              <td>
+                <button type="button" class="btn btn-sm btn-outline-secondary" title="View roster"
+                        data-view-roster
+                        data-visitors="{{ v.visit_schedule_visitors | tojson }}">
+                  <i class="bx bx-list-ul"></i>
+                </button>
+              </td>
               <td class="small text-muted">{{ v.notes or '—' }}</td>
               <td>
                 {% set s = (v.status or '')|lower %}
@@ -121,7 +129,7 @@
               </td>
             </tr>
             {% else %}
-            <tr><td colspan="7" class="text-center text-muted py-3">{{ 'No visit requests match your search.' if rq or r_status else 'No visit requests yet.' }}</td></tr>
+            <tr><td colspan="8" class="text-center text-muted py-3">{{ 'No visit requests match your search.' if rq or r_status else 'No visit requests yet.' }}</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -164,6 +172,7 @@
               <th>Origin</th>
               <th>M / F</th>
               <th>Party size</th>
+              <th>Visitors</th>
               <th>Status</th>
               <th>Source</th>
               <th></th>
@@ -189,6 +198,13 @@
               <td class="small text-muted">{{ v.origin|replace('_', ' ')|title if v.origin else '—' }}</td>
               <td class="small">{{ v.male_count if v.male_count is not none else '—' }} / {{ v.female_count if v.female_count is not none else '—' }}</td>
               <td>{{ v.party_size }}</td>
+              <td>
+                <button type="button" class="btn btn-sm btn-outline-secondary" title="View roster"
+                        data-view-roster
+                        data-visitors="{{ v.visit_schedule_visitors | tojson }}">
+                  <i class="bx bx-list-ul"></i>
+                </button>
+              </td>
               <td>
                 {% set s = (v.status or '')|lower %}
                 <span class="dashboard-badge dashboard-badge--{{ 'success' if s == 'confirmed' or s == 'completed' else 'warning' if s == 'pending' else 'danger' if s == 'declined' or s == 'cancelled' else 'muted' }}">
@@ -218,7 +234,7 @@
               </td>
             </tr>
             {% else %}
-            <tr><td colspan="10" class="text-center text-muted py-3">No visit logs yet.</td></tr>
+            <tr><td colspan="11" class="text-center text-muted py-3">No visit logs yet.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -281,7 +297,7 @@
               <label class="form-label">Nights (if overnight)</label>
               <input type="number" name="overnight_nights" class="form-control" min="0" value="0" />
             </div>
-            <div class="col-md-4">
+            <div class="col-md-6">
               <label class="form-label">Origin <span class="text-danger">*</span></label>
               <select name="origin" class="form-select" required>
                 <option value="" disabled selected>Select origin</option>
@@ -290,24 +306,23 @@
                 <option value="other_province">Other province</option>
                 <option value="foreign">Foreign</option>
               </select>
-              <p class="form-text text-muted small mb-0">For a mixed group, pick where most of the party is from.</p>
             </div>
-            <div class="col-md-6 d-none" id="manualLogGenderWrap">
+            <div class="col-md-6" id="manualLogGenderWrap">
               <label class="form-label d-block">Visitor is <span class="text-danger">*</span></label>
               <div class="btn-group w-100" role="group">
-                <input type="radio" class="btn-check" name="gender_single" id="manualLogGenderMale" value="male" autocomplete="off" />
+                <input type="radio" class="btn-check" name="gender_single" id="manualLogGenderMale" value="male" autocomplete="off" required />
                 <label class="btn btn-outline-secondary" for="manualLogGenderMale">Male</label>
-                <input type="radio" class="btn-check" name="gender_single" id="manualLogGenderFemale" value="female" autocomplete="off" />
+                <input type="radio" class="btn-check" name="gender_single" id="manualLogGenderFemale" value="female" autocomplete="off" required />
                 <label class="btn btn-outline-secondary" for="manualLogGenderFemale">Female</label>
               </div>
             </div>
-            <div class="col-md-3" id="manualLogMaleWrap">
-              <label class="form-label">Male count <span class="text-danger">*</span></label>
-              <input type="number" name="male_count" id="manualLogMaleCount" class="form-control" min="0" required />
-            </div>
-            <div class="col-md-3" id="manualLogFemaleWrap">
-              <label class="form-label">Female count <span class="text-danger">*</span></label>
-              <input type="number" name="female_count" id="manualLogFemaleCount" class="form-control" min="0" required />
+            <div class="col-12" id="manualLogCompanionsWrap">
+              <label class="form-label mb-1">Who else is with them?</label>
+              <p class="form-text text-muted small mt-0">
+                Record every visitor's name, hometown, and sex so the party can be
+                fully accounted for in tourism records.
+              </p>
+              <div id="manualLogCompanionsList" class="d-flex flex-column gap-2"></div>
             </div>
             <div class="col-12">
               <label class="form-label">Notes</label>
@@ -375,6 +390,21 @@
     </div>
   </div>
 </div>
+
+<!-- Shared visitor roster modal (name/origin/sex for every person in the party) -->
+<div class="modal fade" id="visitRosterModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Visitor roster</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <ul class="list-group" id="visitRosterList"></ul>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block script %}
@@ -392,6 +422,17 @@
     });
   });
 
+  const editDemographicsForm = document.getElementById("editDemographicsForm");
+  if (editDemographicsForm) {
+    editDemographicsForm.addEventListener("submit", () => {
+      const submitBtn = editDemographicsForm.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> Saving…';
+      }
+    });
+  }
+
   // Default the manual log's date/time to right now on open — still editable
   // in case the owner is logging a walk-in after the fact or makes a mistake.
   const manualLogModal = document.getElementById("manualLogModal");
@@ -407,47 +448,119 @@
       if (timeInput) {
         timeInput.value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
       }
-      syncManualLogGenderMode();
+      syncManualLogCompanions();
     });
   }
 
-  // Party size of 1 -> ask "male or female" instead of two count fields.
+  // Party size drives how many companion (name + origin + sex) rows are
+  // shown — the "Visitor name" field above is person #1.
   const manualLogPartySize = document.getElementById("manualLogPartySize");
-  const manualLogGenderWrap = document.getElementById("manualLogGenderWrap");
-  const manualLogMaleWrap = document.getElementById("manualLogMaleWrap");
-  const manualLogFemaleWrap = document.getElementById("manualLogFemaleWrap");
-  const manualLogMaleCount = document.getElementById("manualLogMaleCount");
-  const manualLogFemaleCount = document.getElementById("manualLogFemaleCount");
-  const manualLogGenderMale = document.getElementById("manualLogGenderMale");
-  const manualLogGenderFemale = document.getElementById("manualLogGenderFemale");
+  const manualLogCompanionsList = document.getElementById("manualLogCompanionsList");
 
-  function syncManualLogGenderMode() {
-    if (!manualLogPartySize) return;
-    const isSingle = (parseInt(manualLogPartySize.value, 10) || 1) === 1;
-    manualLogGenderWrap.classList.toggle("d-none", !isSingle);
-    manualLogMaleWrap.classList.toggle("d-none", isSingle);
-    manualLogFemaleWrap.classList.toggle("d-none", isSingle);
-    manualLogMaleCount.required = !isSingle;
-    manualLogFemaleCount.required = !isSingle;
-    manualLogGenderMale.required = isSingle;
-    manualLogGenderFemale.required = isSingle;
+  function manualLogCompanionRowHtml(i) {
+    return `
+      <div class="border rounded-3 p-3 companion-row" data-companion-index="${i}">
+        <div class="row g-2 align-items-end">
+          <div class="col-md-5">
+            <label class="form-label small mb-1">Name <span class="text-danger">*</span></label>
+            <input type="text" name="companion_name[]" class="form-control form-control-sm" required />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small mb-1">Origin <span class="text-danger">*</span></label>
+            <select name="companion_origin[]" class="form-select form-select-sm" required>
+              <option value="" disabled selected>Select origin</option>
+              <option value="this_city">This city/municipality</option>
+              <option value="other_city">Other city/municipality</option>
+              <option value="other_province">Other province</option>
+              <option value="foreign">Foreign</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small mb-1 d-block">Sex <span class="text-danger">*</span></label>
+            <div class="btn-group btn-group-sm w-100" role="group">
+              <input type="radio" class="btn-check" name="companion_gender_${i}" id="manualLogCompM${i}" value="male" autocomplete="off" required />
+              <label class="btn btn-outline-secondary" for="manualLogCompM${i}">M</label>
+              <input type="radio" class="btn-check" name="companion_gender_${i}" id="manualLogCompF${i}" value="female" autocomplete="off" required />
+              <label class="btn btn-outline-secondary" for="manualLogCompF${i}">F</label>
+            </div>
+          </div>
+        </div>
+      </div>`;
   }
 
-  function applyManualLogGenderSelection() {
-    if (manualLogGenderMale.checked) {
-      manualLogMaleCount.value = 1;
-      manualLogFemaleCount.value = 0;
-    } else if (manualLogGenderFemale.checked) {
-      manualLogMaleCount.value = 0;
-      manualLogFemaleCount.value = 1;
+  function syncManualLogCompanions() {
+    if (!manualLogPartySize || !manualLogCompanionsList) return;
+    const partySize = Math.max(1, parseInt(manualLogPartySize.value, 10) || 1);
+    const companionCount = partySize - 1;
+    const existingRows = manualLogCompanionsList.querySelectorAll(".companion-row");
+    if (companionCount > existingRows.length) {
+      for (let i = existingRows.length; i < companionCount; i++) {
+        manualLogCompanionsList.insertAdjacentHTML("beforeend", manualLogCompanionRowHtml(i));
+      }
+    } else if (companionCount < existingRows.length) {
+      existingRows.forEach((row) => {
+        if (parseInt(row.dataset.companionIndex, 10) >= companionCount) row.remove();
+      });
     }
   }
 
   if (manualLogPartySize) {
-    manualLogPartySize.addEventListener("input", syncManualLogGenderMode);
-    manualLogGenderMale.addEventListener("change", applyManualLogGenderSelection);
-    manualLogGenderFemale.addEventListener("change", applyManualLogGenderSelection);
-    syncManualLogGenderMode();
+    manualLogPartySize.addEventListener("input", syncManualLogCompanions);
+    syncManualLogCompanions();
   }
+
+  const manualLogForm = manualLogModal ? manualLogModal.querySelector("form") : null;
+  if (manualLogForm) {
+    manualLogForm.addEventListener("submit", () => {
+      manualLogForm.querySelectorAll(".companion-row").forEach((row) => {
+        const idx = row.dataset.companionIndex;
+        const checked = row.querySelector(`input[name="companion_gender_${idx}"]:checked`);
+        const hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = "companion_gender[]";
+        hidden.value = checked ? checked.value : "";
+        manualLogForm.appendChild(hidden);
+      });
+      // Real form POST (page reload/redirect follows) — disabling here just
+      // gives visible "it's working" feedback and blocks a double-submit
+      // while the request is in flight.
+      const submitBtn = manualLogForm.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> Saving…';
+      }
+    });
+  }
+
+  // Visitor roster modal — shared by both tabs' "View roster" buttons.
+  function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str == null ? "" : String(str);
+    return div.innerHTML;
+  }
+
+  document.querySelectorAll("[data-view-roster]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      let visitors = [];
+      try {
+        visitors = JSON.parse(btn.dataset.visitors || "[]");
+      } catch (e) {
+        visitors = [];
+      }
+      const list = document.getElementById("visitRosterList");
+      list.innerHTML = visitors.length
+        ? visitors
+            .map(
+              (v) => `
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span>${escapeHtml(v.full_name)}</span>
+                <span class="text-muted small">${escapeHtml((v.gender || "").toUpperCase())} &middot; ${escapeHtml((v.origin || "").replace(/_/g, " "))}</span>
+              </li>`
+            )
+            .join("")
+        : '<li class="list-group-item text-muted">No per-visitor roster recorded for this visit.</li>';
+      new bootstrap.Modal(document.getElementById("visitRosterModal")).show();
+    });
+  });
 </script>
 {% endblock %}

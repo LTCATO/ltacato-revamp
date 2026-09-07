@@ -81,6 +81,7 @@ NAV_BY_ROLE: dict[str, list[dict[str, Any]]] = {
         {"label": "Arrival data", "icon": "bx-edit", "endpoint": "dashboard.arrivals"},
         {"label": "Site updates", "icon": "bx-store", "endpoint": "dashboard.site_updates"},
         {"label": "Visit schedule", "icon": "bx-calendar-check", "endpoint": "dashboard.visit_schedules"},
+        {"label": "Reviews", "icon": "bx-star", "endpoint": "dashboard.reviews"},
         {"section": "Account"},
         {"label": "My profile", "icon": "bx-user-circle", "endpoint": "dashboard.manage_profile"},
     ],
