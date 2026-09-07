@@ -7,7 +7,7 @@
 
   function getPanelOffset() {
     var offset = 0;
-    if (window.innerWidth <= 768) return [0, 0];
+    if (window.innerWidth <= 991) return [0, 0];
     
     var formOpen = !document.getElementById('planner-form-panel').classList.contains('is-closed');
     var resultsPanel = document.getElementById('planner-results-panel');
@@ -244,47 +244,107 @@
     var btnCloseForm = document.getElementById("btn-close-planner");
     var btnCloseResults = document.getElementById("btn-close-results");
     var btnReopen = document.getElementById("btn-reopen-results");
+    var btnViewMap = document.getElementById("btn-view-map");
+    var btnViewPlan = document.getElementById("btn-view-plan");
+
+    function isMobile() {
+      return window.innerWidth <= 991;
+    }
+
+    // .is-open drives visibility on mobile (panels default closed there —
+    // see the media query in planner.html); .is-closed keeps driving the
+    // desktop side-panel behavior. Toggling both together keeps the two
+    // breakpoints in sync no matter which control triggered the change.
+    function openPanel(panel) {
+      if (!panel) return;
+      panel.classList.remove("is-closed");
+      panel.classList.add("is-open");
+    }
+
+    function closePanel(panel) {
+      if (!panel) return;
+      panel.classList.add("is-closed");
+      panel.classList.remove("is-open");
+    }
+
+    function setToggleActive(view) {
+      if (!btnViewMap || !btnViewPlan) return;
+      btnViewMap.classList.toggle("active", view === "map");
+      btnViewPlan.classList.toggle("active", view === "plan");
+    }
+
+    // Map-first landing on mobile: start with both panels closed so the
+    // map is the first thing a phone visitor sees, even if a plan already
+    // exists from a previous visit.
+    if (isMobile()) {
+      closePanel(formPanel);
+      closePanel(resultsPanel);
+      setToggleActive("map");
+    }
+
+    if (btnViewMap) {
+      btnViewMap.addEventListener("click", function () {
+        closePanel(formPanel);
+        closePanel(resultsPanel);
+        setToggleActive("map");
+      });
+    }
+
+    if (btnViewPlan) {
+      btnViewPlan.addEventListener("click", function () {
+        if (window.HAS_PLAN) {
+          openPanel(resultsPanel);
+        } else {
+          openPanel(formPanel);
+        }
+        setToggleActive("plan");
+      });
+    }
 
     if (btnCloseForm && btnOpen && formPanel) {
       btnCloseForm.addEventListener("click", function() {
-        formPanel.classList.add("is-closed");
-        if (resultsPanel) resultsPanel.classList.add("is-closed");
+        closePanel(formPanel);
+        closePanel(resultsPanel);
         btnOpen.classList.remove("is-hidden");
-        
-        if (map && window.innerWidth > 768) {
+        setToggleActive("map");
+
+        if (map && window.innerWidth > 991) {
           // If closing everything, pan map back to center
-          var currentOffset = getPanelOffset()[0]; 
-          map.panBy([-currentOffset, 0], { duration: 300 }); 
+          var currentOffset = getPanelOffset()[0];
+          map.panBy([-currentOffset, 0], { duration: 300 });
         }
       });
 
       btnOpen.addEventListener("click", function() {
-        formPanel.classList.remove("is-closed");
-        if (window.HAS_PLAN && resultsPanel) resultsPanel.classList.remove("is-closed");
+        openPanel(formPanel);
+        if (window.HAS_PLAN && resultsPanel) openPanel(resultsPanel);
         btnOpen.classList.add("is-hidden");
-        
-        if (map && window.innerWidth > 768) {
+        setToggleActive("plan");
+
+        if (map && window.innerWidth > 991) {
           map.panBy(getPanelOffset(), { duration: 300 });
         }
       });
     }
-    
+
     if (btnCloseResults && resultsPanel) {
       btnCloseResults.addEventListener("click", function() {
-        resultsPanel.classList.add("is-closed");
+        closePanel(resultsPanel);
         window.HAS_PLAN = false; // State changed
-        if (map && window.innerWidth > 768) {
+        setToggleActive(isMobile() ? "map" : "plan");
+        if (map && window.innerWidth > 991) {
            // We just removed the 400px panel, shift map 200px right
            map.panBy([200, 0], { duration: 300 });
         }
       });
     }
-    
+
     if (btnReopen && resultsPanel) {
       btnReopen.addEventListener("click", function() {
-        resultsPanel.classList.remove("is-closed");
+        openPanel(resultsPanel);
         window.HAS_PLAN = true; // State changed
-        if (map && window.innerWidth > 768) {
+        setToggleActive("plan");
+        if (map && window.innerWidth > 991) {
            // We just added the 400px panel, shift map 200px left
            map.panBy([-200, 0], { duration: 300 });
         }
@@ -514,7 +574,7 @@
                   var bounds = new mapboxgl.LngLatBounds();
                   route.geometry.coordinates.forEach(c => bounds.extend(c));
                   map.fitBounds(bounds, { padding: 50 });
-                  if (window.innerWidth > 768) setTimeout(() => map.panBy(getPanelOffset()), 300);
+                  if (window.innerWidth > 991) setTimeout(() => map.panBy(getPanelOffset()), 300);
               }
             } else {
               container.innerHTML = 'No route found.';
