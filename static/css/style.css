@@ -653,6 +653,15 @@ main {
     transform: translateY(-1px);
 }
 
+.ltcato-btn-pill:disabled,
+.ltcato-btn-pill.disabled {
+    background: var(--primary);
+    color: var(--primary-foreground) !important;
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
 .ltcato-btn-outline-lg {
     display: inline-flex;
     align-items: center;
