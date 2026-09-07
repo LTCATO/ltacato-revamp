@@ -134,9 +134,49 @@
     border-radius: 3px;
   }
 
+  /* Mobile toggle bar: lets a mobile visitor explicitly switch between the
+     full map and the planning form/results, instead of the panel silently
+     covering the map. Hidden by default; shown only under the mobile media
+     query below. */
+  .planner-mobile-toggle {
+    display: none;
+    position: fixed;
+    top: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 15;
+    background: #ffffff;
+    border-radius: 999px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+    padding: 4px;
+    gap: 4px;
+  }
+
+  .planner-mobile-toggle__btn {
+    border: none;
+    background: transparent;
+    color: var(--muted-foreground, #6c757d);
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 0.6rem 1.35rem;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+
+  .planner-mobile-toggle__btn.active {
+    background: var(--primary);
+    color: #fff;
+  }
+
   /* Mobile/tablet adjustments — widened from 768px so tablet widths
      (769-991px) also get the stacked bottom-sheet layout instead of the
-     fixed 380px+400px side panels overflowing a narrower viewport. */
+     fixed 380px+400px side panels overflowing a narrower viewport.
+     Panels default CLOSED here (map-first landing) and only slide up when
+     given .is-open by the mobile toggle bar or the "Open Planner"/"View
+     Generated Itinerary" buttons. */
   @media (max-width: 991.98px) {
     .planner-panel {
       top: auto;
@@ -145,35 +185,25 @@
       width: 100% !important;
       height: 70vh;
       border-radius: 1.25rem 1.25rem 0 0;
-    }
-
-    #planner-form-panel {
-      transform: translateY(0);
-    }
-
-    #planner-form-panel.is-closed {
       transform: translateY(100%);
+    }
+
+    #planner-form-panel.is-open,
+    #planner-results-panel.is-open {
+      transform: translateY(0);
     }
 
     #planner-results-panel {
       z-index: 11;
       /* Cover the form on mobile */
-      transform: translateY(0);
-    }
-
-    #planner-results-panel.is-closed {
-      transform: translateY(100%);
     }
 
     .planner-fab {
-      top: auto;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
+      display: none;
     }
 
-    .planner-fab.is-hidden {
-      transform: translateX(-50%) scale(0.8) translateY(100px);
+    .planner-mobile-toggle {
+      display: flex;
     }
   }
 </style>
@@ -186,6 +216,17 @@
 <button id="btn-open-planner" class="planner-fab is-hidden">
   <i class="ph ph-list-dashes"></i> Open Planner
 </button>
+
+<!-- Mobile-only: explicit switch between the full map and the planning
+     panel, so the map is what a phone visitor lands on first. -->
+<div class="planner-mobile-toggle" role="group" aria-label="Planner view">
+  <button type="button" id="btn-view-map" class="planner-mobile-toggle__btn active" data-view="map">
+    <i class="ph ph-map-trifold"></i> Map
+  </button>
+  <button type="button" id="btn-view-plan" class="planner-mobile-toggle__btn" data-view="plan">
+    <i class="ph ph-note-pencil"></i> Plan
+  </button>
+</div>
 
 <!-- PRIMARY PANEL (FORM) -->
 <div class="planner-panel" id="planner-form-panel">
