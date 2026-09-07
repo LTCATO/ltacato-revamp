@@ -554,10 +554,11 @@ main {
         text-align: center;
     }
 
-    .ltcato-btn-login {
-        display: block;
-        width: fit-content;
-        margin: 0.5rem auto 0;
+    .ltcato-nav-auth {
+        justify-content: space-between;
+        width: 100%;
+        margin-top: 0.5rem;
+        padding: 0 1.5rem;
     }
 
     .hero-content {
@@ -1846,6 +1847,23 @@ main {
 
     .spots-filters__select {
         flex: 1 1 calc(50% - 0.5rem);
+    }
+}
+
+/* Phone-width filter bars (spots + LGU): a 50/50 split squeezes each select
+   too narrow to show its own text, so stack every filter as its own
+   full-width dropdown instead. */
+@media (max-width: 575.98px) {
+    .spots-filters__search,
+    .spots-filters__select,
+    .spots-filters .btn.ltcato-btn-pill {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+
+    .spots-filters__clear {
+        flex: 1 1 100%;
+        text-align: center;
     }
 }
 
