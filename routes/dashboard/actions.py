@@ -303,13 +303,12 @@ def add_manual_log():
     from services.visit_schedules import build_visitor_payload, create_manual_log
 
     user = get_current_dashboard_user()
+    origin = request.form.get("origin") or None
     visitors = build_visitor_payload(
         primary_name=request.form.get("visitor_name", ""),
-        primary_origin=request.form.get("origin") or None,
-        primary_gender=request.form.get("gender_single") or None,
+        primary_origin=origin,
         companion_names=request.form.getlist("companion_name[]"),
         companion_origins=request.form.getlist("companion_origin[]"),
-        companion_genders=request.form.getlist("companion_gender[]"),
     )
     try:
         create_manual_log(
@@ -323,6 +322,9 @@ def add_manual_log():
                 "visit_time": request.form.get("visit_time") or "00:00",
                 "visitor_category": request.form.get("visitor_category") or "day_tour",
                 "overnight_nights": request.form.get("overnight_nights", type=int) or 0,
+                "origin": origin,
+                "male_count": request.form.get("male_count", type=int),
+                "female_count": request.form.get("female_count", type=int),
                 "visitors": visitors,
                 "notes": (request.form.get("notes") or "").strip() or None,
             },
@@ -1264,98 +1266,125 @@ def generate_insights():
 
 
 def _lgu_admin_can_moderate(user, row_lgu_id) -> bool:
-    if user["role"] == "super_admin":
+    if user["role"] in ("super_admin", "ltcato_staff"):
         return True
     if user["role"] == "lgu_admin":
         return int(row_lgu_id or -1) == int(resolve_dashboard_lgu_id(user) or -2)
     return False
 
 
+def _feedback_redirect(user):
+    """Send the user back to wherever they took the review action from.
+    Establishment owners only ever act from the Reviews page. LGU/LTCATO
+    staff can act from either the Feedback page or the Reviews page (which
+    also covers event reviews) — a hidden return_to field on the form says
+    which, defaulting to Feedback when it's absent."""
+    if user["role"] == "establishment_owner" or request.form.get("return_to") == "reviews":
+        # lgu_id is passed through as-is (not int-parsed) since it can be the
+        # "none" sentinel for LTCATO's own province-wide events, not just a
+        # numeric LGU id.
+        return redirect(
+            url_for(
+                "dashboard.reviews",
+                spot_id=request.form.get("spot_id", type=int),
+                lgu_id=request.form.get("lgu_id") or None,
+            )
+        )
+    return redirect(url_for("dashboard.feedback"))
+
+
 @dashboard_bp.route("/actions/feedback/<int:feedback_id>/approve-images", methods=["POST"])
 @dashboard_login_required
-@role_required("super_admin", "lgu_admin")
+@role_required("super_admin", "ltcato_staff", "lgu_admin", "establishment_owner")
 def approve_feedback_images(feedback_id: int):
-    from services.feedbacks import get_feedback_for_moderation, set_feedback_images_approval
+    from services.feedbacks import (
+        can_manage_feedback,
+        get_feedback_for_moderation,
+        set_feedback_images_approval,
+    )
 
     user = get_current_dashboard_user()
     row = get_feedback_for_moderation(feedback_id)
     if not row:
         flash("Feedback not found.", "danger")
-        return redirect(url_for("dashboard.feedback"))
-    spot_lgu_id = (row.get("tourist_spots") or {}).get("lgu_id")
-    if not _lgu_admin_can_moderate(user, spot_lgu_id):
-        flash("You can only moderate feedback for your own LGU.", "danger")
-        return redirect(url_for("dashboard.feedback"))
+        return _feedback_redirect(user)
+    if not can_manage_feedback(user, row.get("tourist_spots") or {}):
+        flash("You can only moderate feedback for your own establishment or LGU.", "danger")
+        return _feedback_redirect(user)
 
     set_feedback_images_approval(feedback_id, "approved")
     flash("Review photos approved and now visible on the site.", "success")
-    return redirect(url_for("dashboard.feedback"))
+    return _feedback_redirect(user)
 
 
 @dashboard_bp.route("/actions/feedback/<int:feedback_id>/reject-images", methods=["POST"])
 @dashboard_login_required
-@role_required("super_admin", "lgu_admin")
+@role_required("super_admin", "ltcato_staff", "lgu_admin", "establishment_owner")
 def reject_feedback_images(feedback_id: int):
-    from services.feedbacks import get_feedback_for_moderation, set_feedback_images_approval
+    from services.feedbacks import (
+        can_manage_feedback,
+        get_feedback_for_moderation,
+        set_feedback_images_approval,
+    )
 
     user = get_current_dashboard_user()
     row = get_feedback_for_moderation(feedback_id)
     if not row:
         flash("Feedback not found.", "danger")
-        return redirect(url_for("dashboard.feedback"))
-    spot_lgu_id = (row.get("tourist_spots") or {}).get("lgu_id")
-    if not _lgu_admin_can_moderate(user, spot_lgu_id):
-        flash("You can only moderate feedback for your own LGU.", "danger")
-        return redirect(url_for("dashboard.feedback"))
+        return _feedback_redirect(user)
+    if not can_manage_feedback(user, row.get("tourist_spots") or {}):
+        flash("You can only moderate feedback for your own establishment or LGU.", "danger")
+        return _feedback_redirect(user)
 
     set_feedback_images_approval(feedback_id, "rejected")
     flash("Review photos rejected and hidden from the site.", "info")
-    return redirect(url_for("dashboard.feedback"))
+    return _feedback_redirect(user)
 
 
 @dashboard_bp.route("/actions/feedback/<int:feedback_id>/hide", methods=["POST"])
 @dashboard_login_required
-@role_required("establishment_owner")
+@role_required("super_admin", "ltcato_staff", "lgu_admin", "establishment_owner")
 def hide_feedback(feedback_id: int):
-    """Let an establishment owner hide a bad review from their spot's public
-    page — kept on record, just excluded from get_spot_feedbacks()."""
+    """Hide a bad review from its spot's public page — kept on record, just
+    excluded from get_spot_feedbacks(). Usable by the spot's establishment
+    owner or by LGU/LTCATO staff overseeing that spot."""
     from services.feedbacks import set_feedback_hidden
 
     user = get_current_dashboard_user()
     try:
-        set_feedback_hidden(feedback_id, True, owner_id=str(user.get("id")))
-        flash("Review hidden from your spot's public page.", "success")
-    except PermissionError:
-        flash("You can only manage reviews for your own establishment.", "danger")
+        set_feedback_hidden(feedback_id, True, user=user)
+        flash("Review hidden from the spot's public page.", "success")
+    except PermissionError as exc:
+        flash(str(exc), "danger")
     except ValueError as exc:
         flash(str(exc), "danger")
     except Exception as exc:
         flash(f"Could not hide review: {exc}", "danger")
-    return redirect(url_for("dashboard.reviews", spot_id=request.form.get("spot_id", type=int)))
+    return _feedback_redirect(user)
 
 
 @dashboard_bp.route("/actions/feedback/<int:feedback_id>/unhide", methods=["POST"])
 @dashboard_login_required
-@role_required("establishment_owner")
+@role_required("super_admin", "ltcato_staff", "lgu_admin", "establishment_owner")
 def unhide_feedback(feedback_id: int):
     from services.feedbacks import set_feedback_hidden
 
     user = get_current_dashboard_user()
     try:
-        set_feedback_hidden(feedback_id, False, owner_id=str(user.get("id")))
-        flash("Review restored to your spot's public page.", "success")
-    except PermissionError:
-        flash("You can only manage reviews for your own establishment.", "danger")
+        set_feedback_hidden(feedback_id, False, user=user)
+        flash("Review restored to the spot's public page.", "success")
+    except PermissionError as exc:
+        flash(str(exc), "danger")
     except ValueError as exc:
         flash(str(exc), "danger")
     except Exception as exc:
         flash(f"Could not restore review: {exc}", "danger")
-    return redirect(url_for("dashboard.reviews", spot_id=request.form.get("spot_id", type=int)))
+    return _feedback_redirect(user)
 
 
 @dashboard_bp.route("/actions/event-feedback/<int:feedback_id>/approve-images", methods=["POST"])
 @dashboard_login_required
-@role_required("super_admin", "lgu_admin")
+@role_required("super_admin", "ltcato_staff", "lgu_admin")
 def approve_event_feedback_images(feedback_id: int):
     from services.event_engagement import (
         get_event_feedback_for_moderation,
@@ -1366,20 +1395,20 @@ def approve_event_feedback_images(feedback_id: int):
     row = get_event_feedback_for_moderation(feedback_id)
     if not row:
         flash("Feedback not found.", "danger")
-        return redirect(url_for("dashboard.feedback"))
+        return _feedback_redirect(user)
     event_lgu_id = (row.get("events") or {}).get("lgu_id")
     if not _lgu_admin_can_moderate(user, event_lgu_id):
         flash("You can only moderate feedback for your own LGU.", "danger")
-        return redirect(url_for("dashboard.feedback"))
+        return _feedback_redirect(user)
 
     set_event_feedback_images_approval(feedback_id, "approved")
     flash("Review photos approved and now visible on the site.", "success")
-    return redirect(url_for("dashboard.feedback"))
+    return _feedback_redirect(user)
 
 
 @dashboard_bp.route("/actions/event-feedback/<int:feedback_id>/reject-images", methods=["POST"])
 @dashboard_login_required
-@role_required("super_admin", "lgu_admin")
+@role_required("super_admin", "ltcato_staff", "lgu_admin")
 def reject_event_feedback_images(feedback_id: int):
     from services.event_engagement import (
         get_event_feedback_for_moderation,
@@ -1390,15 +1419,56 @@ def reject_event_feedback_images(feedback_id: int):
     row = get_event_feedback_for_moderation(feedback_id)
     if not row:
         flash("Feedback not found.", "danger")
-        return redirect(url_for("dashboard.feedback"))
+        return _feedback_redirect(user)
     event_lgu_id = (row.get("events") or {}).get("lgu_id")
     if not _lgu_admin_can_moderate(user, event_lgu_id):
         flash("You can only moderate feedback for your own LGU.", "danger")
-        return redirect(url_for("dashboard.feedback"))
+        return _feedback_redirect(user)
 
     set_event_feedback_images_approval(feedback_id, "rejected")
     flash("Review photos rejected and hidden from the site.", "info")
-    return redirect(url_for("dashboard.feedback"))
+    return _feedback_redirect(user)
+
+
+@dashboard_bp.route("/actions/event-feedback/<int:feedback_id>/hide", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff", "lgu_admin")
+def hide_event_feedback(feedback_id: int):
+    """Hide a bad review from its event's public page — kept on record, just
+    excluded from the public event page's list_event_feedbacks(). Usable by
+    LGU/LTCATO staff overseeing that event."""
+    from services.event_engagement import set_event_feedback_hidden
+
+    user = get_current_dashboard_user()
+    try:
+        set_event_feedback_hidden(feedback_id, True, user=user)
+        flash("Review hidden from the event's public page.", "success")
+    except PermissionError as exc:
+        flash(str(exc), "danger")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    except Exception as exc:
+        flash(f"Could not hide review: {exc}", "danger")
+    return _feedback_redirect(user)
+
+
+@dashboard_bp.route("/actions/event-feedback/<int:feedback_id>/unhide", methods=["POST"])
+@dashboard_login_required
+@role_required("super_admin", "ltcato_staff", "lgu_admin")
+def unhide_event_feedback(feedback_id: int):
+    from services.event_engagement import set_event_feedback_hidden
+
+    user = get_current_dashboard_user()
+    try:
+        set_event_feedback_hidden(feedback_id, False, user=user)
+        flash("Review restored to the event's public page.", "success")
+    except PermissionError as exc:
+        flash(str(exc), "danger")
+    except ValueError as exc:
+        flash(str(exc), "danger")
+    except Exception as exc:
+        flash(f"Could not restore review: {exc}", "danger")
+    return _feedback_redirect(user)
 
 
 @dashboard_bp.route("/actions/analyze/sentiment", methods=["POST"])

@@ -139,7 +139,6 @@
                                     id="scheduleVisitGenderMale"
                                     value="male"
                                     autocomplete="off"
-                                    required
                                 />
                                 <label class="btn btn-outline-secondary" for="scheduleVisitGenderMale">Male</label>
                                 <input
@@ -149,17 +148,44 @@
                                     id="scheduleVisitGenderFemale"
                                     value="female"
                                     autocomplete="off"
-                                    required
                                 />
                                 <label class="btn btn-outline-secondary" for="scheduleVisitGenderFemale">Female</label>
                             </div>
                         </div>
+                        <div class="col-6 d-none" id="scheduleVisitMaleWrap">
+                            <label class="form-label">Male count <span class="text-danger">*</span></label>
+                            <input
+                                type="number"
+                                name="male_count"
+                                id="scheduleVisitMaleCount"
+                                class="form-control"
+                                min="0"
+                            />
+                        </div>
+                        <div class="col-6 d-none" id="scheduleVisitFemaleWrap">
+                            <label class="form-label">Female count <span class="text-danger">*</span></label>
+                            <input
+                                type="number"
+                                name="female_count"
+                                id="scheduleVisitFemaleCount"
+                                class="form-control"
+                                min="0"
+                            />
+                        </div>
+                        <div class="col-12 mt-0 d-none" id="scheduleVisitGenderHintWrap">
+                            <p class="form-text text-muted small mb-0" id="scheduleVisitGenderHint">
+                                Together these should add up to your party size
+                                (<span id="scheduleVisitGenderHintSize">1</span>).
+                            </p>
+                        </div>
                         <div class="col-12" id="scheduleVisitCompanionsWrap">
-                            <label class="form-label mb-1">Who else is coming?</label>
+                            <label class="form-label mb-1"
+                                >Who else is coming?
+                                <span class="text-muted fw-normal">(optional)</span></label
+                            >
                             <p class="form-text text-muted small mt-0" id="scheduleVisitCompanionsHint">
-                                We record every visitor's name, hometown, and sex — this helps us
-                                reach everyone in your group in an emergency and keeps tourism
-                                records accurate.
+                                Add their names and hometowns if you'd like — not required, but
+                                helps us reach everyone in your group in an emergency.
                             </p>
                             <div id="scheduleVisitCompanionsList" class="d-flex flex-column gap-2"></div>
                         </div>

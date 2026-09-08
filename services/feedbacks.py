@@ -10,8 +10,8 @@ from services.supabase_client import get_supabase, reset_supabase
 
 FEEDBACK_FIELDS = (
     "id, tourist_spot_id, guest_name, rating, comments, suggestions, "
-    "sentiment, source, images, images_approval_status, created_at, "
-    "tourist_spots{}(id, name, lgu_id, lgus(id, name))"
+    "sentiment, source, images, images_approval_status, is_hidden, created_at, "
+    "tourist_spots{}(id, name, owner_id, lgu_id, lgus(id, name))"
 )
 
 
@@ -44,21 +44,66 @@ def list_feedbacks(
 
 
 def get_feedback_for_moderation(feedback_id: int) -> dict[str, Any] | None:
-    """Return a feedback row with its spot's lgu_id, for permission checks."""
+    """Return a feedback row with its spot's lgu_id/owner_id, for permission checks."""
     rows = (
         get_supabase()
         .table("feedbacks")
-        .select("id, tourist_spot_id, tourist_spots(lgu_id)")
+        .select("id, tourist_spot_id, tourist_spots(lgu_id, owner_id)")
         .eq("id", feedback_id)
         .execute()
     ).data or []
     return rows[0] if rows else None
 
 
+def can_manage_feedback(user: dict[str, Any], spot: dict[str, Any]) -> bool:
+    """Whether user may hide/unhide this review or moderate its photos:
+    the spot's establishment owner, an lgu_admin over the spot's LGU, or a
+    super_admin."""
+    role = user.get("role")
+    if role in ("super_admin", "ltcato_staff"):
+        return True
+    if role == "lgu_admin":
+        from services.dashboard_auth import resolve_dashboard_lgu_id
+
+        return int(spot.get("lgu_id") or -1) == int(resolve_dashboard_lgu_id(user) or -2)
+    if role == "establishment_owner":
+        return str(spot.get("owner_id")) == str(user.get("id"))
+    return False
+
+
 def set_feedback_images_approval(feedback_id: int, status: str) -> None:
     get_supabase().table("feedbacks").update(
         {"images_approval_status": status}
     ).eq("id", feedback_id).execute()
+
+
+def list_feedbacks_for_reviews(
+    user: dict[str, Any],
+    *,
+    spot_id: int | None = None,
+    lgu_id: int | None = None,
+    limit: int = 200,
+) -> list[dict[str, Any]]:
+    """Reviews for the dashboard Reviews page, scoped to what the role can
+    manage: an establishment owner sees their own spot(s); an lgu_admin sees
+    only their own LGU's spots (lgu_id is forced, ignoring any value passed
+    in); super_admin/ltcato_staff see every LGU by default and can narrow
+    down to one via lgu_id, then to one spot via spot_id — the two-step
+    LGU-then-spot filter this function backs. Hidden reviews are included
+    either way — this is where the hide/unhide toggle lives."""
+    role = user.get("role")
+    if role == "establishment_owner":
+        return list_feedbacks_for_owner(str(user.get("id")), spot_id=spot_id, limit=limit)
+
+    if role == "lgu_admin":
+        from services.dashboard_auth import resolve_dashboard_lgu_id
+
+        lgu_id = resolve_dashboard_lgu_id(user)
+
+    rows = list_feedbacks(lgu_id=lgu_id, limit=limit)
+    if spot_id:
+        rows = [r for r in rows if int(r.get("tourist_spot_id") or -1) == int(spot_id)]
+    return rows
 
 
 def list_feedbacks_for_owner(
@@ -103,35 +148,26 @@ def list_feedbacks_for_owner(
     return response.data or []
 
 
-def _verify_feedback_owner(feedback_id: int, owner_id: str) -> dict[str, Any]:
-    rows = (
-        get_supabase()
-        .table("feedbacks")
-        .select("id, tourist_spot_id, tourist_spots(owner_id)")
-        .eq("id", feedback_id)
-        .execute()
-    ).data or []
-    if not rows:
-        raise ValueError("Review not found.")
-    row = rows[0]
-    spot = row.get("tourist_spots") or {}
-    if str(spot.get("owner_id")) != str(owner_id):
-        raise PermissionError("You can only manage reviews for your own establishment.")
-    return row
-
-
-def set_feedback_hidden(feedback_id: int, hidden: bool, *, owner_id: str) -> None:
-    """Let an establishment owner hide a bad review from their spot's public
-    page without deleting it — LGU/LTCATO oversight (list_feedbacks) still
-    sees it either way."""
+def set_feedback_hidden(feedback_id: int, hidden: bool, *, user: dict[str, Any]) -> None:
+    """Hide/unhide a review from its spot's public page without deleting it —
+    usable by the spot's establishment owner as well as the LGU/LTCATO staff
+    overseeing that spot. list_feedbacks() (LGU/LTCATO oversight) still sees
+    the row either way."""
     from datetime import datetime, timezone
 
-    _verify_feedback_owner(feedback_id, owner_id)
+    row = get_feedback_for_moderation(feedback_id)
+    if not row:
+        raise ValueError("Review not found.")
+    spot = row.get("tourist_spots") or {}
+    if not can_manage_feedback(user, spot):
+        raise PermissionError(
+            "You can only manage reviews for your own establishment or LGU."
+        )
     get_supabase().table("feedbacks").update(
         {
             "is_hidden": hidden,
             "hidden_at": datetime.now(timezone.utc).isoformat() if hidden else None,
-            "hidden_by": owner_id if hidden else None,
+            "hidden_by": user.get("id") if hidden else None,
         }
     ).eq("id", feedback_id).execute()
 

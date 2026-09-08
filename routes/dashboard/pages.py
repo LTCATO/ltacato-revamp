@@ -27,7 +27,7 @@ from services.dashboard_pages import get_dashboard_overview, get_workflow_cards
 from services.event_engagement import list_event_feedbacks_for_dashboard
 from services.events import _compute_event_status, list_events
 from services.external_reviews import list_external_reviews
-from services.feedbacks import list_feedbacks, list_feedbacks_for_owner
+from services.feedbacks import list_feedbacks, list_feedbacks_for_reviews
 from services.lgus import list_lgus_simple
 from services.profiles import list_profiles
 from services.spots import (
@@ -756,22 +756,79 @@ def visit_schedules():
 
 @dashboard_bp.route("/reviews")
 @dashboard_login_required
-@role_required("establishment_owner")
+@role_required("super_admin", "ltcato_staff", "lgu_admin", "establishment_owner")
 def reviews():
     user = get_current_dashboard_user()
+    role = user["role"]
     spot_id = request.args.get("spot_id", type=int)
-    items = list_feedbacks_for_owner(str(user.get("id")), spot_id=spot_id)
-    spots = list_spots_for_dashboard(owner_id=user.get("id"), limit=20)
+    lgus: list = []
+    lgu_id: int | None = None
+    lgu_filter = ""
+    unassigned_only = False
+    event_items: list = []
+
+    if role == "establishment_owner":
+        # Establishment owners run spots, not events — nothing to show here.
+        items = list_feedbacks_for_reviews(user, spot_id=spot_id)
+        spots = list_spots_for_dashboard(owner_id=user.get("id"), limit=20)
+        description = (
+            "Guest reviews on your establishment. Hide anything that shouldn't be "
+            "shown publicly — it stays on record but comes off your spot's page."
+        )
+    elif role == "lgu_admin":
+        lgu_id = _user_lgu_id(user)
+        lgu_filter = str(lgu_id or "")
+        items = list_feedbacks_for_reviews(user, spot_id=spot_id)
+        spots = list_spots_for_dashboard(lgu_id=lgu_id, limit=200)
+        event_items = list_event_feedbacks_for_dashboard(lgu_id=lgu_id, limit=100)
+        description = (
+            "Guest reviews across your LGU's establishments and events. Hide "
+            "anything that shouldn't be shown publicly — it stays on record but "
+            "comes off the spot's page."
+        )
+    else:
+        # super_admin / ltcato_staff: filter by LGU first, then narrow to one
+        # of that LGU's spots — with no LGU chosen, no spot list to filter by
+        # spot makes sense either, so it's forced back to None. Events run by
+        # LTCATO itself (e.g. Anilag) have no lgu_id at all, so they'd never
+        # match any LGU filter — a dedicated "none" value picks those out
+        # instead of leaving them permanently unreachable from this page.
+        # There's no spot angle for them since spots always belong to an LGU.
+        lgus = list_lgus_simple()
+        lgu_filter = request.args.get("lgu_id") or ""
+        unassigned_only = lgu_filter == "none"
+        lgu_id = int(lgu_filter) if lgu_filter.isdigit() else None
+        if not lgu_id:
+            spot_id = None
+        if unassigned_only:
+            items = []
+            spots = []
+        else:
+            items = list_feedbacks_for_reviews(user, spot_id=spot_id, lgu_id=lgu_id)
+            spots = list_spots_for_dashboard(lgu_id=lgu_id, limit=200) if lgu_id else []
+        event_items = list_event_feedbacks_for_dashboard(
+            lgu_id=lgu_id, unassigned_only=unassigned_only, limit=100
+        )
+        description = (
+            "Guest reviews across every establishment and event province-wide. "
+            "Pick an LGU to narrow it down to that LGU's spots and events, or "
+            "pick LTCATO to see reviews for events LTCATO runs directly. Hide "
+            "anything that shouldn't be shown publicly — it stays on record but "
+            "comes off the spot's page."
+        )
 
     return render_dashboard(
         "views/dashboard/pages/reviews.html",
         user,
         feedbacks=items,
+        event_feedbacks=event_items,
         spots=spots,
+        lgus=lgus,
         spot_id=spot_id,
+        lgu_id=lgu_id,
+        lgu_filter=lgu_filter,
         page_title="Reviews",
-        page_description="Guest reviews on your establishment. Hide anything that "
-        "shouldn't be shown publicly — it stays on record but comes off your spot's page.",
+        page_description=description,
         page_icon="bx-star",
     )
 
