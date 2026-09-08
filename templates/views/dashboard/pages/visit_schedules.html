@@ -310,17 +310,30 @@
             <div class="col-md-6" id="manualLogGenderWrap">
               <label class="form-label d-block">Visitor is <span class="text-danger">*</span></label>
               <div class="btn-group w-100" role="group">
-                <input type="radio" class="btn-check" name="gender_single" id="manualLogGenderMale" value="male" autocomplete="off" required />
+                <input type="radio" class="btn-check" name="gender_single" id="manualLogGenderMale" value="male" autocomplete="off" />
                 <label class="btn btn-outline-secondary" for="manualLogGenderMale">Male</label>
-                <input type="radio" class="btn-check" name="gender_single" id="manualLogGenderFemale" value="female" autocomplete="off" required />
+                <input type="radio" class="btn-check" name="gender_single" id="manualLogGenderFemale" value="female" autocomplete="off" />
                 <label class="btn btn-outline-secondary" for="manualLogGenderFemale">Female</label>
               </div>
             </div>
+            <div class="col-6 col-lg-3 d-none" id="manualLogMaleWrap">
+              <label class="form-label">Male count <span class="text-danger">*</span></label>
+              <input type="number" name="male_count" id="manualLogMaleCount" class="form-control" min="0" />
+            </div>
+            <div class="col-6 col-lg-3 d-none" id="manualLogFemaleWrap">
+              <label class="form-label">Female count <span class="text-danger">*</span></label>
+              <input type="number" name="female_count" id="manualLogFemaleCount" class="form-control" min="0" />
+            </div>
+            <div class="col-12 mt-0 d-none" id="manualLogGenderHintWrap">
+              <p class="form-text text-muted small mb-0" id="manualLogGenderHint">
+                Together these should add up to the party size (<span id="manualLogGenderHintSize">1</span>).
+              </p>
+            </div>
             <div class="col-12" id="manualLogCompanionsWrap">
-              <label class="form-label mb-1">Who else is with them?</label>
+              <label class="form-label mb-1">Who else is with them? <span class="text-muted fw-normal">(optional)</span></label>
               <p class="form-text text-muted small mt-0">
-                Record every visitor's name, hometown, and sex so the party can be
-                fully accounted for in tourism records.
+                Add names and hometowns if known — not required, but helps keep
+                a fuller record of the group.
               </p>
               <div id="manualLogCompanionsList" class="d-flex flex-column gap-2"></div>
             </div>
@@ -452,45 +465,82 @@
     });
   }
 
-  // Party size drives how many companion (name + origin + sex) rows are
-  // shown — the "Visitor name" field above is person #1.
+  // Party size drives how many optional companion (name + origin) rows are
+  // shown — the "Visitor name" field above is person #1. A party of 1 just
+  // picks "Male"/"Female" directly; a party of more than 1 types the exact
+  // male/female headcount instead (must add up to the party size).
   const manualLogPartySize = document.getElementById("manualLogPartySize");
   const manualLogCompanionsList = document.getElementById("manualLogCompanionsList");
+  const manualLogGenderHintSize = document.getElementById("manualLogGenderHintSize");
+  const manualLogGenderWrap = document.getElementById("manualLogGenderWrap");
+  const manualLogMaleWrap = document.getElementById("manualLogMaleWrap");
+  const manualLogFemaleWrap = document.getElementById("manualLogFemaleWrap");
+  const manualLogGenderHintWrap = document.getElementById("manualLogGenderHintWrap");
+  const manualLogMaleCount = document.getElementById("manualLogMaleCount");
+  const manualLogFemaleCount = document.getElementById("manualLogFemaleCount");
+  const manualLogGenderMale = document.getElementById("manualLogGenderMale");
+  const manualLogGenderFemale = document.getElementById("manualLogGenderFemale");
+
+  function syncManualLogGenderMode(partySize) {
+    const isSingle = partySize === 1;
+    if (manualLogGenderWrap) manualLogGenderWrap.classList.toggle("d-none", !isSingle);
+    if (manualLogMaleWrap) manualLogMaleWrap.classList.toggle("d-none", isSingle);
+    if (manualLogFemaleWrap) manualLogFemaleWrap.classList.toggle("d-none", isSingle);
+    if (manualLogGenderHintWrap) manualLogGenderHintWrap.classList.toggle("d-none", isSingle);
+    if (manualLogMaleCount) manualLogMaleCount.required = !isSingle;
+    if (manualLogFemaleCount) manualLogFemaleCount.required = !isSingle;
+    if (manualLogGenderMale) manualLogGenderMale.required = isSingle;
+    if (manualLogGenderFemale) manualLogGenderFemale.required = isSingle;
+  }
+
+  function applyManualLogGenderSelection() {
+    if (!manualLogMaleCount || !manualLogFemaleCount) return;
+    if (manualLogGenderMale && manualLogGenderMale.checked) {
+      manualLogMaleCount.value = 1;
+      manualLogFemaleCount.value = 0;
+    } else if (manualLogGenderFemale && manualLogGenderFemale.checked) {
+      manualLogMaleCount.value = 0;
+      manualLogFemaleCount.value = 1;
+    }
+  }
+
+  if (manualLogGenderMale) {
+    manualLogGenderMale.addEventListener("change", applyManualLogGenderSelection);
+  }
+  if (manualLogGenderFemale) {
+    manualLogGenderFemale.addEventListener("change", applyManualLogGenderSelection);
+  }
 
   function manualLogCompanionRowHtml(i) {
     return `
       <div class="border rounded-3 p-3 companion-row" data-companion-index="${i}">
         <div class="row g-2 align-items-end">
-          <div class="col-md-5">
-            <label class="form-label small mb-1">Name <span class="text-danger">*</span></label>
-            <input type="text" name="companion_name[]" class="form-control form-control-sm" required />
+          <div class="col-md-6">
+            <label class="form-label small mb-1">Name <span class="text-muted fw-normal">(optional)</span></label>
+            <input type="text" name="companion_name[]" class="form-control form-control-sm" />
           </div>
-          <div class="col-md-4">
-            <label class="form-label small mb-1">Origin <span class="text-danger">*</span></label>
-            <select name="companion_origin[]" class="form-select form-select-sm" required>
-              <option value="" disabled selected>Select origin</option>
+          <div class="col-md-6">
+            <label class="form-label small mb-1">Origin <span class="text-muted fw-normal">(optional)</span></label>
+            <select name="companion_origin[]" class="form-select form-select-sm">
+              <option value="" selected>Not specified</option>
               <option value="this_city">This city/municipality</option>
               <option value="other_city">Other city/municipality</option>
               <option value="other_province">Other province</option>
               <option value="foreign">Foreign</option>
             </select>
           </div>
-          <div class="col-md-3">
-            <label class="form-label small mb-1 d-block">Sex <span class="text-danger">*</span></label>
-            <div class="btn-group btn-group-sm w-100" role="group">
-              <input type="radio" class="btn-check" name="companion_gender_${i}" id="manualLogCompM${i}" value="male" autocomplete="off" required />
-              <label class="btn btn-outline-secondary" for="manualLogCompM${i}">M</label>
-              <input type="radio" class="btn-check" name="companion_gender_${i}" id="manualLogCompF${i}" value="female" autocomplete="off" required />
-              <label class="btn btn-outline-secondary" for="manualLogCompF${i}">F</label>
-            </div>
-          </div>
         </div>
       </div>`;
   }
 
   function syncManualLogCompanions() {
-    if (!manualLogPartySize || !manualLogCompanionsList) return;
+    if (!manualLogPartySize) return;
     const partySize = Math.max(1, parseInt(manualLogPartySize.value, 10) || 1);
+    if (manualLogGenderHintSize) {
+      manualLogGenderHintSize.textContent = partySize;
+    }
+    syncManualLogGenderMode(partySize);
+    if (!manualLogCompanionsList) return;
     const companionCount = partySize - 1;
     const existingRows = manualLogCompanionsList.querySelectorAll(".companion-row");
     if (companionCount > existingRows.length) {
@@ -512,15 +562,6 @@
   const manualLogForm = manualLogModal ? manualLogModal.querySelector("form") : null;
   if (manualLogForm) {
     manualLogForm.addEventListener("submit", () => {
-      manualLogForm.querySelectorAll(".companion-row").forEach((row) => {
-        const idx = row.dataset.companionIndex;
-        const checked = row.querySelector(`input[name="companion_gender_${idx}"]:checked`);
-        const hidden = document.createElement("input");
-        hidden.type = "hidden";
-        hidden.name = "companion_gender[]";
-        hidden.value = checked ? checked.value : "";
-        manualLogForm.appendChild(hidden);
-      });
       // Real form POST (page reload/redirect follows) — disabling here just
       // gives visible "it's working" feedback and blocks a double-submit
       // while the request is in flight.
@@ -553,12 +594,12 @@
             .map(
               (v) => `
               <li class="list-group-item d-flex justify-content-between align-items-center">
-                <span>${escapeHtml(v.full_name)}</span>
-                <span class="text-muted small">${escapeHtml((v.gender || "").toUpperCase())} &middot; ${escapeHtml((v.origin || "").replace(/_/g, " "))}</span>
+                <span>${escapeHtml(v.full_name || "Unnamed")}</span>
+                <span class="text-muted small">${escapeHtml(v.origin ? v.origin.replace(/_/g, " ") : "—")}</span>
               </li>`
             )
             .join("")
-        : '<li class="list-group-item text-muted">No per-visitor roster recorded for this visit.</li>';
+        : '<li class="list-group-item text-muted">No optional name/origin detail recorded for this visit.</li>';
       new bootstrap.Modal(document.getElementById("visitRosterModal")).show();
     });
   });

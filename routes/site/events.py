@@ -98,7 +98,7 @@ def event_detail(event_id: int):
     user_feedback = None
     event_feedbacks = []
     try:
-        event_feedbacks = list_event_feedbacks(event_id)
+        event_feedbacks = list_event_feedbacks(event_id, public_only=True)
         if tourist:
             user_engagement = get_user_event_engagement(tourist["id"], event_id)
             user_feedback = get_event_feedback(tourist["id"], event_id)

@@ -12,6 +12,7 @@
     <h3 class="dashboard-card__title mb-0">Tourist spot reviews</h3>
     <p class="text-muted small mb-0">
       Review photos post immediately. Reject any that are inappropriate to remove them from the public spot page.
+      Hide a review to remove it from the spot's public page — it stays on record and can be restored anytime.
     </p>
   </div>
   <div class="table-responsive">
@@ -25,6 +26,7 @@
           <th>Comments</th>
           <th>Sentiment</th>
           <th>Photos</th>
+          <th>Visibility</th>
           <th>Date</th>
         </tr>
       </thead>
@@ -32,7 +34,7 @@
         {% for f in feedbacks %}
         {% set spot = f.tourist_spots or {} %}
         {% set lgu = spot.lgus or {} %}
-        <tr>
+        <tr class="{{ 'text-muted' if f.is_hidden else '' }}">
           <td><strong>{{ spot.name or '—' }}</strong></td>
           {% if user.role == 'super_admin' %}<td>{{ lgu.name or '—' }}</td>{% endif %}
           <td>{{ f.guest_name or 'Tourist' }}</td>
@@ -63,10 +65,23 @@
             <span class="text-muted small">—</span>
             {% endif %}
           </td>
+          <td>
+            {% if f.is_hidden %}
+            <span class="dashboard-badge dashboard-badge--muted">Hidden</span>
+            <form method="post" action="{{ url_for('dashboard.unhide_feedback', feedback_id=f.id) }}" class="d-inline">
+              <button type="submit" class="btn btn-sm btn-outline-secondary" title="Restore to public page"><i class="bx bx-show"></i></button>
+            </form>
+            {% else %}
+            <span class="dashboard-badge dashboard-badge--success">Public</span>
+            <form method="post" action="{{ url_for('dashboard.hide_feedback', feedback_id=f.id) }}" class="d-inline">
+              <button type="submit" class="btn btn-sm btn-outline-danger" title="Hide from public page"><i class="bx bx-hide"></i></button>
+            </form>
+            {% endif %}
+          </td>
           <td class="small text-muted">{{ (f.created_at or '')[:10] }}</td>
         </tr>
         {% else %}
-        <tr><td colspan="{{ 8 if user.role == 'super_admin' else 7 }}" class="text-center text-muted py-4">No feedback received yet.</td></tr>
+        <tr><td colspan="{{ 9 if user.role == 'super_admin' else 8 }}" class="text-center text-muted py-4">No feedback received yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -78,6 +93,7 @@
     <h3 class="dashboard-card__title mb-0">Event reviews</h3>
     <p class="text-muted small mb-0">
       Review photos post immediately. Reject any that are inappropriate to remove them from the public event page.
+      Hide a review to remove it from the event's public page — it stays on record and can be restored anytime.
     </p>
   </div>
   <div class="table-responsive">
@@ -90,6 +106,7 @@
           <th>Rating</th>
           <th>Comment</th>
           <th>Photos</th>
+          <th>Visibility</th>
           <th>Date</th>
         </tr>
       </thead>
@@ -98,7 +115,7 @@
         {% set ev = f.events or {} %}
         {% set lgu = ev.lgus or {} %}
         {% set profile = f.profiles or {} %}
-        <tr>
+        <tr class="{{ 'text-muted' if f.is_hidden else '' }}">
           <td><strong>{{ ev.title or '—' }}</strong></td>
           {% if user.role == 'super_admin' %}<td>{{ lgu.name or '—' }}</td>{% endif %}
           <td>{{ ((profile.first_name or '') ~ ' ' ~ (profile.last_name or ''))|trim or 'Tourist' }}</td>
@@ -128,10 +145,23 @@
             <span class="text-muted small">—</span>
             {% endif %}
           </td>
+          <td>
+            {% if f.is_hidden %}
+            <span class="dashboard-badge dashboard-badge--muted">Hidden</span>
+            <form method="post" action="{{ url_for('dashboard.unhide_event_feedback', feedback_id=f.id) }}" class="d-inline">
+              <button type="submit" class="btn btn-sm btn-outline-secondary" title="Restore to public page"><i class="bx bx-show"></i></button>
+            </form>
+            {% else %}
+            <span class="dashboard-badge dashboard-badge--success">Public</span>
+            <form method="post" action="{{ url_for('dashboard.hide_event_feedback', feedback_id=f.id) }}" class="d-inline">
+              <button type="submit" class="btn btn-sm btn-outline-danger" title="Hide from public page"><i class="bx bx-hide"></i></button>
+            </form>
+            {% endif %}
+          </td>
           <td class="small text-muted">{{ (f.created_at or '')[:10] }}</td>
         </tr>
         {% else %}
-        <tr><td colspan="{{ 7 if user.role == 'super_admin' else 6 }}" class="text-center text-muted py-4">No event feedback received yet.</td></tr>
+        <tr><td colspan="{{ 8 if user.role == 'super_admin' else 7 }}" class="text-center text-muted py-4">No event feedback received yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>
