@@ -34,7 +34,6 @@ VISIT_STATUSES = ("pending", "confirmed", "declined", "completed", "cancelled")
 ACTIVE_STATUSES = ("pending", "confirmed")
 VISITOR_CATEGORIES = ("day_tour", "overnight")
 ORIGINS = ("this_city", "other_city", "other_province", "foreign")
-VISITOR_GENDERS = ("male", "female")
 
 _ALLOWED_TRANSITIONS = {
     "pending": ("confirmed", "declined"),
@@ -59,7 +58,8 @@ VISIT_FIELDS_BASE = (
     "arrived_at, is_manual, logged_by, created_at, updated_at, "
     "tourist_spots(id, name, owner_id, lgu_id)"
 )
-# Per-visitor roster (name/origin/sex for every person in the party — see
+# Per-visitor roster (optional name/origin for people in the party beyond
+# the aggregate male_count/female_count headcount — see
 # sql/visit_schedule_visitors.sql). Reads fall back to VISIT_FIELDS_BASE via
 # _run_visit_query() if that table hasn't been migrated yet.
 VISIT_FIELDS = (
@@ -109,89 +109,73 @@ def build_visitor_payload(
     *,
     primary_name: str,
     primary_origin: str | None,
-    primary_gender: str | None,
     companion_names: list[str],
     companion_origins: list[str],
-    companion_genders: list[str],
 ) -> list[dict[str, Any]]:
     """Assemble the raw per-visitor list from a form submission: the primary
     contact (visitor #1) plus however many companions the party-size-driven
-    UI collected. Shared shape for both the public booking form and the
-    owner's manual walk-in log."""
-    visitors = [
-        {"name": primary_name, "origin": primary_origin, "gender": primary_gender}
-    ]
+    UI added rows for. Name/origin are optional per person now — gender is
+    captured separately as an exact male/female headcount (see
+    _validate_gender_counts), not per visitor. Shared shape for both the
+    public booking form and the owner's manual walk-in log."""
+    visitors = [{"name": primary_name, "origin": primary_origin}]
     for i, name in enumerate(companion_names):
         visitors.append(
             {
                 "name": name,
                 "origin": companion_origins[i] if i < len(companion_origins) else None,
-                "gender": companion_genders[i] if i < len(companion_genders) else None,
             }
         )
     return visitors
 
 
-def _normalize_visitors(
-    raw_visitors: list[dict[str, Any]], party_size: int
-) -> list[dict[str, Any]]:
-    """Validate the full visitor roster — every person in the party needs a
-    name, an origin, and a sex on record, since that's what makes the log
-    useful for tracing who was actually on site (e.g. after an accident)."""
+def _normalize_visitor_roster(raw_visitors: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Name/origin are optional extra detail per visitor — blank companion
+    rows are simply dropped rather than rejected."""
     visitors: list[dict[str, Any]] = []
     for item in raw_visitors:
         name = (item.get("name") or "").strip()
-        origin = item.get("origin")
-        gender = item.get("gender")
-        if not name:
-            raise ValueError("Every visitor needs a name.")
+        origin = item.get("origin") or None
         if origin not in ORIGINS:
-            raise ValueError(f"Please select where {name} is coming from.")
-        if gender not in VISITOR_GENDERS:
-            raise ValueError(f"Please select {name}'s sex.")
-        visitors.append({"full_name": name, "origin": origin, "gender": gender})
-
-    if not visitors:
-        raise ValueError("At least one visitor is required.")
-    if len(visitors) != party_size:
-        raise ValueError(
-            f"You listed {len(visitors)} visitor(s) but the party size is "
-            f"{party_size}. Please list everyone in the group."
-        )
+            origin = None
+        if not name and not origin:
+            continue
+        visitors.append({"full_name": name or None, "origin": origin})
     return visitors
 
 
-def _derive_demographics(visitors: list[dict[str, Any]]) -> dict[str, Any]:
-    """Roll the per-visitor roster up into the aggregate origin/male_count/
-    female_count columns the arrivals dashboard and DTA3 export already read
-    (see aggregate_visits_by_spot / aggregate_logs_for_report), so those
-    reports keep working unchanged. For a mixed-origin party, the group is
-    attributed to whichever origin has the most visitors, ties going to the
-    first person listed (the primary contact)."""
-    male_count = sum(1 for v in visitors if v["gender"] == "male")
-    female_count = sum(1 for v in visitors if v["gender"] == "female")
-
-    origin_counts: dict[str, int] = {}
-    for v in visitors:
-        origin_counts[v["origin"]] = origin_counts.get(v["origin"], 0) + 1
-    best_origin = visitors[0]["origin"]
-    best_count = 0
-    for v in visitors:
-        count = origin_counts[v["origin"]]
-        if count > best_count:
-            best_count = count
-            best_origin = v["origin"]
-
-    return {"origin": best_origin, "male_count": male_count, "female_count": female_count}
+def _validate_gender_counts(
+    male_count: Any, female_count: Any, party_size: int
+) -> dict[str, Any]:
+    """The party's gender split is typed as an exact headcount (e.g. party
+    size 4 -> male 3 + female 1) rather than asking every companion to pick
+    their own sex — that was too much friction for something that's really
+    just a tourism-statistics breakdown."""
+    if male_count in (None, "") or female_count in (None, ""):
+        raise ValueError("Please enter the exact male and female count.")
+    try:
+        male_count = int(male_count)
+        female_count = int(female_count)
+    except (TypeError, ValueError):
+        raise ValueError("Male and female counts must be whole numbers.")
+    if male_count < 0 or female_count < 0:
+        raise ValueError("Male and female counts can't be negative.")
+    if male_count + female_count != party_size:
+        raise ValueError(
+            f"Male ({male_count}) + female ({female_count}) must add up to "
+            f"the party size ({party_size})."
+        )
+    return {"male_count": male_count, "female_count": female_count}
 
 
 def _insert_visitors(visit_schedule_id: int, visitors: list[dict[str, Any]]) -> None:
+    if not visitors:
+        return
     rows = [
         {
             "visit_schedule_id": visit_schedule_id,
-            "full_name": v["full_name"],
-            "origin": v["origin"],
-            "gender": v["gender"],
+            "full_name": v.get("full_name"),
+            "origin": v.get("origin"),
             "sort_order": idx,
         }
         for idx, v in enumerate(visitors)
@@ -247,8 +231,15 @@ def create_visit_schedule(payload: dict[str, Any]) -> dict[str, Any]:
     row = _normalize_visit_row(row)
     if not row["visitor_name"]:
         raise ValueError("Visitor name is required.")
-    visitors = _normalize_visitors(payload.get("visitors") or [], row["party_size"])
-    row.update(_derive_demographics(visitors))
+    if payload.get("origin") not in ORIGINS:
+        raise ValueError("Please tell us where the visitor is coming from.")
+    row["origin"] = payload["origin"]
+    row.update(
+        _validate_gender_counts(
+            payload.get("male_count"), payload.get("female_count"), row["party_size"]
+        )
+    )
+    visitors = _normalize_visitor_roster(payload.get("visitors") or [])
     row["status"] = "pending"
     row["source"] = "scheduled"
 
@@ -289,8 +280,15 @@ def create_manual_log(payload: dict[str, Any], *, owner_id: str) -> dict[str, An
     row = _normalize_visit_row(row)
     if not row["visitor_name"]:
         raise ValueError("Visitor name is required.")
-    visitors = _normalize_visitors(payload.get("visitors") or [], row["party_size"])
-    row.update(_derive_demographics(visitors))
+    if payload.get("origin") not in ORIGINS:
+        raise ValueError("Please tell us where the visitor is coming from.")
+    row["origin"] = payload["origin"]
+    row.update(
+        _validate_gender_counts(
+            payload.get("male_count"), payload.get("female_count"), row["party_size"]
+        )
+    )
+    visitors = _normalize_visitor_roster(payload.get("visitors") or [])
     row["status"] = "completed"
     row["is_manual"] = True
     row["source"] = "walk_in"

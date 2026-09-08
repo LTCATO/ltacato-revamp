@@ -287,14 +287,15 @@ def schedule_visit(spot_id: int):
     if visitor_category not in ("day_tour", "overnight"):
         visitor_category = "day_tour"
     overnight_nights = request.form.get("overnight_nights", type=int) or 0
+    origin = request.form.get("origin") or None
+    male_count = request.form.get("male_count", type=int)
+    female_count = request.form.get("female_count", type=int)
 
     visitors = build_visitor_payload(
         primary_name=visitor_name,
-        primary_origin=request.form.get("origin") or None,
-        primary_gender=request.form.get("gender_single") or None,
+        primary_origin=origin,
         companion_names=request.form.getlist("companion_name[]"),
         companion_origins=request.form.getlist("companion_origin[]"),
-        companion_genders=request.form.getlist("companion_gender[]"),
     )
 
     if not visitor_name or not visit_date_raw or not visit_time_raw:
@@ -329,6 +330,9 @@ def schedule_visit(spot_id: int):
                 "notes": notes or None,
                 "visitor_category": visitor_category,
                 "overnight_nights": overnight_nights if visitor_category == "overnight" else 0,
+                "origin": origin,
+                "male_count": male_count,
+                "female_count": female_count,
                 "visitors": visitors,
             }
         )
