@@ -22,6 +22,15 @@ def new_request():
     catalog = get_service_catalog()
 
     if request.method == "POST":
+        if not tourist:
+            # The page itself is public so anyone can see what's required
+            # before committing — same as spots/events, only actually
+            # submitting a review/request needs an account. A direct POST
+            # while logged out (bypassing the UI, which only shows a Sign in
+            # link in that state) is redirected the same way.
+            flash("Please sign in to submit a request.", "warning")
+            return redirect(url_for("auth.login", next=url_for("service_requests.new_request")))
+
         requester_email = (request.form.get("requester_email") or "").strip().lower()
         if requester_email and not EMAIL_PATTERN.match(requester_email):
             flash("Enter a valid email address.", "danger")
@@ -32,12 +41,11 @@ def new_request():
             created = create_service_request(
                 {
                     "service_number": request.form.get("service_number"),
-                    "requester_name": request.form.get("requester_name")
-                    or (tourist or {}).get("name"),
-                    "requester_email": requester_email or (tourist or {}).get("email"),
+                    "requester_name": request.form.get("requester_name") or tourist.get("name"),
+                    "requester_email": requester_email or tourist.get("email"),
                     "requester_phone": request.form.get("requester_phone"),
                     "message": request.form.get("message"),
-                    "tourist_id": tourist["id"] if tourist else None,
+                    "tourist_id": tourist["id"],
                 }
             )
             send_service_request_email(created)
@@ -54,22 +62,16 @@ def new_request():
             )
 
         flash(
-            "Request submitted — LTCATO will follow up by email.",
+            "Request submitted — LTCATO will follow up by email and you can track "
+            "its status under My requests.",
             "success",
         )
-        if tourist:
-            return redirect(url_for("service_requests.my_requests"))
-        # An anonymous submitter has no "My requests" page to land on — send
-        # them to a distinct confirmation state instead of back to the same
-        # blank form, where a genuine success looked identical to a silent
-        # failure.
-        return redirect(url_for("service_requests.new_request", sent="1"))
+        return redirect(url_for("service_requests.my_requests"))
 
     return render_template(
         "views/site/service_requests/new.html",
         catalog=catalog,
         tourist=tourist,
-        sent=request.args.get("sent") == "1",
     )
 
 
