@@ -139,6 +139,32 @@ def save_itinerary_from_plan(
     if not plan.get("ok"):
         return False, None, plan.get("error") or "Invalid plan."
 
+    # Dining/accommodation/free-day/return stops are generated suggestions,
+    # not real tourist_spot visits — they have no tourist_spot_id, so they
+    # don't fit itinerary_items (which is keyed around a real spot). They're
+    # kept here instead, so a reloaded saved itinerary can still show them
+    # (with working nearby-restaurant/hotel lookups) rather than showing up
+    # as blank "None" spot cards once the tourist_spot join comes back empty.
+    suggestion_stops = [
+        {
+            "day_number": day.get("day_number"),
+            "type": stop.get("type"),
+            "name": stop.get("name"),
+            "description": stop.get("description"),
+            "lgu_name": stop.get("lgu_name"),
+            "activity_date": stop.get("activity_date"),
+            "activity_time": stop.get("activity_time"),
+            "estimated_cost": stop.get("estimated_cost"),
+            "notes": stop.get("notes"),
+            "travel_minutes": stop.get("travel_minutes"),
+            "search_lat": stop.get("search_lat"),
+            "search_lng": stop.get("search_lng"),
+        }
+        for day in plan.get("days") or []
+        for stop in day.get("stops") or []
+        if not stop.get("tourist_spot_id")
+    ]
+
     preferences = {
         "pace": plan.get("pace"),
         "route_style": plan.get("route_style"),
@@ -149,6 +175,7 @@ def save_itinerary_from_plan(
         "emergency": plan.get("emergency"),
         "timezone": plan.get("timezone"),
         "currency": plan.get("currency"),
+        "suggestion_stops": suggestion_stops,
     }
 
     payload = {
@@ -187,6 +214,10 @@ def save_itinerary_from_plan(
         for day in plan.get("days") or []:
             for stop in day.get("stops") or []:
                 sort_order += 1
+                if not stop.get("tourist_spot_id"):
+                    # Suggestion stop (dining/accommodation/free_day/return) —
+                    # saved above in preferences.suggestion_stops instead.
+                    continue
                 items.append(
                     {
                         "itinerary_id": saved_id,
@@ -233,12 +264,20 @@ def plan_from_itinerary_row(row: dict[str, Any]) -> dict[str, Any]:
         day_num = item.get("day_number") or 1
         by_day.setdefault(day_num, []).append(item)
 
-    days_out: list[dict[str, Any]] = []
     prefs = row.get("preferences") or {}
     weather = prefs.get("weather") or {}
 
-    for day_num in sorted(by_day.keys()):
-        raw_stops = by_day[day_num]
+    # Dining/accommodation/free-day/return suggestions live in preferences
+    # (see save_itinerary_from_plan), not itinerary_items — merge them back
+    # in per day, chronologically, same as a freshly generated plan.
+    suggestions_by_day: dict[int, list[dict[str, Any]]] = {}
+    for sugg in prefs.get("suggestion_stops") or []:
+        day_num = sugg.get("day_number") or 1
+        suggestions_by_day.setdefault(day_num, []).append(sugg)
+
+    days_out: list[dict[str, Any]] = []
+    for day_num in sorted(set(by_day) | set(suggestions_by_day)):
+        raw_stops = by_day.get(day_num, [])
         stops = []
         for item in raw_stops:
             spot = item.get("tourist_spots") or {}
@@ -246,6 +285,7 @@ def plan_from_itinerary_row(row: dict[str, Any]) -> dict[str, Any]:
             stops.append(
                 {
                     "tourist_spot_id": item.get("tourist_spot_id"),
+                    "type": "spot",
                     "name": spot.get("name"),
                     "main_image_url": spot.get("main_image_url"),
                     "address": spot.get("address"),
@@ -266,7 +306,30 @@ def plan_from_itinerary_row(row: dict[str, Any]) -> dict[str, Any]:
                     "notes": item.get("notes"),
                 }
             )
-        act_date = (raw_stops[0].get("activity_date") if raw_stops else None) or ""
+        for sugg in suggestions_by_day.get(day_num, []):
+            stops.append(
+                {
+                    "tourist_spot_id": None,
+                    "type": sugg.get("type"),
+                    "name": sugg.get("name"),
+                    "description": sugg.get("description"),
+                    "lgu_name": sugg.get("lgu_name"),
+                    "day_number": day_num,
+                    "activity_date": sugg.get("activity_date"),
+                    "activity_time": str(sugg.get("activity_time") or "")[:5],
+                    "estimated_cost": sugg.get("estimated_cost"),
+                    "notes": sugg.get("notes"),
+                    "travel_minutes": sugg.get("travel_minutes"),
+                    "search_lat": sugg.get("search_lat"),
+                    "search_lng": sugg.get("search_lng"),
+                }
+            )
+        stops.sort(key=lambda s: s.get("activity_time") or "00:00")
+
+        act_date = raw_stops[0].get("activity_date") if raw_stops else None
+        if not act_date and suggestions_by_day.get(day_num):
+            act_date = suggestions_by_day[day_num][0].get("activity_date")
+        act_date = act_date or ""
         day_key = str(act_date)[:10] if act_date else ""
         forecast = (weather.get("daily") or {}).get(day_key)
         label = day_key
