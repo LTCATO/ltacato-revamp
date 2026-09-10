@@ -58,7 +58,7 @@ def get_dashboard_overview(role: str, *, lgu_id: int | None = None) -> dict[str,
         quick_actions = [
             {"label": "Tourist spots", "description": "Establishments under your LGU", "icon": "bx-map", "endpoint": "dashboard.tourist_spots"},
             {"label": "Arrival data", "description": "Daily/weekly in, monthly out", "icon": "bx-upload", "endpoint": "dashboard.arrivals"},
-            {"label": "Feedback", "description": "Tourist comments on spots", "icon": "bx-message-square-dots", "endpoint": "dashboard.feedback"},
+            {"label": "Reviews", "description": "Tourist comments on spots", "icon": "bx-star", "endpoint": "dashboard.reviews"},
             {"label": "Analytics", "description": "LGU & establishment metrics", "icon": "bx-bar-chart-alt-2", "endpoint": "dashboard.analytics"},
         ]
         pending_tasks = [
@@ -117,7 +117,7 @@ def get_workflow_cards(role: str) -> list[dict[str, Any]]:
             {"title": "Analytics", "text": "Provincial KPIs across LGUs, spots, and arrivals.", "icon": "bx-bar-chart-alt-2", "endpoint": "dashboard.analytics"},
             {"title": "Decision support", "text": "Scraped web & social reviews with sentiment.", "icon": "bx-brain", "endpoint": "dashboard.decision_support"},
             {"title": "Accounts", "text": "Create LTCATO staff and LGU portal users.", "icon": "bx-group", "endpoint": "dashboard.accounts"},
-            {"title": "Feedback", "text": "System-wide tourist feedback oversight.", "icon": "bx-message-square-dots", "endpoint": "dashboard.feedback"},
+            {"title": "Reviews", "text": "System-wide tourist review oversight.", "icon": "bx-star", "endpoint": "dashboard.reviews"},
         ],
         "ltcato_staff": [
             {"title": "LGU management", "text": "Approve spots after LGU tourism sign-off.", "icon": "bx-map", "endpoint": "dashboard.lgu_management"},
@@ -129,7 +129,7 @@ def get_workflow_cards(role: str) -> list[dict[str, Any]]:
             {"title": "Analytics", "text": "Dashboard for your LGU and establishments.", "icon": "bx-bar-chart-alt-2", "endpoint": "dashboard.analytics"},
             {"title": "Decision support", "text": "Spot insights and feedback scoped to your municipality.", "icon": "bx-brain", "endpoint": "dashboard.decision_support"},
             {"title": "Tourist spots", "text": "Create owner accounts; owners register their spots.", "icon": "bx-map", "endpoint": "dashboard.tourist_spots"},
-            {"title": "Feedback", "text": "Comments from tourists on your spots.", "icon": "bx-message-square-dots", "endpoint": "dashboard.feedback"},
+            {"title": "Reviews", "text": "Comments from tourists on your spots.", "icon": "bx-star", "endpoint": "dashboard.reviews"},
         ],
         "establishment_owner": [
             {"title": "Arrival data", "text": "Pass daily or weekly counts to your LGU.", "icon": "bx-edit", "endpoint": "dashboard.arrivals"},

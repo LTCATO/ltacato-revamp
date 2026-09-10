@@ -1273,24 +1273,20 @@ def _lgu_admin_can_moderate(user, row_lgu_id) -> bool:
     return False
 
 
-def _feedback_redirect(user):
-    """Send the user back to wherever they took the review action from.
-    Establishment owners only ever act from the Reviews page. LGU/LTCATO
-    staff can act from either the Feedback page or the Reviews page (which
-    also covers event reviews) — a hidden return_to field on the form says
-    which, defaulting to Feedback when it's absent."""
-    if user["role"] == "establishment_owner" or request.form.get("return_to") == "reviews":
-        # lgu_id is passed through as-is (not int-parsed) since it can be the
-        # "none" sentinel for LTCATO's own province-wide events, not just a
-        # numeric LGU id.
-        return redirect(
-            url_for(
-                "dashboard.reviews",
-                spot_id=request.form.get("spot_id", type=int),
-                lgu_id=request.form.get("lgu_id") or None,
-            )
+def _feedback_redirect():
+    """Send the user back to the Reviews page after a review moderation
+    action (approve/reject photos, hide/unhide) — the only page these
+    actions are taken from now that the redundant Feedback page is gone."""
+    # lgu_id is passed through as-is (not int-parsed) since it can be the
+    # "none" sentinel for LTCATO's own province-wide events, not just a
+    # numeric LGU id.
+    return redirect(
+        url_for(
+            "dashboard.reviews",
+            spot_id=request.form.get("spot_id", type=int),
+            lgu_id=request.form.get("lgu_id") or None,
         )
-    return redirect(url_for("dashboard.feedback"))
+    )
 
 
 @dashboard_bp.route("/actions/feedback/<int:feedback_id>/approve-images", methods=["POST"])
@@ -1307,14 +1303,14 @@ def approve_feedback_images(feedback_id: int):
     row = get_feedback_for_moderation(feedback_id)
     if not row:
         flash("Feedback not found.", "danger")
-        return _feedback_redirect(user)
+        return _feedback_redirect()
     if not can_manage_feedback(user, row.get("tourist_spots") or {}):
         flash("You can only moderate feedback for your own establishment or LGU.", "danger")
-        return _feedback_redirect(user)
+        return _feedback_redirect()
 
     set_feedback_images_approval(feedback_id, "approved")
     flash("Review photos approved and now visible on the site.", "success")
-    return _feedback_redirect(user)
+    return _feedback_redirect()
 
 
 @dashboard_bp.route("/actions/feedback/<int:feedback_id>/reject-images", methods=["POST"])
@@ -1331,14 +1327,14 @@ def reject_feedback_images(feedback_id: int):
     row = get_feedback_for_moderation(feedback_id)
     if not row:
         flash("Feedback not found.", "danger")
-        return _feedback_redirect(user)
+        return _feedback_redirect()
     if not can_manage_feedback(user, row.get("tourist_spots") or {}):
         flash("You can only moderate feedback for your own establishment or LGU.", "danger")
-        return _feedback_redirect(user)
+        return _feedback_redirect()
 
     set_feedback_images_approval(feedback_id, "rejected")
     flash("Review photos rejected and hidden from the site.", "info")
-    return _feedback_redirect(user)
+    return _feedback_redirect()
 
 
 @dashboard_bp.route("/actions/feedback/<int:feedback_id>/hide", methods=["POST"])
@@ -1360,7 +1356,7 @@ def hide_feedback(feedback_id: int):
         flash(str(exc), "danger")
     except Exception as exc:
         flash(f"Could not hide review: {exc}", "danger")
-    return _feedback_redirect(user)
+    return _feedback_redirect()
 
 
 @dashboard_bp.route("/actions/feedback/<int:feedback_id>/unhide", methods=["POST"])
@@ -1379,7 +1375,7 @@ def unhide_feedback(feedback_id: int):
         flash(str(exc), "danger")
     except Exception as exc:
         flash(f"Could not restore review: {exc}", "danger")
-    return _feedback_redirect(user)
+    return _feedback_redirect()
 
 
 @dashboard_bp.route("/actions/event-feedback/<int:feedback_id>/approve-images", methods=["POST"])
@@ -1395,15 +1391,15 @@ def approve_event_feedback_images(feedback_id: int):
     row = get_event_feedback_for_moderation(feedback_id)
     if not row:
         flash("Feedback not found.", "danger")
-        return _feedback_redirect(user)
+        return _feedback_redirect()
     event_lgu_id = (row.get("events") or {}).get("lgu_id")
     if not _lgu_admin_can_moderate(user, event_lgu_id):
         flash("You can only moderate feedback for your own LGU.", "danger")
-        return _feedback_redirect(user)
+        return _feedback_redirect()
 
     set_event_feedback_images_approval(feedback_id, "approved")
     flash("Review photos approved and now visible on the site.", "success")
-    return _feedback_redirect(user)
+    return _feedback_redirect()
 
 
 @dashboard_bp.route("/actions/event-feedback/<int:feedback_id>/reject-images", methods=["POST"])
@@ -1419,15 +1415,15 @@ def reject_event_feedback_images(feedback_id: int):
     row = get_event_feedback_for_moderation(feedback_id)
     if not row:
         flash("Feedback not found.", "danger")
-        return _feedback_redirect(user)
+        return _feedback_redirect()
     event_lgu_id = (row.get("events") or {}).get("lgu_id")
     if not _lgu_admin_can_moderate(user, event_lgu_id):
         flash("You can only moderate feedback for your own LGU.", "danger")
-        return _feedback_redirect(user)
+        return _feedback_redirect()
 
     set_event_feedback_images_approval(feedback_id, "rejected")
     flash("Review photos rejected and hidden from the site.", "info")
-    return _feedback_redirect(user)
+    return _feedback_redirect()
 
 
 @dashboard_bp.route("/actions/event-feedback/<int:feedback_id>/hide", methods=["POST"])
@@ -1449,7 +1445,7 @@ def hide_event_feedback(feedback_id: int):
         flash(str(exc), "danger")
     except Exception as exc:
         flash(f"Could not hide review: {exc}", "danger")
-    return _feedback_redirect(user)
+    return _feedback_redirect()
 
 
 @dashboard_bp.route("/actions/event-feedback/<int:feedback_id>/unhide", methods=["POST"])
@@ -1468,7 +1464,7 @@ def unhide_event_feedback(feedback_id: int):
         flash(str(exc), "danger")
     except Exception as exc:
         flash(f"Could not restore review: {exc}", "danger")
-    return _feedback_redirect(user)
+    return _feedback_redirect()
 
 
 @dashboard_bp.route("/actions/analyze/sentiment", methods=["POST"])
