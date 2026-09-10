@@ -12,11 +12,6 @@ from services.profiles import (
 from services.spot_engagement import get_user_saved_spots
 from services.tourist_auth import get_current_tourist
 from services.tourist_decision_support import get_tourist_decision_support
-from services.tourist_passport import (
-    get_or_create_passport,
-    list_passport_stamps,
-    stamp_spot,
-)
 from services.visit_schedules import list_visits_for_tourist
 from utils.jinja_helpers import normalize_image_url
 from utils.tourist_helpers import tourist_login_required
@@ -39,11 +34,6 @@ def tourist_profile():
     if not profile:
         flash("Profile not found. Please contact support.", "danger")
         return redirect(url_for("public.home"))
-
-    passport = get_or_create_passport(tourist["id"])
-    stamps: list = []
-    if passport:
-        stamps = list_passport_stamps(passport["id"])
 
     trips = list_user_itineraries(tourist["id"], limit=6)
 
@@ -75,17 +65,6 @@ def tourist_profile():
     }
 
     if request.method == "POST":
-        action = (request.form.get("action") or "profile").strip()
-
-        if action == "stamp":
-            spot_id = request.form.get("spot_id", type=int)
-            if passport and spot_id:
-                if stamp_spot(passport["id"], spot_id):
-                    flash("Passport stamp collected!", "success")
-                else:
-                    flash("Could not add stamp.", "danger")
-            return redirect(url_for("profile.tourist_profile"))
-
         first_name = (request.form.get("first_name") or "").strip()
         last_name = (request.form.get("last_name") or "").strip()
         middle_name = (request.form.get("middle_name") or "").strip()
@@ -138,8 +117,6 @@ def tourist_profile():
         display_name=profile_display_name(profile),
         form_data=form_data,
         avatar=avatar,
-        passport=passport,
-        stamps=stamps,
         trips=trips,
         saved_spots=saved_spots,
         saved_events=saved_events,
