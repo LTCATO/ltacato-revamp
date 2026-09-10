@@ -7,6 +7,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
+from services.planner_integrations import fetch_nearby_places
 from services.supabase_client import get_supabase
 
 PLANNER_SPOT_FIELDS = (
@@ -143,27 +144,44 @@ def save_itinerary_from_plan(
     # not real tourist_spot visits — they have no tourist_spot_id, so they
     # don't fit itinerary_items (which is keyed around a real spot). They're
     # kept here instead, so a reloaded saved itinerary can still show them
-    # (with working nearby-restaurant/hotel lookups) rather than showing up
-    # as blank "None" spot cards once the tourist_spot join comes back empty.
-    suggestion_stops = [
-        {
-            "day_number": day.get("day_number"),
-            "type": stop.get("type"),
-            "name": stop.get("name"),
-            "description": stop.get("description"),
-            "lgu_name": stop.get("lgu_name"),
-            "activity_date": stop.get("activity_date"),
-            "activity_time": stop.get("activity_time"),
-            "estimated_cost": stop.get("estimated_cost"),
-            "notes": stop.get("notes"),
-            "travel_minutes": stop.get("travel_minutes"),
-            "search_lat": stop.get("search_lat"),
-            "search_lng": stop.get("search_lng"),
-        }
-        for day in plan.get("days") or []
-        for stop in day.get("stops") or []
-        if not stop.get("tourist_spot_id")
-    ]
+    # rather than showing up as blank "None" spot cards once the tourist_spot
+    # join comes back empty.
+    #
+    # Nearby dining/accommodation places (from OpenStreetMap's Overpass API)
+    # are resolved once here, at save time, and stored alongside the stop —
+    # not re-fetched every time the saved itinerary is viewed. Overpass is a
+    # shared free service with tight rate limits, so re-querying it on every
+    # page load of every saved trip would burn through that budget fast; this
+    # usually hits fetch_nearby_places' own cache anyway since the tourist
+    # just previewed these same suggestions on the planner page.
+    suggestion_stops = []
+    for day in plan.get("days") or []:
+        for stop in day.get("stops") or []:
+            if stop.get("tourist_spot_id"):
+                continue
+            entry = {
+                "day_number": day.get("day_number"),
+                "type": stop.get("type"),
+                "name": stop.get("name"),
+                "description": stop.get("description"),
+                "lgu_name": stop.get("lgu_name"),
+                "activity_date": stop.get("activity_date"),
+                "activity_time": stop.get("activity_time"),
+                "estimated_cost": stop.get("estimated_cost"),
+                "notes": stop.get("notes"),
+                "travel_minutes": stop.get("travel_minutes"),
+                "search_lat": stop.get("search_lat"),
+                "search_lng": stop.get("search_lng"),
+            }
+            if (
+                stop.get("type") in ("dining", "accommodation")
+                and entry["search_lat"]
+                and entry["search_lng"]
+            ):
+                entry["nearby_places"] = fetch_nearby_places(
+                    entry["search_lat"], entry["search_lng"], stop["type"], limit=3
+                )
+            suggestion_stops.append(entry)
 
     preferences = {
         "pace": plan.get("pace"),
@@ -322,6 +340,10 @@ def plan_from_itinerary_row(row: dict[str, Any]) -> dict[str, Any]:
                     "travel_minutes": sugg.get("travel_minutes"),
                     "search_lat": sugg.get("search_lat"),
                     "search_lng": sugg.get("search_lng"),
+                    # Always present (possibly []) for a reconstructed saved
+                    # stop — the template uses this to tell a saved plan apart
+                    # from a fresh preview and skip the live Overpass lookup.
+                    "nearby_places": sugg.get("nearby_places") or [],
                 }
             )
         stops.sort(key=lambda s: s.get("activity_time") or "00:00")
