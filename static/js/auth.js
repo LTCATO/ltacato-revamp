@@ -16,28 +16,98 @@ function initPasswordToggles() {
   });
 }
 
+const STRENGTH_LABELS = ["Very weak", "Weak", "Fair", "Good", "Strong"];
+
+function scorePassword(value) {
+  let score = 0;
+  if (value.length >= 8) score += 1;
+  if (value.length >= 12) score += 1;
+  if (/[a-z]/.test(value) && /[A-Z]/.test(value)) score += 1;
+  if (/\d/.test(value)) score += 1;
+  if (/[^a-zA-Z0-9]/.test(value)) score += 1;
+  return Math.min(score, 4);
+}
+
 function initPasswordMeter() {
   const passwordInput = document.getElementById("register-password");
   const meter = document.getElementById("passwordMeter");
   if (!passwordInput || !meter) return;
 
   const bar = meter.querySelector(".auth-password-meter__bar");
+  const label = document.getElementById("passwordMeterLabel");
   if (!bar) return;
 
-  const scorePassword = (value) => {
-    let score = 0;
-    if (value.length >= 8) score += 1;
-    if (value.length >= 12) score += 1;
-    if (/[a-z]/.test(value) && /[A-Z]/.test(value)) score += 1;
-    if (/\d/.test(value)) score += 1;
-    if (/[^a-zA-Z0-9]/.test(value)) score += 1;
-    return Math.min(score, 4);
-  };
-
-  passwordInput.addEventListener("input", () => {
-    const score = scorePassword(passwordInput.value);
+  const update = () => {
+    const value = passwordInput.value;
+    const score = scorePassword(value);
     meter.dataset.strength = String(score);
     bar.style.width = `${(score / 4) * 100}%`;
+    if (label) {
+      label.textContent = value ? STRENGTH_LABELS[score] : "";
+    }
+  };
+
+  passwordInput.addEventListener("input", update);
+  update();
+}
+
+function generateStrongPassword(length = 16) {
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lower = "abcdefghijkmnpqrstuvwxyz";
+  const digits = "23456789";
+  const symbols = "!@#$%^&*()-_=+";
+  const all = upper + lower + digits + symbols;
+
+  const randomChar = (charset) => {
+    const bytes = new Uint32Array(1);
+    crypto.getRandomValues(bytes);
+    return charset[bytes[0] % charset.length];
+  };
+
+  const chars = [randomChar(upper), randomChar(lower), randomChar(digits), randomChar(symbols)];
+  for (let i = chars.length; i < length; i += 1) {
+    chars.push(randomChar(all));
+  }
+
+  for (let i = chars.length - 1; i > 0; i -= 1) {
+    const bytes = new Uint32Array(1);
+    crypto.getRandomValues(bytes);
+    const j = bytes[0] % (i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+
+  return chars.join("");
+}
+
+function revealPassword(input) {
+  if (!input) return;
+  input.type = "text";
+  const toggle = document.querySelector(`[data-password-toggle="${input.id}"]`);
+  if (toggle) {
+    toggle.setAttribute("aria-label", "Hide password");
+    const icon = toggle.querySelector("i");
+    if (icon) icon.className = "ph ph-eye-slash";
+  }
+}
+
+function initPasswordSuggestion() {
+  const btn = document.getElementById("suggestPasswordBtn");
+  const passwordInput = document.getElementById("register-password");
+  const confirmInput = document.getElementById("register-confirm");
+  if (!btn || !passwordInput) return;
+
+  btn.addEventListener("click", () => {
+    const generated = generateStrongPassword();
+
+    passwordInput.value = generated;
+    revealPassword(passwordInput);
+    passwordInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    if (confirmInput) {
+      confirmInput.value = generated;
+      revealPassword(confirmInput);
+      confirmInput.dispatchEvent(new Event("input", { bubbles: true }));
+    }
   });
 }
 
@@ -74,5 +144,6 @@ function initRegisterValidation() {
 document.addEventListener("DOMContentLoaded", () => {
   initPasswordToggles();
   initPasswordMeter();
+  initPasswordSuggestion();
   initRegisterValidation();
 });
