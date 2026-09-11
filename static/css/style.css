@@ -3074,6 +3074,54 @@ main {
     background: #16a34a;
 }
 
+.auth-password-meter__label {
+    display: inline-block;
+    font-weight: 600;
+    margin-right: 0.35rem;
+}
+
+.auth-password-meter[data-strength="1"] ~ .auth-field__hint .auth-password-meter__label {
+    color: #dc2626;
+}
+
+.auth-password-meter[data-strength="2"] ~ .auth-field__hint .auth-password-meter__label {
+    color: #d97706;
+}
+
+.auth-password-meter[data-strength="3"] ~ .auth-field__hint .auth-password-meter__label {
+    color: #ca8a04;
+}
+
+.auth-password-meter[data-strength="4"] ~ .auth-field__hint .auth-password-meter__label {
+    color: #16a34a;
+}
+
+.auth-field__label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.auth-field__suggest {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border: none;
+    background: none;
+    padding: 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--primary, #9b2c2c);
+    cursor: pointer;
+}
+
+.auth-field__suggest:hover,
+.auth-field__suggest:focus-visible {
+    text-decoration: underline;
+}
+
 .auth-flash-stack {
     max-width: 1100px;
     margin: 0 auto 1rem;

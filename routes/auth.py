@@ -1,3 +1,5 @@
+import os
+
 # pyrefly: ignore [missing-import]
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
@@ -18,6 +20,23 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 def _form_value(key: str, default: str = "") -> str:
     return (request.form.get(key) or default).strip()
+
+
+def _reset_password_redirect_url() -> str:
+    """Absolute URL Supabase should send recovery links to.
+
+    Preview/staging deployments get a fresh, unpredictable hostname each time,
+    which is never on Supabase's Auth "Redirect URLs" allow list — Supabase
+    then silently falls back to the project's default Site URL instead of
+    erroring, which is how reset links have ended up pointing at a stale
+    localhost address in production. Setting SITE_URL to the canonical
+    production domain (and adding it to that allow list) makes the redirect
+    stable regardless of which deployment sent the request.
+    """
+    site_url = os.getenv("SITE_URL")
+    if site_url:
+        return site_url.rstrip("/") + url_for("auth.reset_password")
+    return url_for("auth.reset_password", _external=True)
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
@@ -129,7 +148,7 @@ def forgot_password():
 
         # Always show the same message whether or not the email exists,
         # so this endpoint can't be used to enumerate registered accounts.
-        request_password_reset(email, url_for("auth.reset_password", _external=True))
+        request_password_reset(email, _reset_password_redirect_url())
         flash(
             "If an account exists for that email, we've sent a link to reset your password.",
             "info",

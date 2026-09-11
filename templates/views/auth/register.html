@@ -116,7 +116,12 @@
 
 
           <div class="auth-field">
-            <label class="auth-field__label" for="register-password">Password <span class="text-danger">*</span></label>
+            <div class="auth-field__label-row">
+              <label class="auth-field__label" for="register-password">Password <span class="text-danger">*</span></label>
+              <button type="button" class="auth-field__suggest" id="suggestPasswordBtn">
+                <i class="ph ph-magic-wand"></i> Suggest strong password
+              </button>
+            </div>
             <div class="auth-field__input-wrap">
               <i class="ph ph-lock-key" aria-hidden="true"></i>
               <input
@@ -141,7 +146,10 @@
             <div class="auth-password-meter" id="passwordMeter" aria-hidden="true">
               <span class="auth-password-meter__bar"></span>
             </div>
-            <p class="auth-field__hint">Use 8+ characters with letters and numbers for a stronger password.</p>
+            <p class="auth-field__hint">
+              <span class="auth-password-meter__label" id="passwordMeterLabel"></span>
+              Use 8+ characters with a mix of letters, numbers, and symbols for a stronger password.
+            </p>
           </div>
 
           <div class="auth-field">
