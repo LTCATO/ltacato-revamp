@@ -178,15 +178,26 @@ def _normalize_place_text(text: str) -> str:
     return text
 
 
-_FROM_PATTERN = re.compile(r"\bfrom\s+(.+?)(?:\s+(?:to|papunta|going to)\b|[,.!?]|$)")
+_FROM_PATTERN = re.compile(
+    r"\bfrom\s+(.+?)"
+    r"(?:\s+(?:to|papunta|going to|how|gaano|paano|pumunta|pupunta|will|would|is|ba|kung|para)\b|[,.!?]|$)"
+)
 
 
 def _extract_origin_phrase(blob: str) -> str | None:
     """Pull out the span after 'from' so 'how far is Cavinti from Calamba
     City' resolves Calamba (not Cavinti) as the origin — without this, two
-    LGU names in one message are ambiguous and get picked by name length."""
-    m = _FROM_PATTERN.search(blob)
-    return m.group(1) if m else None
+    LGU names in one message are ambiguous and get picked by name length.
+
+    Takes the LAST 'from ...' match rather than the first: casual phrasing
+    like "how long will it take for him to go to Calamba if he's from
+    Baguio" has an earlier, unrelated 'from' (from him/for him typos) with
+    the real origin only named near the end."""
+    matches = list(_FROM_PATTERN.finditer(blob))
+    return matches[-1].group(1) if matches else None
+
+
+_LGU_SUFFIX_WORDS = {"city", "municipality"}
 
 
 def _find_best_match(text_lower: str, candidates: list[dict[str, Any]], exclude_id: Any = None) -> dict[str, Any] | None:
@@ -194,7 +205,13 @@ def _find_best_match(text_lower: str, candidates: list[dict[str, Any]], exclude_
     text (down to a 2-word minimum), not just the full name — so "Siway
     River" still resolves "Siway River Bio Park" without the exact full
     listing name (same approach as chatbot_context._find_named_spot_id).
-    Across candidates, the longest matched prefix wins."""
+    Across candidates, the longest matched prefix wins.
+
+    A trailing "City"/"Municipality" is dropped before matching — real LGU
+    rows are named e.g. "Calamba City", but people almost always just say
+    "Calamba"; without this, a plain 2-word name like that has no shorter
+    prefix to fall back to (min_words below would equal its full length) and
+    never matches unless the caller types "Calamba City" verbatim."""
     text_lower = _normalize_place_text(text_lower)
     best: dict[str, Any] | None = None
     best_len = 0
@@ -203,6 +220,8 @@ def _find_best_match(text_lower: str, candidates: list[dict[str, Any]], exclude_
         if not name or c.get("id") == exclude_id:
             continue
         words = _normalize_place_text(name.lower()).split()
+        if words and words[-1] in _LGU_SUFFIX_WORDS:
+            words = words[:-1]
         if not words:
             continue
         min_words = min(2, len(words))

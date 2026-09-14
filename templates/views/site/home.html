@@ -62,23 +62,7 @@
             adventure in the Pearl of the Orient starts here.
         </p>
 
-        <form class="hero-search" action="#" role="search">
-            <input
-                type="search"
-                class="hero-search__input"
-                placeholder="Search destinations, municipalities, or categories..."
-                aria-label="Search destinations"
-            />
-            <button type="submit" class="hero-search__btn" aria-label="Search">
-                <i class="ph ph-magnifying-glass"></i>
-            </button>
-        </form>
-
         <div class="hero-actions">
-            <a href="#" class="btn hero-btn hero-btn--outline">
-                <i class="ph ph-map-trifold"></i>
-                Open Interactive Map
-            </a>
             <a
                 href="{{ url_for('itinerary.planner') }}"
                 class="btn hero-btn hero-btn--primary"
@@ -402,12 +386,9 @@
                     </li>
                 </ul>
                 <div class="d-flex gap-3 flex-wrap">
-                    <a href="#" class="btn ltcato-btn-pill"
+                    <a href="#" id="home-start-chatting" class="btn ltcato-btn-pill"
                         ><i class="ph ph-chat-circle-text"></i> Start
                         Chatting</a
-                    >
-                    <a href="#" class="btn ltcato-btn-outline-lg"
-                        ><i class="ph ph-play-circle"></i> Watch Demo</a
                     >
                 </div>
             </div>
@@ -500,7 +481,7 @@
                         </span>
                         {% if spot.main_image_url %}
                         <img
-                            src="{{ spot.main_image_url }}"
+                            src="{{ spot.main_image_url | normalize_image_url }}"
                             alt="{{ spot.name }}"
                             class="featured-image"
                             loading="lazy"
@@ -615,21 +596,26 @@
             <div class="cta-card__icon"><i class="ph ph-map-trifold"></i></div>
             <h2 class="section-title mb-3">Ready to start exploring?</h2>
             <p class="section-lead mx-auto mb-4">
-                Open the interactive map to browse destinations across Laguna,
-                filter by category, and read authentic guest feedback before you
-                visit.
+                Browse destinations across Laguna, filter by category, and read
+                authentic guest feedback before you visit.
             </p>
             <div class="d-flex flex-wrap gap-3 justify-content-center">
-                <a href="#" class="btn ltcato-btn-pill"
-                    ><i class="ph ph-map-trifold"></i> Open Interactive Map</a
-                >
                 <a
                     href="{{ url_for('itinerary.planner') }}"
-                    class="btn ltcato-btn-outline-lg"
+                    class="btn ltcato-btn-pill"
                     ><i class="ph ph-calendar-check"></i> Plan My Itinerary</a
                 >
             </div>
         </div>
     </div>
 </section>
+{% endblock %} {% block script %}
+<script>
+    document
+        .getElementById("home-start-chatting")
+        ?.addEventListener("click", function (e) {
+            e.preventDefault();
+            document.getElementById("lara-btn")?.click();
+        });
+</script>
 {% endblock %}

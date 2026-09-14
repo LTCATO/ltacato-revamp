@@ -12,7 +12,7 @@ from typing import Any
 # pyrefly: ignore [missing-import]
 from postgrest.exceptions import APIError
 
-from services.supabase_client import get_supabase
+from services.supabase_client import get_supabase, reset_supabase
 
 logger = logging.getLogger(__name__)
 
@@ -95,39 +95,54 @@ def list_events(
 
 
 def get_event(event_id: int, *, public_only: bool = False) -> dict[str, Any] | None:
-    try:
-        query = get_supabase().table("events").select(EVENT_SELECT).eq("id", event_id)
-        if public_only:
-            query = query.eq("approval_status", "approved")
-        response = query.single().execute()
-        event = response.data
-        if event and public_only and (event.get("visibility") or "public") == "private":
-            return None
-        if event and public_only and _compute_event_status(event) == "draft":
-            return None
-        if event:
-            event["exhibitors"] = list_event_exhibitors(event_id)
-            try:
-                ana = (
-                    get_supabase()
-                    .table("event_analytics")
-                    .select("*")
-                    .eq("event_id", event_id)
-                    .limit(1)
-                    .execute()
-                )
-                event["event_analytics"] = ana.data[0] if ana.data else {}
-            except Exception:
-                logger.exception("Failed to fetch analytics for event %s", event_id)
-                event["event_analytics"] = {}
-        return event
-    except APIError as exc:
-        if exc.code != _NO_ROWS_CODE:
+    """A single stale/half-closed connection on the cached Supabase client has
+    been observed to fail a query outright on Windows even though a fresh
+    client succeeds immediately — retry once against a freshly-built client
+    before giving up (same pattern as get_tourist_profile()/list_feedbacks())."""
+    event = None
+    for attempt in (1, 2):
+        try:
+            query = get_supabase().table("events").select(EVENT_SELECT).eq("id", event_id)
+            if public_only:
+                query = query.eq("approval_status", "approved")
+            response = query.single().execute()
+            event = response.data
+            break
+        except APIError as exc:
+            if exc.code == _NO_ROWS_CODE:
+                return None
+            if attempt == 1:
+                reset_supabase()
+                continue
             logger.exception("Failed to fetch event %s", event_id)
+            return None
+        except Exception:
+            if attempt == 1:
+                reset_supabase()
+                continue
+            logger.exception("Failed to fetch event %s", event_id)
+            return None
+
+    if event and public_only and (event.get("visibility") or "public") == "private":
         return None
-    except Exception:
-        logger.exception("Failed to fetch event %s", event_id)
+    if event and public_only and _compute_event_status(event) == "draft":
         return None
+    if event:
+        event["exhibitors"] = list_event_exhibitors(event_id)
+        try:
+            ana = (
+                get_supabase()
+                .table("event_analytics")
+                .select("*")
+                .eq("event_id", event_id)
+                .limit(1)
+                .execute()
+            )
+            event["event_analytics"] = ana.data[0] if ana.data else {}
+        except Exception:
+            logger.exception("Failed to fetch analytics for event %s", event_id)
+            event["event_analytics"] = {}
+    return event
 
 
 def list_event_exhibitors(event_id: int) -> list[dict[str, Any]]:
@@ -181,7 +196,7 @@ def list_home_events(limit: int = 3) -> list[dict[str, Any]]:
     """Enriched upcoming/ongoing events for the home page."""
     raw = list_events(public_approved_only=True, limit=100)
     active = _filter_active_public_events(raw)
-    enriched = [enrich_event_for_display(e) for e in active[:limit]]
+    enriched = enrich_events_for_display(active[:limit])
     return _apply_home_spotlight(enriched)
 
 
@@ -189,7 +204,7 @@ def list_lgu_public_events(lgu_id: int, limit: int = 4) -> list[dict[str, Any]]:
     """Enriched upcoming/ongoing events for an LGU detail page."""
     raw = list_events(lgu_id=lgu_id, public_approved_only=True, limit=50)
     active = _filter_active_public_events(raw)
-    return [enrich_event_for_display(e) for e in active[:limit]]
+    return enrich_events_for_display(active[:limit])
 
 
 def list_events_public(
@@ -354,9 +369,11 @@ def enrich_event_for_display(event: dict[str, Any]) -> dict[str, Any]:
         "time": event.get("venue_name") or event.get("venue") or "Venue TBA",
         "status": status,
         "is_featured_now": is_event_currently_featured(event),
-        "attendee_count": event.get("interested_count")
-        or event.get("attendance_count")
-        or 0,
+        # No dedicated "interested" RSVP exists — the list page's "N+
+        # interested" badge uses the same view count shown on the detail
+        # page instead, so the two numbers a visitor sees for one event
+        # never disagree.
+        "attendee_count": analytics.get("views", 0),
         "going_count": event.get("going_count") or 0,
         "category": category,
         "date_label": event.get("start_date") or "Date TBA",
@@ -374,13 +391,47 @@ def enrich_event_for_display(event: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _fetch_views_by_event_id(event_ids: list[int]) -> dict[int, int]:
+    """Batched views lookup for a page of events — avoids one event_analytics
+    query per card (list_events()/list_events_public() don't join it the way
+    get_event() does for the single-event detail page)."""
+    if not event_ids:
+        return {}
+    try:
+        rows = (
+            get_supabase()
+            .table("event_analytics")
+            .select("event_id, views")
+            .in_("event_id", event_ids)
+            .execute()
+        ).data or []
+    except Exception:
+        logger.exception("Failed to fetch event views for %s", event_ids)
+        return {}
+    return {int(r["event_id"]): int(r.get("views") or 0) for r in rows if r.get("event_id") is not None}
+
+
+def enrich_events_for_display(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Same as enrich_event_for_display, but for a list — batches the views
+    lookup instead of leaving each card's "attendee_count"/"views" at 0 the
+    way a plain per-item enrich_event_for_display() loop would, since list
+    rows never come with event_analytics already joined."""
+    views_by_id = _fetch_views_by_event_id(
+        [e["id"] for e in events if e.get("id") is not None]
+    )
+    enriched = []
+    for e in events:
+        eid = e.get("id")
+        e = {**e, "event_analytics": {"views": views_by_id.get(eid, 0)}}
+        enriched.append(enrich_event_for_display(e))
+    return enriched
+
+
 def get_related_events(event: dict[str, Any], limit: int = 3) -> list[dict[str, Any]]:
     lgu_id = event.get("lgu_id")
     events = list_events(lgu_id=lgu_id, public_approved_only=True, limit=limit + 5)
-    related = [
-        enrich_event_for_display(e) for e in events if e.get("id") != event.get("id")
-    ]
-    return related[:limit]
+    events = [e for e in events if e.get("id") != event.get("id")]
+    return enrich_events_for_display(events)[:limit]
 
 
 def build_event_payload_from_form(
