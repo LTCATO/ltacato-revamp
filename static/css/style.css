@@ -840,6 +840,8 @@ main {
 
 .event-card {
     height: 100%;
+    display: flex;
+    flex-direction: column;
     background: #fff;
     border-radius: 1.25rem;
     padding: 0.9rem 0.9rem 0;
@@ -908,6 +910,9 @@ main {
 }
 
 .event-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
     padding: 1.1rem 0.15rem 1.25rem;
 }
 
@@ -987,6 +992,7 @@ main {
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
+    margin-top: auto;
     padding-top: 0.75rem;
     border-top: 1px solid var(--border);
 }
@@ -1895,7 +1901,6 @@ main {
 }
 
 .event-card--link {
-    display: block;
     height: 100%;
     text-decoration: none;
     color: inherit;

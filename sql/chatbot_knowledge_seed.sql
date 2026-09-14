@@ -58,7 +58,7 @@ VALUES
   ),
   (
     'Who created LARA?',
-    'LARA (Laguna AI Tourism Assistant) was created and programmed by the LTCATO Development Team (Laguna Tourism, Culture, Arts and Trade Office), with special mention to Lawrence Celis.',
+    'LARA (Laguna AI Tourism Assistant) was created and programmed by the LTCATO Development Team (Laguna Tourism, Culture, Arts and Trade Office).',
     'General',
     'approved'
   ),

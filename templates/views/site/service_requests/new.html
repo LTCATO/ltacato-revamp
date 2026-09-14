@@ -26,7 +26,7 @@
     <div class="row justify-content-center">
       <div class="col-lg-8">
         <div class="request-service-card">
-        <form method="post" action="{{ url_for('service_requests.new_request') }}" novalidate>
+        <form method="post" action="{{ url_for('service_requests.new_request') }}" enctype="multipart/form-data" novalidate>
           <div class="row g-3">
             <div class="col-12">
               <label class="form-label" for="service-number">Which service do you need? <span class="text-danger">*</span></label>
@@ -75,6 +75,11 @@
                 placeholder="Describe what you need — dates, purpose, and any details that help LTCATO respond."
                 required
               ></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="attachment">Attach an image <span class="text-muted fw-normal">(optional)</span></label>
+              <input type="file" class="form-control" id="attachment" name="attachment" accept="image/*" />
+              <div class="form-text">e.g. a scanned ID or supporting document — you'll be able to see it again under My Requests.</div>
             </div>
           </div>
           <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center mt-4">

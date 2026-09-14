@@ -8,6 +8,7 @@ from services.service_requests import (
     get_service_catalog,
     get_user_service_requests,
 )
+from services.storage import upload_optional_file
 from services.tourist_auth import EMAIL_PATTERN, get_current_tourist
 from utils.tourist_helpers import tourist_login_required
 
@@ -37,6 +38,11 @@ def new_request():
             return render_template(
                 "views/site/service_requests/new.html", catalog=catalog, tourist=tourist
             )
+        attachment_url = upload_optional_file(
+            request.files.get("attachment"),
+            folder="service_requests",
+            kind="image",
+        )
         try:
             created = create_service_request(
                 {
@@ -45,6 +51,7 @@ def new_request():
                     "requester_email": requester_email or tourist.get("email"),
                     "requester_phone": request.form.get("requester_phone"),
                     "message": request.form.get("message"),
+                    "attachment_url": attachment_url,
                     "tourist_id": tourist["id"],
                 }
             )

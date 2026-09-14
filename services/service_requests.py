@@ -19,8 +19,8 @@ STATUSES = ("submitted", "under_review", "responded")
 
 REQUEST_FIELDS = (
     "id, service_number, service_title, division, tourist_id, "
-    "requester_name, requester_email, requester_phone, message, status, "
-    "staff_response, handled_by, created_at, updated_at"
+    "requester_name, requester_email, requester_phone, message, "
+    "attachment_url, status, staff_response, handled_by, created_at, updated_at"
 )
 
 
@@ -74,6 +74,7 @@ def create_service_request(payload: dict[str, Any]) -> dict[str, Any]:
         "requester_email": requester_email,
         "requester_phone": (payload.get("requester_phone") or "").strip() or None,
         "message": message,
+        "attachment_url": payload.get("attachment_url"),
         "status": "submitted",
     }
     response = get_supabase().table("service_requests").insert(row).execute()
