@@ -616,7 +616,7 @@ page_header %}
         <div class="d-flex gap-2 flex-wrap">
             <form method="post" action="{{ url_for('dashboard.scrape_reviews') }}">
                 <button type="submit" class="btn btn-sm dashboard-btn-primary">
-                    <i class="bx bx-refresh"></i> Scrape Online + Social Media
+                    <i class="bx bx-refresh"></i> Online Scraping
                 </button>
             </form>
             {% if ds.scope not in ('lgu', 'owner') %}

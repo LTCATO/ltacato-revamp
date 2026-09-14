@@ -30,35 +30,138 @@
       <a href="{{ url_for('service_requests.new_request') }}" class="btn ltcato-btn-outline-lg">Request a service</a>
     </div>
     {% else %}
-    <div class="table-responsive">
-      <table class="table align-middle">
-        <thead>
-          <tr>
-            <th>Service</th>
-            <th>Division</th>
-            <th>Submitted</th>
-            <th>Status</th>
-            <th>LTCATO's response</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in requests %}
-          <tr>
-            <td>{{ r.service_number }}. {{ r.service_title }}</td>
-            <td>{{ r.division }}</td>
-            <td>{{ r.created_at[:10] if r.created_at else '' }}</td>
-            <td>
-              <span class="badge {{ 'bg-secondary' if r.status == 'submitted' else 'bg-warning text-dark' if r.status == 'under_review' else 'bg-success' }}">
-                {{ r.status.replace('_', ' ') | title }}
-              </span>
-            </td>
-            <td>{{ r.staff_response or '—' }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div class="request-service-card p-0 overflow-hidden">
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Attachment</th>
+              <th>Service</th>
+              <th>Message</th>
+              <th>Division</th>
+              <th>Submitted</th>
+              <th>Status</th>
+              <th>LTCATO's response</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in requests %}
+            <tr>
+              <td>
+                {% if r.attachment_url %}
+                <a href="{{ r.attachment_url }}" target="_blank" rel="noopener">
+                  <img src="{{ r.attachment_url }}" alt="Attachment for request #{{ r.id }}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;" />
+                </a>
+                {% else %}
+                <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+              <td>{{ r.service_number }}. {{ r.service_title }}</td>
+              <td class="small text-muted" style="max-width: 220px;">{{ r.message|truncate_text(70) if r.message else '—' }}</td>
+              <td>{{ r.division }}</td>
+              <td>{{ r.created_at[:10] if r.created_at else '' }}</td>
+              <td>
+                <span class="badge {{ 'bg-secondary' if r.status == 'submitted' else 'bg-warning text-dark' if r.status == 'under_review' else 'bg-success' }}">
+                  {{ r.status.replace('_', ' ') | title }}
+                </span>
+              </td>
+              <td class="small text-muted" style="max-width: 200px;">{{ r.staff_response|truncate_text(60) if r.staff_response else '—' }}</td>
+              <td>
+                <button
+                  type="button"
+                  class="btn btn-sm ltcato-btn-outline-lg py-1 px-2"
+                  data-bs-toggle="modal"
+                  data-bs-target="#requestDetailModal"
+                  data-service="{{ r.service_number }}. {{ r.service_title }}"
+                  data-division="{{ r.division }}"
+                  data-submitted="{{ r.created_at[:10] if r.created_at else '' }}"
+                  data-status="{{ r.status.replace('_', ' ') | title }}"
+                  data-message="{{ r.message or '' }}"
+                  data-response="{{ r.staff_response or '' }}"
+                  data-attachment="{{ r.attachment_url or '' }}"
+                >
+                  <i class="ph ph-eye"></i> View
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
     {% endif %}
   </div>
 </section>
+
+<div class="modal fade" id="requestDetailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="requestDetailService">Request</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex flex-wrap gap-3 mb-3 small text-muted">
+          <span><i class="ph ph-buildings"></i> <span id="requestDetailDivision"></span></span>
+          <span><i class="ph ph-calendar"></i> <span id="requestDetailSubmitted"></span></span>
+          <span><i class="ph ph-tag"></i> <span id="requestDetailStatus"></span></span>
+        </div>
+
+        <div id="requestDetailAttachmentWrap" class="mb-3">
+          <h6 class="small text-uppercase text-muted mb-2">Attachment</h6>
+          <a id="requestDetailAttachmentLink" href="#" target="_blank" rel="noopener">
+            <img id="requestDetailAttachmentImg" src="" alt="Attachment" class="img-fluid rounded" style="max-height: 220px;" />
+          </a>
+        </div>
+
+        <h6 class="small text-uppercase text-muted mb-2">Your message</h6>
+        <p id="requestDetailMessage" class="mb-3" style="white-space: pre-wrap;"></p>
+
+        <div id="requestDetailResponseWrap">
+          <h6 class="small text-uppercase text-muted mb-2">LTCATO's response</h6>
+          <p id="requestDetailResponse" class="mb-0" style="white-space: pre-wrap;"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+  (function () {
+    var modal = document.getElementById("requestDetailModal");
+    if (!modal) return;
+    modal.addEventListener("show.bs.modal", function (event) {
+      var btn = event.relatedTarget;
+      if (!btn) return;
+
+      document.getElementById("requestDetailService").textContent = btn.getAttribute("data-service") || "Request";
+      document.getElementById("requestDetailDivision").textContent = btn.getAttribute("data-division") || "";
+      document.getElementById("requestDetailSubmitted").textContent = btn.getAttribute("data-submitted") || "";
+      document.getElementById("requestDetailStatus").textContent = btn.getAttribute("data-status") || "";
+      document.getElementById("requestDetailMessage").textContent = btn.getAttribute("data-message") || "—";
+
+      var response = btn.getAttribute("data-response") || "";
+      var responseWrap = document.getElementById("requestDetailResponseWrap");
+      if (response) {
+        responseWrap.hidden = false;
+        document.getElementById("requestDetailResponse").textContent = response;
+      } else {
+        responseWrap.hidden = true;
+      }
+
+      var attachment = btn.getAttribute("data-attachment") || "";
+      var attachmentWrap = document.getElementById("requestDetailAttachmentWrap");
+      if (attachment) {
+        attachmentWrap.hidden = false;
+        document.getElementById("requestDetailAttachmentLink").href = attachment;
+        document.getElementById("requestDetailAttachmentImg").src = attachment;
+      } else {
+        attachmentWrap.hidden = true;
+      }
+    });
+  })();
+</script>
 {% endblock %}

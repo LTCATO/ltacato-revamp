@@ -12,6 +12,7 @@ from services.event_engagement import (
 )
 from services.events import (
     enrich_event_for_display,
+    enrich_events_for_display,
     get_event,
     get_related_events,
     list_events_public,
@@ -45,7 +46,7 @@ def events_list():
         raw_events = list_events_public(
             lgu_id=lgu_id, q=q, status=status, category=category
         )
-        events = [enrich_event_for_display(e) for e in raw_events]
+        events = enrich_events_for_display(raw_events)
         lgus = list_lgus_simple()
     except Exception as exc:
         logger.exception("Failed to load events list: %s", exc)

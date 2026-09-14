@@ -125,22 +125,6 @@ page_header %}
                         </form>
                         {% endif %}
 
-                        {% if e.lgu_id %}
-                        <form
-                            method="post"
-                            action="{{ url_for('dashboard.notify_event_visitors', event_id=e.id) }}"
-                            onsubmit="return confirm('Notify previous visitors of spots in this LGU about this event?')"
-                            class="d-inline"
-                        >
-                            <button
-                                type="submit"
-                                class="btn btn-sm btn-outline-secondary"
-                                title="Notify past visitors"
-                            >
-                                <i class="bx bx-bell"></i> Notify past visitors
-                            </button>
-                        </form>
-                        {% endif %}
                     </td>
                 </tr>
                 {% else %}
